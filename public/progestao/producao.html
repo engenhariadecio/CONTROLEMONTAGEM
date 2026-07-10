@@ -1,0 +1,963 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ProGestão – Produção</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<style>
+:root{--bg:#0A1620;--card:#14293A;--card2:#1A3347;--accent:#26B247;--accent2:#1C4984;--green:#34D399;--yellow:#F0B429;--red:#F26D6D;--orange:#E88C4A;--blue:#56B6E0;--purple:#1D6574;--text:#EAF4F1;--text2:#A2BCC3;--border:#1E3D52;--radius:12px;--panel:#14293A;--panel2:#1A3347;--fade:linear-gradient(135deg,#26B247 0%,#1D6574 55%,#1C4984 100%)}
+*{margin:0;padding:0;box-sizing:border-box;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif}
+body{background:var(--bg);color:var(--text);min-height:100vh}
+.topbar{background:var(--panel);border-bottom:1px solid var(--border);padding:12px 24px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100}
+.topbar .logo{font-size:18px;font-weight:700;color:var(--accent)}
+.topbar .user-info{display:flex;align-items:center;gap:16px;font-size:13px}
+.topbar .clock{color:var(--text2)}
+.topbar .btn-logout{background:var(--red);color:#fff;border:none;padding:6px 14px;border-radius:6px;cursor:pointer;font-size:12px;font-weight:600}
+.layout{display:flex;min-height:calc(100vh - 56px)}
+.sidebar{width:220px;background:var(--panel);border-right:1px solid var(--border);padding:20px 0;flex-shrink:0}
+.sidebar a{display:block;padding:10px 24px;color:var(--text2);text-decoration:none;font-size:14px;border-left:3px solid transparent;transition:all .2s}
+.sidebar a:hover{background:var(--panel2);color:var(--text)}
+.sidebar a.active{background:var(--panel2);color:var(--accent);border-left-color:var(--accent)}
+.main{flex:1;padding:24px;overflow-x:auto}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:14px;margin-bottom:20px}
+.kpi{background:var(--panel);border:1px solid var(--border);border-radius:8px;padding:14px}
+.kpi .lbl{font-size:11px;color:var(--text2);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px}
+.kpi .val{font-size:24px;font-weight:700;color:var(--text)}
+.kpi.green .val{color:var(--accent)}
+.kpi.blue .val{color:var(--blue)}
+.kpi.orange .val{color:var(--orange)}
+.kpi.red .val{color:var(--red)}
+.kpi.yellow .val{color:var(--yellow)}
+.tabs{display:flex;gap:4px;margin-bottom:16px;border-bottom:1px solid var(--border);flex-wrap:wrap}
+.tab{background:transparent;border:none;color:var(--text2);padding:10px 16px;cursor:pointer;font-size:13px;font-weight:600;border-bottom:2px solid transparent;transition:all .2s}
+.tab:hover{color:var(--text)}
+.tab.active{color:var(--accent);border-bottom-color:var(--accent)}
+.section{display:none}
+.section.show{display:block}
+.card{background:var(--panel);border:1px solid var(--border);border-radius:8px;padding:18px;margin-bottom:16px}
+.card-title{font-size:14px;font-weight:700;color:var(--text);margin-bottom:14px;display:flex;align-items:center;gap:8px}
+.form-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;margin-bottom:12px}
+.form-group{display:flex;flex-direction:column;gap:5px}
+.form-group label{font-size:11px;color:var(--text2);font-weight:600;text-transform:uppercase;letter-spacing:.3px}
+.form-group input,.form-group select,.form-group textarea{background:var(--panel2);border:1px solid var(--border);color:var(--text);padding:8px 10px;border-radius:6px;font-size:13px;outline:none;transition:border-color .2s}
+.form-group input:focus,.form-group select:focus,.form-group textarea:focus{border-color:var(--accent)}
+.form-group input.invalid{border-color:var(--red)}
+.form-group input.valid{border-color:var(--accent)}
+.form-group input[readonly]{background:#0d1419;color:var(--text2);cursor:not-allowed}
+.form-group textarea{min-height:60px;resize:vertical;font-family:inherit}
+.form-group small.hint{font-size:10px;color:var(--text2)}
+.form-group small.hint.error{color:var(--red)}
+.btn-sm{padding:8px 14px;border:none;border-radius:6px;cursor:pointer;font-size:12px;font-weight:600;transition:opacity .2s}
+.btn-sm:hover{opacity:.85}
+.btn-sm:disabled{opacity:.4;cursor:not-allowed}
+.btn-accent{background:var(--accent);color:#fff}
+.btn-blue{background:var(--blue);color:#fff}
+.btn-orange{background:var(--orange);color:#fff}
+.btn-red{background:var(--red);color:#fff}
+.btn-ghost{background:transparent;color:var(--text2);border:1px solid var(--border)}
+table{width:100%;border-collapse:collapse;font-size:12px}
+table th{background:var(--panel2);color:var(--text2);text-align:left;padding:10px 8px;font-weight:600;text-transform:uppercase;letter-spacing:.3px;font-size:11px;border-bottom:1px solid var(--border)}
+table td{padding:9px 8px;border-bottom:1px solid var(--border);color:var(--text)}
+table tr:hover{background:var(--panel2)}
+.badge{display:inline-block;padding:3px 8px;border-radius:10px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.3px}
+.badge.green{background:rgba(63,185,80,.15);color:var(--accent)}
+.badge.blue{background:rgba(88,166,255,.15);color:var(--blue)}
+.badge.orange{background:rgba(240,136,62,.15);color:var(--orange)}
+.badge.red{background:rgba(248,81,73,.15);color:var(--red)}
+.badge.yellow{background:rgba(210,153,34,.15);color:var(--yellow)}
+.badge.purple{background:rgba(163,113,247,.15);color:var(--purple)}
+#toast{position:fixed;bottom:20px;right:20px;background:var(--panel);border:1px solid var(--border);border-left:4px solid var(--accent);padding:12px 18px;border-radius:6px;color:var(--text);font-size:13px;z-index:1000;opacity:0;transform:translateY(20px);transition:all .3s;box-shadow:0 4px 12px rgba(0,0,0,.3);max-width:360px}
+#toast.show{opacity:1;transform:translateY(0)}
+#toast.error{border-left-color:var(--red)}
+#toast.warn{border-left-color:var(--yellow)}
+.autocomplete{position:relative}
+.autocomplete-list{position:absolute;top:100%;left:0;right:0;background:var(--panel);border:1px solid var(--border);border-top:none;border-radius:0 0 6px 6px;max-height:240px;overflow-y:auto;z-index:50;display:none}
+.autocomplete-list.show{display:block}
+.autocomplete-item{padding:8px 10px;cursor:pointer;font-size:12px;border-bottom:1px solid var(--border)}
+.autocomplete-item:hover{background:var(--panel2)}
+.autocomplete-item:last-child{border-bottom:none}
+.autocomplete-item strong{color:var(--accent)}
+@media(max-width:768px){.sidebar{width:60px}.sidebar a{padding:10px;text-align:center;font-size:10px}}
+</style>
+<link rel="icon" href="/assets/logo-decio.png">
+
+<style>
+/* ===== Tema Décio — sobreposição sobre o CSS original do módulo ===== */
+@import url('https://fonts.googleapis.com/css2?family=Manrope:wght@600;700;800&family=Inter:wght@400;500;600;700&display=swap');
+body{font-family:'Inter','Segoe UI',system-ui,sans-serif}
+h1,h2,h3,.logo{font-family:'Manrope','Segoe UI',system-ui,sans-serif;letter-spacing:-.02em}
+
+.fita-marca{position:fixed;top:0;left:0;right:0;height:3px;background:var(--fade);z-index:9999}
+
+.btn-primary,.btn-accent{
+  background:var(--fade)!important;color:#fff!important;border:none!important;
+  box-shadow:0 2px 12px rgba(38,178,71,.22)}
+.btn-primary:hover,.btn-accent:hover{filter:brightness(1.06);transform:translateY(-1px)}
+.btn-green{background:var(--green)!important;color:#062B1E!important}
+.btn-warning{background:var(--yellow)!important;color:#2B1E00!important}
+
+a{color:var(--accent)}
+.topbar{border-bottom:1px solid var(--border)}
+.logo-decio{height:26px;width:26px;border-radius:7px;vertical-align:-7px;margin-right:8px}
+.voltar-portal{
+  display:inline-flex;align-items:center;gap:6px;padding:6px 12px;margin-right:6px;
+  border:1px solid var(--border);border-radius:8px;background:var(--card2);
+  color:var(--text2)!important;font-size:12px;font-weight:600;text-decoration:none}
+.voltar-portal:hover{background:var(--panel2);color:var(--text)!important}
+
+::-webkit-scrollbar{width:8px;height:8px}
+::-webkit-scrollbar-track{background:var(--bg)}
+::-webkit-scrollbar-thumb{background:#2C5570;border-radius:99px}
+:focus-visible{outline:2px solid #35C95C;outline-offset:2px}
+@media(prefers-reduced-motion:reduce){*{animation-duration:.01ms!important;transition-duration:.01ms!important}}
+</style>
+</head>
+<body>
+<div class="fita-marca"></div>
+
+<div class="topbar">
+  <div class="logo"><img src="/assets/logo-decio.png" class="logo-decio" alt=""><a href="/progestao">ProGestão</a></div>
+  <div class="user-info">
+    <a href="/" class="voltar-portal">← Portal</a><span class="clock" id="clock">--:--</span>
+    <span id="user-name">Carregando...</span>
+    <button class="btn-logout" onclick="logout()">Sair</button>
+  </div>
+</div>
+
+<div class="layout">
+  <nav class="sidebar">
+    <a href="/progestao">🏠 Início</a>
+    <a href="/progestao/ferramentas">🔧 Ferramentas</a>
+    <a href="/progestao/epis">🦺 EPIs</a>
+    <a href="/progestao/banco-horas">⏰ Banco Horas</a>
+    <a href="/progestao/treinamentos">📚 Treinamentos</a>
+    <a href="/progestao/diario-bordo">📓 Diário Bordo</a>
+    <a href="/progestao/checklist">✅ Checklist</a>
+    <a href="/progestao/producao" class="active">🏭 Produção</a>
+  </nav>
+
+  <div class="main">
+    <div class="kpis">
+      <div class="kpi blue"><div class="lbl">Produtos no Plano</div><div class="val" id="kpi-produtos">0</div></div>
+      <div class="kpi green"><div class="lbl">Meta Total</div><div class="val" id="kpi-meta">0</div></div>
+      <div class="kpi orange"><div class="lbl">Realizado Total</div><div class="val" id="kpi-realizado">0</div></div>
+      <div class="kpi yellow"><div class="lbl">% Atendimento</div><div class="val" id="kpi-pct">0%</div></div>
+      <div class="kpi red"><div class="lbl">Planos Atrasados</div><div class="val" id="kpi-atrasados">0</div></div>
+    </div>
+
+    <div style="display:flex;gap:10px;margin-bottom:14px;flex-wrap:wrap;align-items:center">
+      <label style="font-size:12px;color:var(--text2);font-weight:600">Filtrar por mês:</label>
+      <input type="month" id="filtro-mes" onchange="loadAll()" style="background:var(--panel2);border:1px solid var(--border);color:var(--text);padding:6px 10px;border-radius:6px;font-size:13px">
+    </div>
+
+    <div class="tabs">
+      <button class="tab active" onclick="showTab('dashboard',event)">📊 Dashboard</button>
+      <button class="tab" onclick="showTab('planos',event)">📋 Plano Mensal</button>
+      <button class="tab" onclick="showTab('apontar',event)">✏️ Apontamento Diário</button>
+      <button class="tab" onclick="showTab('historico',event)">📜 Histórico</button>
+      <button class="tab" onclick="showTab('produtos',event)">🗂️ Produtos</button>
+    </div>
+
+    <!-- ============ DASHBOARD ============ -->
+    <div class="section show" id="sec-dashboard">
+      <div class="card">
+        <div class="card-title">📊 Meta vs Realizado por Produto</div>
+        <canvas id="chartBar" style="max-height:300px"></canvas>
+      </div>
+      <div class="card">
+        <div class="card-title">📈 Produção Acumulada no Mês</div>
+        <canvas id="chartLine" style="max-height:300px"></canvas>
+      </div>
+    </div>
+
+    <!-- ============ PLANO MENSAL ============ -->
+    <div class="section" id="sec-planos">
+      <div class="card">
+        <div class="card-title">➕ Novo Plano Mensal</div>
+        <input type="hidden" id="plano-edit-id">
+        <div class="form-row">
+          <div class="form-group">
+            <label>Data *</label>
+            <input type="date" id="p-data-limite">
+          </div>
+          <div class="form-group">
+            <label>N° OP (opcional, 8 dígitos)</label>
+            <input type="text" id="p-num-op" maxlength="8" oninput="this.value=this.value.replace(/\D/g,'')" placeholder="Ex: 12345678">
+            <small class="hint">Pode deixar em branco e preencher depois</small>
+          </div>
+          <div class="form-group autocomplete">
+            <label>Código Décio *</label>
+            <input type="text" id="p-cod-decio" oninput="autocompletePlano(this.value)" autocomplete="off">
+            <div class="autocomplete-list" id="plano-ac-list"></div>
+          </div>
+          <div class="form-group">
+            <label>Código Intelbras</label>
+            <input type="text" id="p-cod-intelbras" readonly>
+          </div>
+          <div class="form-group">
+            <label>Descrição</label>
+            <input type="text" id="p-descricao" readonly>
+          </div>
+          <div class="form-group">
+            <label>Meta Mensal *</label>
+            <input type="number" id="p-meta" step="0.01" min="0">
+          </div>
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <button class="btn-sm btn-accent" onclick="salvarPlano()">💾 Salvar Plano</button>
+          <button class="btn-sm btn-ghost" onclick="limparPlano()">Cancelar</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">📋 Produtos do Mês</div>
+        <div style="overflow-x:auto">
+          <table>
+            <thead><tr><th>Data</th><th>N° OP</th><th>Cód. Décio</th><th>Cód. Intelbras</th><th>Descrição</th><th>Meta</th><th>Realizado</th><th>%</th><th>Status</th><th>Ações</th></tr></thead>
+            <tbody id="tb-planos"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============ APONTAMENTO DIÁRIO ============ -->
+    <div class="section" id="sec-apontar">
+      <div class="card">
+        <div class="card-title">✏️ Novo Apontamento Detalhado</div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Data de Execução *</label>
+            <input type="date" id="a-data">
+          </div>
+          <div class="form-group">
+            <label>Turno *</label>
+            <select id="a-turno">
+              <option value="">Selecione...</option>
+              <option value="1">1º Turno</option>
+              <option value="2">2º Turno</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Célula *</label>
+            <select id="a-celula">
+              <option value="">Selecione...</option>
+              <option value="Célula 01">Célula 01</option>
+              <option value="Célula 02">Célula 02</option>
+              <option value="Célula 03">Célula 03</option>
+              <option value="Célula 04">Célula 04</option>
+              <option value="Hora Extra">Hora Extra</option>
+              <option value="Previsão Falta">Previsão Falta</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>N° OP (8 dígitos) *</label>
+            <input type="text" id="a-num-op" maxlength="8" oninput="validarDigitos(this,8)" placeholder="Ex: 12345678">
+            <small class="hint" id="hint-op">Digite 8 dígitos numéricos</small>
+          </div>
+          <div class="form-group">
+            <label>N° Série Inicial (13 caracteres) *</label>
+            <input type="text" id="a-serie-ini" maxlength="13" oninput="validarDigitos(this,13)" placeholder="Ex: A1B2C3D4E5F67">
+            <small class="hint" id="hint-sini">Digite 13 caracteres (letras/números)</small>
+          </div>
+          <div class="form-group">
+            <label>N° Série Final (13 caracteres) *</label>
+            <input type="text" id="a-serie-fim" maxlength="13" oninput="validarDigitos(this,13)" placeholder="Ex: A1B2C3D4E5F89">
+            <small class="hint" id="hint-sfim">Digite 13 caracteres (letras/números)</small>
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group autocomplete">
+            <label>Código Décio *</label>
+            <input type="text" id="a-cod-decio" oninput="autocompleteApont(this.value)" autocomplete="off">
+            <div class="autocomplete-list" id="apont-ac-list"></div>
+          </div>
+          <div class="form-group">
+            <label>Código Intelbras</label>
+            <input type="text" id="a-cod-intelbras" readonly>
+          </div>
+          <div class="form-group">
+            <label>Descrição</label>
+            <input type="text" id="a-descricao" readonly>
+          </div>
+          <div class="form-group">
+            <label>Categoria (editável)</label>
+            <select id="a-categoria">
+              <option value="">Selecione...</option>
+              <option>Parede</option>
+              <option>Piso</option>
+              <option>Acessórios</option>
+              <option>Luiz</option>
+              <option>Outro</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label>Meta *</label>
+            <input type="number" id="a-meta" step="0.01" min="0">
+          </div>
+          <div class="form-group">
+            <label>Realizado *</label>
+            <input type="number" id="a-realizado" step="0.01" min="0" oninput="calcularHoraTotal()">
+          </div>
+          <div class="form-group">
+            <label>Hora Reportada Total (calculada)</label>
+            <input type="text" id="a-hora-total" readonly>
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group" style="grid-column:1/-1">
+            <label>Observações</label>
+            <textarea id="a-obs" placeholder="Observações sobre atrasos ou qualquer detalhe relevante..."></textarea>
+          </div>
+        </div>
+
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <button class="btn-sm btn-accent" onclick="salvarApontamentoDetalhado()" id="btn-salvar-apont">💾 Salvar Apontamento</button>
+          <button class="btn-sm btn-ghost" onclick="limparApontamento()">Limpar Formulário</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">📜 Histórico de Apontamentos
+          <span style="margin-left:auto;display:flex;gap:6px;flex-wrap:wrap">
+            <button class="btn-sm btn-blue" onclick="exportarApontamentosCSV()">📥 Exportar CSV</button>
+          </span>
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:8px;margin-bottom:12px">
+          <input type="date" id="f-data-ini" onchange="renderApontamentosDet()" title="Data início" style="background:var(--panel2);border:1px solid var(--border);color:var(--text);padding:6px 10px;border-radius:6px;font-size:12px">
+          <input type="date" id="f-data-fim" onchange="renderApontamentosDet()" title="Data fim" style="background:var(--panel2);border:1px solid var(--border);color:var(--text);padding:6px 10px;border-radius:6px;font-size:12px">
+          <select id="f-turno" onchange="renderApontamentosDet()" style="background:var(--panel2);border:1px solid var(--border);color:var(--text);padding:6px 10px;border-radius:6px;font-size:12px">
+            <option value="">Todos turnos</option><option value="1">1º Turno</option><option value="2">2º Turno</option>
+          </select>
+          <select id="f-celula" onchange="renderApontamentosDet()" style="background:var(--panel2);border:1px solid var(--border);color:var(--text);padding:6px 10px;border-radius:6px;font-size:12px">
+            <option value="">Todas células</option>
+            <option>Célula 01</option><option>Célula 02</option><option>Célula 03</option><option>Célula 04</option>
+            <option>Hora Extra</option><option>Previsão Falta</option>
+          </select>
+          <input type="text" id="f-op" placeholder="N° OP" oninput="renderApontamentosDet()" style="background:var(--panel2);border:1px solid var(--border);color:var(--text);padding:6px 10px;border-radius:6px;font-size:12px">
+          <input type="text" id="f-decio" placeholder="Cód. Décio" oninput="renderApontamentosDet()" style="background:var(--panel2);border:1px solid var(--border);color:var(--text);padding:6px 10px;border-radius:6px;font-size:12px">
+        </div>
+        <div style="overflow-x:auto">
+          <table>
+            <thead><tr>
+              <th>Data</th><th>Turno</th><th>Célula</th><th>N° OP</th><th>Série Ini</th><th>Série Fim</th>
+              <th>Cód. Décio</th><th>Cód. Intel.</th><th>Descrição</th><th>Categoria</th>
+              <th>Meta</th><th>Realizado</th><th>Hora Total</th><th>Obs.</th><th>Ações</th>
+            </tr></thead>
+            <tbody id="tb-apont-det"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============ HISTÓRICO ============ -->
+    <div class="section" id="sec-historico">
+      <div class="card">
+        <div class="card-title">📜 Histórico Geral de Planos</div>
+        <div style="overflow-x:auto">
+          <table>
+            <thead><tr><th>Data</th><th>N° OP</th><th>Cód. Décio</th><th>Cód. Intel.</th><th>Descrição</th><th>Meta</th><th>Realizado</th><th>%</th><th>Status</th></tr></thead>
+            <tbody id="tb-historico"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============ PRODUTOS ============ -->
+    <div class="section" id="sec-produtos">
+      <div class="card">
+        <div class="card-title">🗂️ Cadastro de Produtos</div>
+        <input type="hidden" id="prod-edit-id">
+        <div class="form-row">
+          <div class="form-group"><label>Cód. Décio *</label><input type="text" id="prod-decio"></div>
+          <div class="form-group"><label>Cód. Intelbras</label><input type="text" id="prod-intelbras"></div>
+          <div class="form-group"><label>Descrição</label><input type="text" id="prod-desc"></div>
+          <div class="form-group"><label>Categoria</label>
+            <select id="prod-cat"><option value="">--</option><option>Parede</option><option>Piso</option><option>Acessórios</option><option>Luiz</option><option>Outro</option></select>
+          </div>
+          <div class="form-group"><label>Valor (R$)</label><input type="number" id="prod-valor" step="0.01" min="0"></div>
+          <div class="form-group"><label>Min. Reportados</label><input type="number" id="prod-min" step="0.01" min="0"></div>
+          <div class="form-group"><label>Hora Reportada</label><input type="number" id="prod-hora" step="0.0001" min="0"></div>
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <button class="btn-sm btn-accent" onclick="salvarProduto()">💾 Salvar Produto</button>
+          <button class="btn-sm btn-ghost" onclick="limparProduto()">Cancelar</button>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-title">📦 Produtos Cadastrados <span style="margin-left:auto;font-size:11px;color:var(--text2)">Total: <span id="prod-total">0</span></span></div>
+        <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap">
+          <input type="text" id="prod-busca" placeholder="🔍 Buscar..." oninput="renderProdutos()" style="flex:1;background:var(--panel2);border:1px solid var(--border);color:var(--text);padding:8px 10px;border-radius:6px;font-size:13px">
+        </div>
+        <div style="overflow-x:auto">
+          <table>
+            <thead><tr><th>Cód. Décio</th><th>Cód. Intel.</th><th>Descrição</th><th>Categoria</th><th>Valor</th><th>Min.</th><th>Hora</th><th>Ações</th></tr></thead>
+            <tbody id="tb-produtos"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+// =================== GLOBAIS ===================
+let planos = [], apontamentos = [], apontamentosDet = [], produtos = [];
+let chartBarObj = null, chartLineObj = null;
+
+// =================== API HELPER ===================
+async function api(url, opts = {}) {
+  opts.headers = { 'Content-Type': 'application/json', ...(opts.headers||{}) };
+  if (opts.body && typeof opts.body !== 'string') opts.body = JSON.stringify(opts.body);
+  const r = await fetch('/api' + url, opts);
+  if (!r.ok) {
+    let msg = 'Erro na requisição';
+    try { const j = await r.json(); msg = j.error || msg; } catch(e){}
+    throw new Error(msg);
+  }
+  return r.json();
+}
+
+// =================== TOAST ===================
+function toast(msg, type = 'ok') {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = type === 'error' ? 'show error' : type === 'warn' ? 'show warn' : 'show';
+  setTimeout(() => t.className = '', 4500);
+}
+
+// =================== CLOCK ===================
+function updateClock() {
+  const d = new Date();
+  document.getElementById('clock').textContent = d.toLocaleTimeString('pt-BR', { hour:'2-digit', minute:'2-digit' });
+}
+setInterval(updateClock, 30000);
+updateClock();
+
+// =================== AUTH ===================
+async function loadUser() {
+  try {
+    const u = await api('/me');
+    document.getElementById('user-name').textContent = u.nome || u.username || 'Usuário';
+  } catch(e) {
+    document.getElementById('user-name').textContent = 'Usuário';
+  }
+}
+async function logout() { await fetch('/api/logout', { method:'POST' }); window.location.href = '/login'; }
+
+// =================== TABS ===================
+function showTab(name, ev) {
+  document.querySelectorAll('.section').forEach(s => s.classList.remove('show'));
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.getElementById('sec-' + name).classList.add('show');
+  if (ev) ev.target.classList.add('active');
+  if (name === 'historico') renderHistorico();
+  if (name === 'produtos') renderProdutos();
+  if (name === 'apontar') renderApontamentosDet();
+  if (name === 'dashboard') renderDashboard();
+}
+
+// =================== HELPERS ===================
+function fmtData(d) {
+  if (!d) return '-';
+  const s = String(d).substring(0,10);
+  const [ano, mes, dia] = s.split('-');
+  return `${dia}/${mes}/${ano}`;
+}
+function fmtNum(n) { return Number(n||0).toLocaleString('pt-BR', { maximumFractionDigits:2 }); }
+function badgeStatus(s) {
+  if (s === 'concluido') return '<span class="badge green">✅ Concluído</span>';
+  if (s === 'atrasado') return '<span class="badge red">⚠️ Atrasado</span>';
+  return '<span class="badge blue">🔄 Em Andamento</span>';
+}
+
+function calcStatus(plano) {
+  const meta = Number(plano.meta) || 0;
+  const realizado = Number(plano.realizado) || 0;
+  const pct = meta > 0 ? (realizado / meta) * 100 : 0;
+  if (pct >= 100) return 'concluido';
+  if (plano.data_limite) {
+    const dataLimiteStr = String(plano.data_limite).substring(0,10);
+    const hoje = new Date();
+    const hojeStr = hoje.getFullYear() + '-' + String(hoje.getMonth()+1).padStart(2,'0') + '-' + String(hoje.getDate()).padStart(2,'0');
+    if (dataLimiteStr < hojeStr) return 'atrasado';
+  }
+  return 'em_andamento';
+}
+
+// =================== VALIDAÇÃO ===================
+function validarDigitos(input, qtd) {
+  if (input.id === 'a-num-op') {
+    input.value = input.value.replace(/\D/g, '');
+  } else {
+    input.value = input.value.replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
+  }
+  const ok = input.value.length === qtd;
+  input.classList.toggle('valid', ok);
+  input.classList.toggle('invalid', input.value.length > 0 && !ok);
+  let hintId = '';
+  if (input.id === 'a-num-op') hintId = 'hint-op';
+  else if (input.id === 'a-serie-ini') hintId = 'hint-sini';
+  else if (input.id === 'a-serie-fim') hintId = 'hint-sfim';
+  if (hintId) {
+    const h = document.getElementById(hintId);
+    if (ok) { h.textContent = '✓ OK'; h.classList.remove('error'); }
+    else if (input.value.length === 0) {
+      h.textContent = input.id === 'a-num-op'
+        ? `Digite ${qtd} dígitos numéricos`
+        : `Digite ${qtd} caracteres (letras/números)`;
+      h.classList.remove('error');
+    }
+    else { h.textContent = `Faltam ${qtd - input.value.length} caractere(s)`; h.classList.add('error'); }
+  }
+}
+
+// =================== DATA LOADING ===================
+async function loadAll() {
+  const mes = document.getElementById('filtro-mes').value;
+  try {
+    const url = mes ? '/prod-planos?mes=' + mes : '/prod-planos';
+    planos = await api(url).catch(()=>[]);
+    apontamentos = await api('/prod-apontamentos' + (mes ? '?mes=' + mes : '')).catch(()=>[]);
+    apontamentosDet = await api('/prod-apontamentos-detalhados' + (mes ? '?mes=' + mes : '')).catch(()=>[]);
+    produtos = await api('/prod-produtos').catch(()=>[]);
+    renderKPIs();
+    renderPlanos();
+    renderDashboard();
+    renderApontamentosDet();
+  } catch(e) {
+    console.error(e);
+    toast('Erro ao carregar dados: ' + e.message, 'error');
+  }
+}
+
+// =================== KPIs ===================
+function renderKPIs() {
+  document.getElementById('kpi-produtos').textContent = planos.length;
+  const meta = planos.reduce((s,p) => s + (parseFloat(p.meta)||0), 0);
+  const real = planos.reduce((s,p) => s + (parseFloat(p.realizado)||0), 0);
+  const pct = meta > 0 ? (real/meta)*100 : 0;
+  const atrasados = planos.filter(p => calcStatus(p) === 'atrasado').length;
+  document.getElementById('kpi-meta').textContent = fmtNum(meta);
+  document.getElementById('kpi-realizado').textContent = fmtNum(real);
+  document.getElementById('kpi-pct').textContent = pct.toFixed(1) + '%';
+  document.getElementById('kpi-atrasados').textContent = atrasados;
+}
+
+// =================== AUTOCOMPLETE: PLANO ===================
+function autocompletePlano(q) {
+  const list = document.getElementById('plano-ac-list');
+  if (!q || q.length < 1) { list.classList.remove('show'); return; }
+  const ql = q.toLowerCase();
+  const matches = produtos.filter(p =>
+    (p.cod_decio||'').toLowerCase().includes(ql) ||
+    (p.cod_intelbras||'').toLowerCase().includes(ql) ||
+    (p.descricao||'').toLowerCase().includes(ql)
+  ).slice(0,10);
+  if (!matches.length) { list.classList.remove('show'); return; }
+  list.innerHTML = matches.map(p =>
+    `<div class="autocomplete-item" onclick="selecionarProdutoPlano('${p.cod_decio}')">
+      <strong>${p.cod_decio}</strong> | ${p.cod_intelbras||'-'} | ${p.descricao||'-'}
+    </div>`).join('');
+  list.classList.add('show');
+}
+function selecionarProdutoPlano(decio) {
+  const p = produtos.find(x => x.cod_decio === decio);
+  if (!p) return;
+  document.getElementById('p-cod-decio').value = p.cod_decio;
+  document.getElementById('p-cod-intelbras').value = p.cod_intelbras || '';
+  document.getElementById('p-descricao').value = p.descricao || '';
+  document.getElementById('plano-ac-list').classList.remove('show');
+}
+
+// =================== AUTOCOMPLETE: APONTAMENTO ===================
+function autocompleteApont(q) {
+  const list = document.getElementById('apont-ac-list');
+  if (!q || q.length < 1) { list.classList.remove('show'); return; }
+  const ql = q.toLowerCase();
+  const matches = produtos.filter(p =>
+    (p.cod_decio||'').toLowerCase().includes(ql) ||
+    (p.cod_intelbras||'').toLowerCase().includes(ql) ||
+    (p.descricao||'').toLowerCase().includes(ql)
+  ).slice(0,10);
+  if (!matches.length) { list.classList.remove('show'); return; }
+  list.innerHTML = matches.map(p =>
+    `<div class="autocomplete-item" onclick="selecionarProdutoApont('${p.cod_decio}')">
+      <strong>${p.cod_decio}</strong> | ${p.cod_intelbras||'-'} | ${p.descricao||'-'}
+    </div>`).join('');
+  list.classList.add('show');
+}
+function selecionarProdutoApont(decio) {
+  const p = produtos.find(x => x.cod_decio === decio);
+  if (!p) return;
+  document.getElementById('a-cod-decio').value = p.cod_decio;
+  document.getElementById('a-cod-intelbras').value = p.cod_intelbras || '';
+  document.getElementById('a-descricao').value = p.descricao || '';
+  document.getElementById('a-categoria').value = p.categoria || '';
+  document.getElementById('a-cod-decio').dataset.horaRep = p.hora_reportado || 0;
+  document.getElementById('apont-ac-list').classList.remove('show');
+  calcularHoraTotal();
+}
+
+// =================== CALCULAR HORA TOTAL ===================
+function calcularHoraTotal() {
+  const hora = parseFloat(document.getElementById('a-cod-decio').dataset.horaRep || 0);
+  const real = parseFloat(document.getElementById('a-realizado').value || 0);
+  const total = hora * real;
+  document.getElementById('a-hora-total').value = total.toFixed(4) + ' h';
+}
+
+// =================== PLANO MENSAL: CRUD ===================
+async function salvarPlano() {
+  const data_limite = document.getElementById('p-data-limite').value;
+  const num_op = document.getElementById('p-num-op').value.trim();
+  const cod_decio = document.getElementById('p-cod-decio').value.trim();
+  const cod_intelbras = document.getElementById('p-cod-intelbras').value.trim();
+  const descricao = document.getElementById('p-descricao').value.trim();
+  const meta = parseFloat(document.getElementById('p-meta').value || 0);
+  if (!data_limite) return toast('Informe a data', 'error');
+  if (!cod_decio) return toast('Informe o código Décio', 'error');
+  if (meta <= 0) return toast('Informe uma meta válida', 'error');
+  if (num_op && !/^\d{8}$/.test(num_op)) return toast('N° OP deve ter exatos 8 dígitos numéricos (ou deixe em branco)', 'error');
+  const editId = document.getElementById('plano-edit-id').value;
+  try {
+    const body = { data_limite, cod_decio, cod_intelbras, descricao, meta, num_op: num_op || null };
+    if (editId) {
+      await api('/prod-planos/' + editId, { method:'PUT', body });
+      toast('Plano atualizado!');
+    } else {
+      await api('/prod-planos', { method:'POST', body });
+      toast('Plano salvo!');
+    }
+    limparPlano();
+    loadAll();
+  } catch(e) { toast('Erro: ' + e.message, 'error'); }
+}
+function limparPlano() {
+  document.getElementById('plano-edit-id').value = '';
+  document.getElementById('p-data-limite').value = '';
+  document.getElementById('p-num-op').value = '';
+  document.getElementById('p-cod-decio').value = '';
+  document.getElementById('p-cod-intelbras').value = '';
+  document.getElementById('p-descricao').value = '';
+  document.getElementById('p-meta').value = '';
+}
+function editarPlano(id) {
+  const p = planos.find(x => x.id === id);
+  if (!p) return;
+  document.getElementById('plano-edit-id').value = p.id;
+  document.getElementById('p-data-limite').value = p.data_limite ? String(p.data_limite).substring(0,10) : '';
+  document.getElementById('p-num-op').value = p.num_op || '';
+  document.getElementById('p-cod-decio').value = p.cod_decio || '';
+  document.getElementById('p-cod-intelbras').value = p.cod_intelbras || '';
+  document.getElementById('p-descricao').value = p.descricao || '';
+  document.getElementById('p-meta').value = p.meta || '';
+  window.scrollTo({ top:0, behavior:'smooth' });
+}
+async function excluirPlano(id) {
+  if (!confirm('Excluir este plano? Isto NÃO exclui os apontamentos detalhados já feitos.')) return;
+  try { await api('/prod-planos/' + id, { method:'DELETE' }); toast('Plano excluído'); loadAll(); }
+  catch(e) { toast('Erro: ' + e.message, 'error'); }
+}
+function renderPlanos() {
+  const tb = document.getElementById('tb-planos');
+  if (!planos.length) { tb.innerHTML = '<tr><td colspan="10" style="text-align:center;color:var(--text2);padding:24px">Nenhum plano cadastrado.</td></tr>'; return; }
+  tb.innerHTML = planos.map(p => {
+    const meta = parseFloat(p.meta)||0;
+    const real = parseFloat(p.realizado)||0;
+    const pct = meta > 0 ? (real/meta)*100 : 0;
+    const status = calcStatus(p);
+    return `<tr>
+      <td>${fmtData(p.data_limite)}</td>
+      <td>${p.num_op ? '<strong>'+p.num_op+'</strong>' : '<span style="color:var(--text2)">-</span>'}</td>
+      <td><strong>${p.cod_decio||'-'}</strong></td>
+      <td>${p.cod_intelbras||'-'}</td>
+      <td>${p.descricao||p.produto||'-'}</td>
+      <td>${fmtNum(meta)}</td>
+      <td>${fmtNum(real)}</td>
+      <td>${pct.toFixed(1)}%</td>
+      <td>${badgeStatus(status)}</td>
+      <td>
+        <button class="btn-sm btn-blue" onclick="editarPlano(${p.id})" style="padding:4px 8px;font-size:11px">✏️</button>
+        <button class="btn-sm btn-red" onclick="excluirPlano(${p.id})" style="padding:4px 8px;font-size:11px">🗑️</button>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+// =================== APONTAMENTO DETALHADO: CRUD ===================
+async function salvarApontamentoDetalhado() {
+  const data_execucao = document.getElementById('a-data').value;
+  const turno = document.getElementById('a-turno').value;
+  const celula = document.getElementById('a-celula').value;
+  const num_op = document.getElementById('a-num-op').value;
+  const serie_inicial = document.getElementById('a-serie-ini').value;
+  const serie_final = document.getElementById('a-serie-fim').value;
+  const cod_decio = document.getElementById('a-cod-decio').value.trim();
+  const cod_intelbras = document.getElementById('a-cod-intelbras').value.trim();
+  const descricao = document.getElementById('a-descricao').value.trim();
+  const categoria = document.getElementById('a-categoria').value;
+  const meta = parseFloat(document.getElementById('a-meta').value || 0);
+  const realizado = parseFloat(document.getElementById('a-realizado').value || 0);
+  const horaRep = parseFloat(document.getElementById('a-cod-decio').dataset.horaRep || 0);
+  const hora_reportada_total = horaRep * realizado;
+  const observacoes = document.getElementById('a-obs').value.trim();
+
+  if (!data_execucao) return toast('Informe a data de execução', 'error');
+  if (!turno) return toast('Selecione o turno', 'error');
+  if (!celula) return toast('Selecione a célula', 'error');
+  if (!/^\d{8}$/.test(num_op)) return toast('N° OP deve ter exatos 8 dígitos numéricos', 'error');
+  if (!/^[A-Z0-9]{13}$/.test(serie_inicial)) return toast('Série Inicial deve ter exatos 13 caracteres (letras/números)', 'error');
+  if (!/^[A-Z0-9]{13}$/.test(serie_final)) return toast('Série Final deve ter exatos 13 caracteres (letras/números)', 'error');
+  if (!cod_decio) return toast('Informe o código Décio', 'error');
+  if (realizado <= 0) return toast('Informe a quantidade realizada', 'error');
+
+  const btn = document.getElementById('btn-salvar-apont');
+  btn.disabled = true;
+  btn.textContent = 'Salvando...';
+
+  try {
+    const res = await api('/prod-apontamentos-detalhados', {
+      method:'POST',
+      body:{ data_execucao, turno, celula, num_op, serie_inicial, serie_final,
+             cod_decio, cod_intelbras, descricao, categoria, meta, realizado,
+             hora_reportada_total, observacoes }
+    });
+    toast('✅ Apontamento salvo e somado ao plano da OP ' + num_op + '!');
+    limparApontamento();
+    loadAll();
+  } catch(e) {
+    toast('Erro: ' + e.message, 'error');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '💾 Salvar Apontamento';
+  }
+}
+
+function limparApontamento() {
+  ['a-data','a-turno','a-celula','a-num-op','a-serie-ini','a-serie-fim',
+   'a-cod-decio','a-cod-intelbras','a-descricao','a-categoria',
+   'a-meta','a-realizado','a-hora-total','a-obs'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.value = '';
+  });
+  document.getElementById('a-cod-decio').dataset.horaRep = 0;
+  document.querySelectorAll('#sec-apontar input').forEach(i => i.classList.remove('valid','invalid'));
+  document.getElementById('hint-op').textContent = 'Digite 8 dígitos numéricos';
+  document.getElementById('hint-sini').textContent = 'Digite 13 caracteres (letras/números)';
+  document.getElementById('hint-sfim').textContent = 'Digite 13 caracteres (letras/números)';
+  ['hint-op','hint-sini','hint-sfim'].forEach(id => document.getElementById(id).classList.remove('error'));
+}
+
+async function excluirApontamentoDet(id) {
+  if (!confirm('Excluir este apontamento? O realizado será subtraído do plano mensal.')) return;
+  try { await api('/prod-apontamentos-detalhados/' + id, { method:'DELETE' }); toast('Apontamento excluído'); loadAll(); }
+  catch(e) { toast('Erro: ' + e.message, 'error'); }
+}
+
+function renderApontamentosDet() {
+  const tb = document.getElementById('tb-apont-det');
+  let lista = [...apontamentosDet];
+  const dIni = document.getElementById('f-data-ini').value;
+  const dFim = document.getElementById('f-data-fim').value;
+  const turno = document.getElementById('f-turno').value;
+  const celula = document.getElementById('f-celula').value;
+  const op = document.getElementById('f-op').value.trim().toLowerCase();
+  const decio = document.getElementById('f-decio').value.trim().toLowerCase();
+  if (dIni) lista = lista.filter(a => String(a.data_execucao).substring(0,10) >= dIni);
+  if (dFim) lista = lista.filter(a => String(a.data_execucao).substring(0,10) <= dFim);
+  if (turno) lista = lista.filter(a => a.turno === turno);
+  if (celula) lista = lista.filter(a => a.celula === celula);
+  if (op) lista = lista.filter(a => (a.num_op||'').toLowerCase().includes(op));
+  if (decio) lista = lista.filter(a => (a.cod_decio||'').toLowerCase().includes(decio));
+  if (!lista.length) { tb.innerHTML = '<tr><td colspan="15" style="text-align:center;color:var(--text2);padding:24px">Nenhum apontamento encontrado.</td></tr>'; return; }
+  tb.innerHTML = lista.map(a => `<tr>
+    <td>${fmtData(a.data_execucao)}</td>
+    <td>${a.turno}º</td>
+    <td>${a.celula||'-'}</td>
+    <td><strong>${a.num_op||'-'}</strong></td>
+    <td>${a.serie_inicial||'-'}</td>
+    <td>${a.serie_final||'-'}</td>
+    <td><strong>${a.cod_decio||'-'}</strong></td>
+    <td>${a.cod_intelbras||'-'}</td>
+    <td title="${a.descricao||''}">${(a.descricao||'-').substring(0,30)}${(a.descricao||'').length>30?'...':''}</td>
+    <td>${a.categoria||'-'}</td>
+    <td>${fmtNum(a.meta)}</td>
+    <td>${fmtNum(a.realizado)}</td>
+    <td>${fmtNum(a.hora_reportada_total)} h</td>
+    <td title="${a.observacoes||''}">${(a.observacoes||'-').substring(0,20)}${(a.observacoes||'').length>20?'...':''}</td>
+    <td><button class="btn-sm btn-red" onclick="excluirApontamentoDet(${a.id})" style="padding:4px 8px;font-size:11px">🗑️</button></td>
+  </tr>`).join('');
+}
+
+function exportarApontamentosCSV() {
+  if (!apontamentosDet.length) return toast('Nada para exportar', 'warn');
+  const headers = ['Data','Turno','Célula','N° OP','Série Inicial','Série Final','Cód. Décio','Cód. Intelbras','Descrição','Categoria','Meta','Realizado','Hora Total','Observações'];
+  const rows = apontamentosDet.map(a => [
+    fmtData(a.data_execucao), a.turno+'º', a.celula||'', a.num_op||'', a.serie_inicial||'', a.serie_final||'',
+    a.cod_decio||'', a.cod_intelbras||'', (a.descricao||'').replace(/[\r\n;]/g,' '), a.categoria||'',
+    a.meta||0, a.realizado||0, a.hora_reportada_total||0, (a.observacoes||'').replace(/[\r\n;]/g,' ')
+  ]);
+  const csv = [headers, ...rows].map(r => r.map(c => `"${String(c).replace(/"/g,'""')}"`).join(';')).join('\n');
+  const blob = new Blob(['\uFEFF'+csv], { type:'text/csv;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a'); a.href = url; a.download = `apontamentos_${new Date().toISOString().substring(0,10)}.csv`;
+  a.click(); URL.revokeObjectURL(url);
+  toast('CSV exportado!');
+}
+
+// =================== HISTÓRICO ===================
+function renderHistorico() {
+  const tb = document.getElementById('tb-historico');
+  if (!planos.length) { tb.innerHTML = '<tr><td colspan="9" style="text-align:center;color:var(--text2);padding:24px">Nenhum plano.</td></tr>'; return; }
+  tb.innerHTML = planos.map(p => {
+    const meta = parseFloat(p.meta)||0;
+    const real = parseFloat(p.realizado)||0;
+    const pct = meta > 0 ? (real/meta)*100 : 0;
+    const status = calcStatus(p);
+    return `<tr>
+      <td>${fmtData(p.data_limite)}</td>
+      <td>${p.num_op||'-'}</td>
+      <td>${p.cod_decio||'-'}</td>
+      <td>${p.cod_intelbras||'-'}</td>
+      <td>${p.descricao||p.produto||'-'}</td>
+      <td>${fmtNum(meta)}</td>
+      <td>${fmtNum(real)}</td>
+      <td>${pct.toFixed(1)}%</td>
+      <td>${badgeStatus(status)}</td>
+    </tr>`;
+  }).join('');
+}
+
+// =================== PRODUTOS ===================
+async function salvarProduto() {
+  const cod_decio = document.getElementById('prod-decio').value.trim();
+  const cod_intelbras = document.getElementById('prod-intelbras').value.trim();
+  const descricao = document.getElementById('prod-desc').value.trim();
+  const categoria = document.getElementById('prod-cat').value;
+  const valor = parseFloat(document.getElementById('prod-valor').value || 0);
+  const minutos_reportados = parseFloat(document.getElementById('prod-min').value || 0);
+  const hora_reportado = parseFloat(document.getElementById('prod-hora').value || 0);
+  if (!cod_decio) return toast('Informe o código Décio', 'error');
+  const editId = document.getElementById('prod-edit-id').value;
+  try {
+    if (editId) {
+      await api('/prod-produtos/' + editId, { method:'PUT', body:{ cod_decio, cod_intelbras, descricao, categoria, valor, minutos_reportados, hora_reportado } });
+      toast('Produto atualizado!');
+    } else {
+      await api('/prod-produtos', { method:'POST', body:{ cod_decio, cod_intelbras, descricao, categoria, valor, minutos_reportados, hora_reportado } });
+      toast('Produto criado!');
+    }
+    limparProduto();
+    produtos = await api('/prod-produtos').catch(()=>[]);
+    renderProdutos();
+  } catch(e) { toast('Erro: ' + e.message, 'error'); }
+}
+function limparProduto() {
+  ['prod-edit-id','prod-decio','prod-intelbras','prod-desc','prod-cat','prod-valor','prod-min','prod-hora'].forEach(id => {
+    const el = document.getElementById(id); if (el) el.value = '';
+  });
+}
+function editarProduto(id) {
+  const p = produtos.find(x => x.id === id); if (!p) return;
+  document.getElementById('prod-edit-id').value = p.id;
+  document.getElementById('prod-decio').value = p.cod_decio || '';
+  document.getElementById('prod-intelbras').value = p.cod_intelbras || '';
+  document.getElementById('prod-desc').value = p.descricao || '';
+  document.getElementById('prod-cat').value = p.categoria || '';
+  document.getElementById('prod-valor').value = p.valor || '';
+  document.getElementById('prod-min').value = p.minutos_reportados || '';
+  document.getElementById('prod-hora').value = p.hora_reportado || '';
+  window.scrollTo({ top:0, behavior:'smooth' });
+}
+async function excluirProduto(id) {
+  if (!confirm('Excluir este produto?')) return;
+  try { await api('/prod-produtos/' + id, { method:'DELETE' }); toast('Produto excluído'); produtos = await api('/prod-produtos').catch(()=>[]); renderProdutos(); }
+  catch(e) { toast('Erro: ' + e.message, 'error'); }
+}
+function renderProdutos() {
+  const tb = document.getElementById('tb-produtos');
+  const q = (document.getElementById('prod-busca')?.value || '').toLowerCase();
+  let lista = [...produtos];
+  if (q) lista = lista.filter(p =>
+    (p.cod_decio||'').toLowerCase().includes(q) ||
+    (p.cod_intelbras||'').toLowerCase().includes(q) ||
+    (p.descricao||'').toLowerCase().includes(q));
+  document.getElementById('prod-total').textContent = lista.length;
+  if (!lista.length) { tb.innerHTML = '<tr><td colspan="8" style="text-align:center;color:var(--text2);padding:24px">Nenhum produto.</td></tr>'; return; }
+  tb.innerHTML = lista.map(p => `<tr>
+    <td><strong>${p.cod_decio||'-'}</strong></td>
+    <td>${p.cod_intelbras||'-'}</td>
+    <td>${p.descricao||'-'}</td>
+    <td>${p.categoria||'-'}</td>
+    <td>${fmtNum(p.valor)}</td>
+    <td>${fmtNum(p.minutos_reportados)}</td>
+    <td>${fmtNum(p.hora_reportado)}</td>
+    <td>
+      <button class="btn-sm btn-blue" onclick="editarProduto(${p.id})" style="padding:4px 8px;font-size:11px">✏️</button>
+      <button class="btn-sm btn-red" onclick="excluirProduto(${p.id})" style="padding:4px 8px;font-size:11px">🗑️</button>
+    </td>
+  </tr>`).join('');
+}
+
+// =================== DASHBOARD CHARTS ===================
+function renderDashboard() {
+  const ctx1 = document.getElementById('chartBar');
+  if (chartBarObj) chartBarObj.destroy();
+  if (!ctx1) return;
+  const top = planos.slice(0, 12);
+  chartBarObj = new Chart(ctx1, {
+    type:'bar',
+    data:{
+      labels: top.map(p => p.cod_decio || p.produto || '-'),
+      datasets:[
+        { label:'Meta', data: top.map(p => parseFloat(p.meta)||0), backgroundColor:'#58a6ff' },
+        { label:'Realizado', data: top.map(p => parseFloat(p.realizado)||0), backgroundColor:'#3fb950' }
+      ]
+    },
+    options:{ responsive:true, maintainAspectRatio:false, plugins:{ legend:{ labels:{ color:'#e6edf3' } } }, scales:{ x:{ ticks:{ color:'#8b98a5' } }, y:{ ticks:{ color:'#8b98a5' } } } }
+  });
+
+  const ctx2 = document.getElementById('chartLine');
+  if (chartLineObj) chartLineObj.destroy();
+  if (!ctx2) return;
+  const porDia = {};
+  apontamentosDet.forEach(a => {
+    const d = String(a.data_execucao).substring(0,10);
+    porDia[d] = (porDia[d]||0) + (parseFloat(a.realizado)||0);
+  });
+  const dias = Object.keys(porDia).sort();
+  let acc = 0;
+  const acumulado = dias.map(d => { acc += porDia[d]; return acc; });
+  chartLineObj = new Chart(ctx2, {
+    type:'line',
+    data:{ labels: dias.map(fmtData), datasets:[{ label:'Acumulado', data: acumulado, borderColor:'#3fb950', backgroundColor:'rgba(63,185,80,.2)', tension:.3, fill:true }] },
+    options:{ responsive:true, maintainAspectRatio:false, plugins:{ legend:{ labels:{ color:'#e6edf3' } } }, scales:{ x:{ ticks:{ color:'#8b98a5' } }, y:{ ticks:{ color:'#8b98a5' } } } }
+  });
+}
+
+// =================== INIT ===================
+function init() {
+  const hoje = new Date();
+  document.getElementById('filtro-mes').value = hoje.toISOString().substring(0,7);
+  document.getElementById('a-data').value = hoje.toISOString().substring(0,10);
+  loadUser();
+  loadAll();
+  document.addEventListener('click', e => {
+    if (!e.target.closest('.autocomplete')) {
+      document.querySelectorAll('.autocomplete-list').forEach(l => l.classList.remove('show'));
+    }
+  });
+}
+init();
+</script>
+</body>
+</html>
