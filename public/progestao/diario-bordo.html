@@ -91,24 +91,6 @@ tr.row-atrasada:hover{background:rgba(239,68,68,.15)}
 .setor-sug-item{padding:8px 12px;cursor:pointer;font-size:.85rem;transition:.15s}
 .setor-sug-item:hover{background:var(--card2)}
 .setor-sug-item.novo{color:var(--green);font-style:italic}
-.foto-upload{max-width:700px;margin-top:14px}
-.foto-upload>label{font-size:.8rem;color:var(--text2);display:block;margin-bottom:6px}
-.foto-drop{border:2px dashed var(--border);border-radius:var(--radius);padding:24px;text-align:center;cursor:pointer;transition:.3s;position:relative;min-height:120px;display:flex;align-items:center;justify-content:center;overflow:hidden}
-.foto-drop:hover,.foto-drop.drag-over{border-color:var(--accent);background:rgba(59,130,246,.05)}
-.foto-drop .placeholder{display:flex;flex-direction:column;align-items:center;gap:8px;color:var(--text2);font-size:.85rem}
-.foto-drop .placeholder span{font-size:2rem}
-.foto-actions{margin-top:8px;display:flex;gap:8px}
-.foto-thumb{width:48px;height:48px;object-fit:cover;border-radius:6px;cursor:pointer;border:1px solid var(--border);transition:.2s}
-.foto-thumb:hover{transform:scale(1.1);border-color:var(--accent)}
-.fotos-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:10px;margin-top:10px}
-.foto-item{position:relative;background:var(--card2);border-radius:8px;overflow:hidden;border:1px solid var(--border);aspect-ratio:1}
-.foto-item img{width:100%;height:100%;object-fit:cover;cursor:pointer;transition:.2s}
-.foto-item img:hover{transform:scale(1.05)}
-.foto-item .remove-x{position:absolute;top:4px;right:4px;background:var(--red);color:#fff;width:24px;height:24px;border-radius:50%;display:flex;align-items:center;justify-content:center;cursor:pointer;font-weight:700;font-size:.9rem;border:none;opacity:.9;line-height:1}
-.foto-item .remove-x:hover{opacity:1;transform:scale(1.1)}
-.fotos-thumb-list{display:flex;gap:4px;flex-wrap:wrap;align-items:center}
-.fotos-thumb-list .foto-thumb{width:36px;height:36px}
-.fotos-count{background:var(--accent);color:#fff;padding:2px 8px;border-radius:10px;font-size:.7rem;font-weight:700;align-self:center}
 .galeria-detalhe{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px;margin-top:8px}
 .galeria-detalhe img{width:100%;aspect-ratio:1;object-fit:cover;border-radius:8px;cursor:pointer;transition:.2s}
 .galeria-detalhe img:hover{transform:scale(1.03)}
@@ -118,8 +100,6 @@ tr.row-atrasada:hover{background:rgba(239,68,68,.15)}
 #modal-detalhe .detail-value{background:var(--card2);padding:12px 16px;border-radius:8px;font-size:.9rem;line-height:1.6;white-space:pre-wrap;word-wrap:break-word}
 #modal-detalhe .detail-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px}
 #modal-detalhe .detail-grid .detail-section{margin-bottom:0}
-#modal-foto .modal{max-width:700px}
-#modal-foto .modal img{width:100%;border-radius:8px;margin-top:10px}
 .tipo-toggle{display:flex;gap:0;background:var(--card2);border-radius:8px;padding:4px;width:fit-content;margin-bottom:14px}
 .tipo-toggle button{padding:8px 18px;border:none;background:transparent;color:var(--text2);cursor:pointer;border-radius:6px;font-size:.85rem;font-weight:600;transition:.2s}
 .tipo-toggle button.active{background:var(--accent);color:#fff}
@@ -261,17 +241,7 @@ a{color:var(--accent)}
       </div>
     </div>
 
-    <div class="foto-upload">
-      <label>Fotos de Evidência (pode adicionar várias — clique ou arraste)</label>
-      <div class="foto-drop" id="foto-drop" onclick="document.getElementById('foto-input').click()">
-        <div class="placeholder" id="foto-placeholder"><span>📷</span>Clique para selecionar ou arraste imagens (pode escolher várias de uma vez)</div>
-      </div>
-      <input type="file" id="foto-input" accept="image/*" multiple style="display:none" onchange="handleFotoSelect(event)">
-      <div class="fotos-grid" id="fotos-grid"></div>
-      <div class="foto-actions">
-        <button class="btn-sm btn-ghost" onclick="limparTodasFotos()" id="btn-limpar-fotos" style="display:none">🗑 Remover todas</button>
-      </div>
-    </div>
+    <div id="fotos-diario"></div>
 
     <div class="form-grid" style="margin-top:14px;max-width:700px;grid-template-columns:1fr">
       <div class="form-group"><label>Descrição *</label><textarea id="d-desc"></textarea></div>
@@ -293,12 +263,13 @@ a{color:var(--accent)}
       <div class="form-group"><label>Texto *</label><textarea id="rs-texto"></textarea></div>
       <div class="form-group"><label>Obs</label><textarea id="rs-obs"></textarea></div>
     </div>
+    <div id="fotos-resumo" style="margin:0 0 14px"></div>
     <div style="display:flex;gap:10px">
       <button class="btn-sm btn-green" onclick="salvarResumo()">Salvar Resumo</button>
       <button class="btn-sm btn-ghost" id="btn-cancelar-res" onclick="cancelarResumo()" style="display:none">Cancelar Edição</button>
     </div>
     <div class="search-bar" style="margin-top:20px"><input id="search-res" placeholder="Buscar resumo..." oninput="renderRes()"></div>
-    <div class="tbl-wrap"><table><thead><tr><th>Data</th><th>Turno</th><th>Texto</th><th>Obs</th><th>Ações</th></tr></thead><tbody id="tb-res"></tbody></table></div>
+    <div class="tbl-wrap"><table><thead><tr><th>Data</th><th>Turno</th><th>Texto</th><th>Obs</th><th>Fotos</th><th>Ações</th></tr></thead><tbody id="tb-res"></tbody></table></div>
   </div>
 
   <!-- ===== RELATÓRIOS ===== -->
@@ -318,14 +289,16 @@ a{color:var(--accent)}
 </div></div>
 
 <div class="modal-overlay" id="modal-del"><div class="modal"><h3>Confirmar Exclusão</h3><p id="modal-del-msg">Tem certeza?</p><div class="btns"><button class="btn-sm btn-ghost" onclick="fecharModal()">Cancelar</button><button class="btn-sm btn-danger" id="modal-del-btn">Excluir</button></div></div></div>
-<div class="modal-overlay" id="modal-foto" onclick="this.classList.remove('show')"><div class="modal" style="max-width:700px" onclick="event.stopPropagation()"><h3>Foto de Evidência</h3><img id="modal-foto-img" src="" style="width:100%;border-radius:8px;margin-top:10px"><div class="btns"><button class="btn-sm btn-ghost" onclick="document.getElementById('modal-foto').classList.remove('show')">Fechar</button></div></div></div>
 <div class="modal-overlay" id="modal-detalhe" onclick="this.classList.remove('show')"><div class="modal" onclick="event.stopPropagation()"><h3 id="modal-detalhe-titulo">Detalhes</h3><div id="modal-detalhe-corpo"></div><div class="btns"><button class="btn-sm btn-ghost" onclick="document.getElementById('modal-detalhe').classList.remove('show')">Fechar</button></div></div></div>
 
+<script src="/js/fotos.js"></script>
 <script>
 var registros=[],resumos=[],colabs=[],setores=[];
 var editDbId=null,editResId=null;
 var envolvidos=[];
-var fotos=[]; // array de base64 (múltiplas fotos)
+var fotosDiario={}, fotosResumo={};   // { id_do_registro: [ids das fotos] }
+var galDiario=Fotos.galeria('#fotos-diario',{entidade:'diario',titulo:'Fotos de evidência'});
+var galResumo=Fotos.galeria('#fotos-resumo',{entidade:'resumo',titulo:'Fotos do turno (opcional)'});
 var tipoAtual='ocorrencia';
 
 var api={
@@ -405,80 +378,10 @@ function atualizarFiltroSetores(){
 }
 document.addEventListener('click',function(e){var w=document.querySelector('.setor-wrap');if(w&&!w.contains(e.target))fecharSetorSug();var w2=document.querySelector('.input-wrap');if(w2&&!w2.contains(e.target))fecharSugestoes()});
 
-/* === FOTOS (múltiplas) === */
-function getFotosArr(r){
-  var arr=r.fotos;
-  if(typeof arr==='string'){try{arr=JSON.parse(arr)}catch(e){arr=null}}
-  if(!Array.isArray(arr))arr=[];
-  arr=arr.filter(Boolean);
-  if(!arr.length && r.foto)arr=[r.foto];
-  return arr;
-}
-function handleFotoSelect(e){
-  var files=e.target.files;
-  if(!files||!files.length)return;
-  for(var i=0;i<files.length;i++)processarFoto(files[i]);
-  e.target.value='';
-}
-function processarFoto(file){
-  if(!file.type.startsWith('image/')){toast('Selecione uma imagem válida','error');return}
-  if(file.size>5*1024*1024){toast('"'+file.name+'" muito grande (máx 5MB)','error');return}
-  var reader=new FileReader();
-  reader.onload=function(ev){fotos.push(ev.target.result);renderFotos()};
-  reader.readAsDataURL(file);
-}
-function renderFotos(){
-  var grid=document.getElementById('fotos-grid');
-  var placeholder=document.getElementById('foto-placeholder');
-  var btnLimpar=document.getElementById('btn-limpar-fotos');
-  if(!fotos.length){
-    grid.innerHTML='';
-    if(placeholder)placeholder.style.display='flex';
-    if(btnLimpar)btnLimpar.style.display='none';
-    return;
-  }
-  if(placeholder)placeholder.style.display='none';
-  if(btnLimpar)btnLimpar.style.display='inline-flex';
-  grid.innerHTML=fotos.map(function(f,i){
-    return '<div class="foto-item"><img src="'+f+'" onclick="abrirFotoIndex('+i+')"><button type="button" class="remove-x" onclick="removerFoto('+i+')" title="Remover">×</button></div>';
-  }).join('');
-}
-function removerFoto(i){fotos.splice(i,1);renderFotos()}
-function limparTodasFotos(){if(!fotos.length)return;if(confirm('Remover todas as fotos?')){fotos=[];renderFotos();document.getElementById('foto-input').value=''}}
-function abrirFotoIndex(i){var src=fotos[i];if(!src)return;document.getElementById('modal-foto-img').src=src;document.getElementById('modal-foto').classList.add('show')}
-function abrirFotoModal(src){document.getElementById('modal-foto-img').src=src;document.getElementById('modal-foto').classList.add('show')}
-
-(function(){
-  var drop=document.getElementById('foto-drop');if(!drop)return;
-  drop.addEventListener('dragover',function(e){e.preventDefault();drop.classList.add('drag-over')});
-  drop.addEventListener('dragleave',function(e){e.preventDefault();drop.classList.remove('drag-over')});
-  drop.addEventListener('drop',function(e){
-    e.preventDefault();drop.classList.remove('drag-over');
-    if(e.dataTransfer.files.length){
-      for(var i=0;i<e.dataTransfer.files.length;i++)processarFoto(e.dataTransfer.files[i]);
-    }
-  });
-})();
-
-function thumbsHTML(r){
-  var arr=getFotosArr(r);
-  if(!arr.length)return '<span style="color:var(--text2)">-</span>';
-  var html='<div class="fotos-thumb-list">';
-  var max=Math.min(arr.length,3);
-  for(var i=0;i<max;i++){
-    html+='<img class="foto-thumb" src="'+arr[i]+'" onclick="event.stopPropagation();abrirFotoModal(\''+arr[i].replace(/'/g,"\\'")+'\')" alt="Evidência">';
-  }
-  if(arr.length>max)html+='<span class="fotos-count">+'+(arr.length-max)+'</span>';
-  html+='</div>';
-  return html;
-}
-function galeriaHTML(r){
-  var arr=getFotosArr(r);
-  if(!arr.length)return '';
-  return '<div class="galeria-detalhe">'+arr.map(function(f){
-    return '<img src="'+f+'" onclick="abrirFotoModal(\''+f.replace(/'/g,"\\'")+'\')">';
-  }).join('')+'</div>';
-}
+/* === FOTOS === */
+function thumbsHTML(r){return Fotos.miniaturas(fotosDiario[r.id],{max:3,vazio:'<span style="color:var(--text2)">-</span>'})}
+function galeriaHTML(r){return Fotos.grade(fotosDiario[r.id])}
+function qtdFotos(r){return (fotosDiario[r.id]||[]).length}
 
 /* === DETALHES === */
 function abrirDetalheRegistro(id){
@@ -501,7 +404,7 @@ function abrirDetalheRegistro(id){
   h+='<div class="detail-section"><div class="detail-label">Envolvidos</div><div class="detail-value">'+envolvidosHTML(r.envolvidos)+'</div></div>';
   var galeria=galeriaHTML(r);
   if(galeria){
-    var qtd=getFotosArr(r).length;
+    var qtd=qtdFotos(r);
     h+='<div class="detail-section"><div class="detail-label">Fotos ('+qtd+')</div>'+galeria+'</div>';
   }
   document.getElementById('modal-detalhe-corpo').innerHTML=h;
@@ -516,6 +419,8 @@ function abrirDetalheResumo(id){
   h+='</div>';
   h+='<div class="detail-section"><div class="detail-label">Texto</div><div class="detail-value">'+escHtml(r.texto||'-')+'</div></div>';
   h+='<div class="detail-section"><div class="detail-label">Observação</div><div class="detail-value">'+escHtml(r.obs||'-')+'</div></div>';
+  var galR=Fotos.grade(fotosResumo[r.id]);
+  if(galR)h+='<div class="detail-section"><div class="detail-label">Fotos ('+(fotosResumo[r.id]||[]).length+')</div>'+galR+'</div>';
   document.getElementById('modal-detalhe-corpo').innerHTML=h;
   document.getElementById('modal-detalhe').classList.add('show');
 }
@@ -531,7 +436,8 @@ function showTab(t){
 }
 
 async function loadAll(){
-  var results=await Promise.all([api.get('/api/db-registros'),api.get('/api/db-resumos'),api.get('/api/colaboradores'),api.get('/api/db-setores')]);
+  var results=await Promise.all([api.get('/api/db-registros'),api.get('/api/db-resumos'),api.get('/api/colaboradores'),api.get('/api/db-setores'),Fotos.mapa('diario'),Fotos.mapa('resumo')]);
+  fotosDiario=results[4]||{};fotosResumo=results[5]||{};
   registros=results[0]||[];
   registros.forEach(function(r){if(!r.tipo)r.tipo='pendencia'});
   resumos=results[1]||[];colabs=results[2]||[];setores=results[3]||[];
@@ -624,15 +530,13 @@ function editarReg(id){
   envolvidos=[];
   if(r.envolvidos&&r.envolvidos.length){var env=r.envolvidos;if(typeof env==='string'){try{env=JSON.parse(env)}catch(e){env=[]}}envolvidos=env.map(function(e){if(typeof e==='string')return{nome:e,tipo:'interno'};return{nome:e.nome||'',tipo:e.tipo||'interno'}})}
   renderTags();
-  fotos=getFotosArr(r);
-  renderFotos();
+  galDiario.carregar(id);
   showTab('novo');
 }
 
 function cancelarReg(){
   editDbId=null;envolvidos=[];renderTags();
-  fotos=[];renderFotos();
-  document.getElementById('foto-input').value='';
+  galDiario.limpar();
   document.getElementById('form-title-db').textContent='Novo Registro';
   setTipo('ocorrencia');
   document.getElementById('d-hora').value='';document.getElementById('d-desc').value='';
@@ -658,8 +562,7 @@ async function salvarReg(){
     categoria:setorNome||null,
     descricao:descricao,
     acao:document.getElementById('d-acao').value.trim()||null,
-    envolvidos:envolvidos,
-    fotos:fotos
+    envolvidos:envolvidos
   };
   if(tipoAtual==='pendencia'){
     body.prioridade=document.getElementById('d-pri').value;
@@ -667,8 +570,10 @@ async function salvarReg(){
     body.previsao_conclusao=document.getElementById('d-prev').value||null;
   }
   var voltarPara=tipoAtual==='pendencia'?'pendencias':'ocorrencias';
-  if(editDbId){await api.put('/api/db-registros/'+editDbId,body);toast('Atualizado!')}
-  else{await api.post('/api/db-registros',body);toast(tipoAtual==='pendencia'?'Pendência salva!':'Ocorrência salva!')}
+  var r=editDbId?await api.put('/api/db-registros/'+editDbId,body):await api.post('/api/db-registros',body);
+  if(!r||r.error)return toast(r&&r.error?r.error:'Erro ao salvar','error');
+  await galDiario.salvar(r.id);
+  toast(editDbId?'Atualizado!':(tipoAtual==='pendencia'?'Pendência salva!':'Ocorrência salva!'));
   cancelarReg();
   showTab(voltarPara);
   await loadAll();
@@ -682,16 +587,16 @@ function renderRes(){
   var list=resumos;
   if(q)list=list.filter(function(r){return(r.texto||'').toLowerCase().indexOf(q)>=0||(r.turno||'').toLowerCase().indexOf(q)>=0||fmtDate(r.data).indexOf(q)>=0||(r.obs||'').toLowerCase().indexOf(q)>=0});
   var tb=document.getElementById('tb-res');
-  if(!list.length){tb.innerHTML='<tr><td colspan="5" style="text-align:center;color:var(--text2)">Nenhum resumo</td></tr>';return}
+  if(!list.length){tb.innerHTML='<tr><td colspan="6" style="text-align:center;color:var(--text2)">Nenhum resumo</td></tr>';return}
   tb.innerHTML=list.map(function(r){
-    return '<tr><td>'+fmtDate(r.data)+'</td><td>'+(r.turno||'-')+'</td><td class="cell-clickable" onclick="abrirDetalheResumo('+r.id+')">'+escHtml(r.texto||'-')+'</td><td class="cell-clickable" onclick="abrirDetalheResumo('+r.id+')">'+escHtml(r.obs||'-')+'</td><td style="white-space:nowrap"><button class="btn-sm btn-ghost" onclick="editarResumo('+r.id+')">✏</button> <button class="btn-sm btn-danger" onclick="pedirDelRes('+r.id+')">🗑</button></td></tr>';
+    return '<tr><td>'+fmtDate(r.data)+'</td><td>'+(r.turno||'-')+'</td><td class="cell-clickable" onclick="abrirDetalheResumo('+r.id+')">'+escHtml(r.texto||'-')+'</td><td class="cell-clickable" onclick="abrirDetalheResumo('+r.id+')">'+escHtml(r.obs||'-')+'</td><td>'+Fotos.miniaturas(fotosResumo[r.id],{max:2,vazio:'<span style="color:var(--text2)">-</span>'})+'</td><td style="white-space:nowrap"><button class="btn-sm btn-ghost" onclick="editarResumo('+r.id+')">✏</button> <button class="btn-sm btn-danger" onclick="pedirDelRes('+r.id+')">🗑</button></td></tr>';
   }).join('');
 }
-function editarResumo(id){var r=resumos.find(function(x){return x.id===id});if(!r)return;editResId=id;document.getElementById('form-title-res').textContent='Editar Resumo';document.getElementById('rs-data').value=getDateVal(r.data);document.getElementById('rs-turno').value=r.turno||'';document.getElementById('rs-texto').value=r.texto||'';document.getElementById('rs-obs').value=r.obs||'';document.getElementById('btn-cancelar-res').style.display='inline-flex';showTab('resumos')}
-function cancelarResumo(){editResId=null;document.getElementById('form-title-res').textContent='Resumo do Turno';document.getElementById('rs-data').value=hoje();document.getElementById('rs-turno').value='';document.getElementById('rs-texto').value='';document.getElementById('rs-obs').value='';document.getElementById('btn-cancelar-res').style.display='none'}
-async function salvarResumo(){var data=document.getElementById('rs-data').value;var texto=document.getElementById('rs-texto').value.trim();if(!data||!texto)return toast('Data e texto obrigatórios','error');var body={data:data,turno:document.getElementById('rs-turno').value||null,texto:texto,obs:document.getElementById('rs-obs').value.trim()||null};if(editResId){await api.put('/api/db-resumos/'+editResId,body);toast('Resumo atualizado!')}else{await api.post('/api/db-resumos',body);toast('Resumo salvo!')}cancelarResumo();await loadAll()}
+function editarResumo(id){var r=resumos.find(function(x){return x.id===id});if(!r)return;editResId=id;document.getElementById('form-title-res').textContent='Editar Resumo';document.getElementById('rs-data').value=getDateVal(r.data);document.getElementById('rs-turno').value=r.turno||'';document.getElementById('rs-texto').value=r.texto||'';document.getElementById('rs-obs').value=r.obs||'';document.getElementById('btn-cancelar-res').style.display='inline-flex';galResumo.carregar(id);showTab('resumos')}
+function cancelarResumo(){editResId=null;document.getElementById('form-title-res').textContent='Resumo do Turno';document.getElementById('rs-data').value=hoje();document.getElementById('rs-turno').value='';document.getElementById('rs-texto').value='';document.getElementById('rs-obs').value='';document.getElementById('btn-cancelar-res').style.display='none';galResumo.limpar()}
+async function salvarResumo(){var data=document.getElementById('rs-data').value;var texto=document.getElementById('rs-texto').value.trim();if(!data||!texto)return toast('Data e texto obrigatórios','error');var body={data:data,turno:document.getElementById('rs-turno').value||null,texto:texto,obs:document.getElementById('rs-obs').value.trim()||null};var r=editResId?await api.put('/api/db-resumos/'+editResId,body):await api.post('/api/db-resumos',body);if(!r||r.error)return toast(r&&r.error?r.error:'Erro ao salvar','error');await galResumo.salvar(r.id);toast(editResId?'Resumo atualizado!':'Resumo salvo!');cancelarResumo();await loadAll()}
 function pedirDelRes(id){document.getElementById('modal-del-msg').textContent='Excluir este resumo?';document.getElementById('modal-del').classList.add('show');document.getElementById('modal-del-btn').onclick=async function(){await api.del('/api/db-resumos/'+id);toast('Excluído!');fecharModal();await loadAll()}}
-function fecharModal(){document.getElementById('modal-del').classList.remove('show');document.getElementById('modal-foto').classList.remove('show');document.getElementById('modal-detalhe').classList.remove('show')}
+function fecharModal(){document.getElementById('modal-del').classList.remove('show');document.getElementById('modal-detalhe').classList.remove('show')}
 
 /* === RELATÓRIOS === */
 function renderRelatorios(){renderRelCat();renderRelTurno()}
@@ -725,14 +630,14 @@ function renderRelTurno(){
 function exportCSVOcorrencias(){
   var csv='Data;Hora;Turno;Setor;Descrição;Ação;Envolvidos;Qtd Fotos\n';
   registros.filter(function(r){return r.tipo==='ocorrencia'}).forEach(function(r){
-    csv+=fmtDate(r.data)+';'+(r.hora||'-')+';'+(r.turno||'-')+';'+(r.categoria||'-')+';'+(r.descricao||'').replace(/;/g,',')+';'+(r.acao||'').replace(/;/g,',')+';'+envolvidosTexto(r.envolvidos).replace(/;/g,',')+';'+getFotosArr(r).length+'\n';
+    csv+=fmtDate(r.data)+';'+(r.hora||'-')+';'+(r.turno||'-')+';'+(r.categoria||'-')+';'+(r.descricao||'').replace(/;/g,',')+';'+(r.acao||'').replace(/;/g,',')+';'+envolvidosTexto(r.envolvidos).replace(/;/g,',')+';'+qtdFotos(r)+'\n';
   });
   baixarCSV(csv,'diario_ocorrencias.csv');
 }
 function exportCSVPendencias(){
   var csv='Data;Setor;Prioridade;Status;Previsão;Atrasada;Descrição;Ação;Envolvidos;Qtd Fotos\n';
   registros.filter(function(r){return r.tipo==='pendencia'}).forEach(function(r){
-    csv+=fmtDate(r.data)+';'+(r.categoria||'-')+';'+(r.prioridade||'-')+';'+(r.status||'-')+';'+(r.previsao_conclusao?fmtDate(r.previsao_conclusao):'-')+';'+(isAtrasada(r)?'Sim':'Não')+';'+(r.descricao||'').replace(/;/g,',')+';'+(r.acao||'').replace(/;/g,',')+';'+envolvidosTexto(r.envolvidos).replace(/;/g,',')+';'+getFotosArr(r).length+'\n';
+    csv+=fmtDate(r.data)+';'+(r.categoria||'-')+';'+(r.prioridade||'-')+';'+(r.status||'-')+';'+(r.previsao_conclusao?fmtDate(r.previsao_conclusao):'-')+';'+(isAtrasada(r)?'Sim':'Não')+';'+(r.descricao||'').replace(/;/g,',')+';'+(r.acao||'').replace(/;/g,',')+';'+envolvidosTexto(r.envolvidos).replace(/;/g,',')+';'+qtdFotos(r)+'\n';
   });
   baixarCSV(csv,'diario_pendencias.csv');
 }

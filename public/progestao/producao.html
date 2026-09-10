@@ -384,6 +384,7 @@ a{color:var(--accent)}
           <div class="form-group"><label>Min. Reportados</label><input type="number" id="prod-min" step="0.01" min="0"></div>
           <div class="form-group"><label>Hora Reportada</label><input type="number" id="prod-hora" step="0.0001" min="0"></div>
         </div>
+        <div id="fotos-prod" style="margin-bottom:14px"></div>
         <div style="display:flex;gap:8px;flex-wrap:wrap">
           <button class="btn-sm btn-accent" onclick="salvarProduto()">💾 Salvar Produto</button>
           <button class="btn-sm btn-ghost" onclick="limparProduto()">Cancelar</button>
@@ -396,7 +397,7 @@ a{color:var(--accent)}
         </div>
         <div style="overflow-x:auto">
           <table>
-            <thead><tr><th>Cód. Décio</th><th>Cód. Intel.</th><th>Descrição</th><th>Categoria</th><th>Valor</th><th>Min.</th><th>Hora</th><th>Ações</th></tr></thead>
+            <thead><tr><th>Foto</th><th>Cód. Décio</th><th>Cód. Intel.</th><th>Descrição</th><th>Categoria</th><th>Valor</th><th>Min.</th><th>Hora</th><th>Ações</th></tr></thead>
             <tbody id="tb-produtos"></tbody>
           </table>
         </div>
@@ -408,9 +409,12 @@ a{color:var(--accent)}
 
 <div id="toast"></div>
 
+<script src="/js/fotos.js"></script>
 <script>
 // =================== GLOBAIS ===================
 let planos = [], apontamentos = [], apontamentosDet = [], produtos = [];
+let fotosProd = {};
+const galProd = Fotos.galeria('#fotos-prod', { entidade: 'produto', titulo: 'Fotos do produto' });
 let chartBarObj = null, chartLineObj = null;
 
 // =================== API HELPER ===================
@@ -529,6 +533,7 @@ async function loadAll() {
     apontamentos = await api('/prod-apontamentos' + (mes ? '?mes=' + mes : '')).catch(()=>[]);
     apontamentosDet = await api('/prod-apontamentos-detalhados' + (mes ? '?mes=' + mes : '')).catch(()=>[]);
     produtos = await api('/prod-produtos').catch(()=>[]);
+    fotosProd = await Fotos.mapa('produto');
     renderKPIs();
     renderPlanos();
     renderDashboard();
@@ -849,15 +854,17 @@ async function salvarProduto() {
   if (!cod_decio) return toast('Informe o código Décio', 'error');
   const editId = document.getElementById('prod-edit-id').value;
   try {
+    let salvo;
     if (editId) {
-      await api('/prod-produtos/' + editId, { method:'PUT', body:{ cod_decio, cod_intelbras, descricao, categoria, valor, minutos_reportados, hora_reportado } });
-      toast('Produto atualizado!');
+      salvo = await api('/prod-produtos/' + editId, { method:'PUT', body:{ cod_decio, cod_intelbras, descricao, categoria, valor, minutos_reportados, hora_reportado } });
     } else {
-      await api('/prod-produtos', { method:'POST', body:{ cod_decio, cod_intelbras, descricao, categoria, valor, minutos_reportados, hora_reportado } });
-      toast('Produto criado!');
+      salvo = await api('/prod-produtos', { method:'POST', body:{ cod_decio, cod_intelbras, descricao, categoria, valor, minutos_reportados, hora_reportado } });
     }
+    await galProd.salvar(salvo.id);
+    toast(editId ? 'Produto atualizado!' : 'Produto criado!');
     limparProduto();
     produtos = await api('/prod-produtos').catch(()=>[]);
+    fotosProd = await Fotos.mapa('produto');
     renderProdutos();
   } catch(e) { toast('Erro: ' + e.message, 'error'); }
 }
@@ -865,6 +872,7 @@ function limparProduto() {
   ['prod-edit-id','prod-decio','prod-intelbras','prod-desc','prod-cat','prod-valor','prod-min','prod-hora'].forEach(id => {
     const el = document.getElementById(id); if (el) el.value = '';
   });
+  galProd.limpar();
 }
 function editarProduto(id) {
   const p = produtos.find(x => x.id === id); if (!p) return;
@@ -876,6 +884,7 @@ function editarProduto(id) {
   document.getElementById('prod-valor').value = p.valor || '';
   document.getElementById('prod-min').value = p.minutos_reportados || '';
   document.getElementById('prod-hora').value = p.hora_reportado || '';
+  galProd.carregar(p.id);
   window.scrollTo({ top:0, behavior:'smooth' });
 }
 async function excluirProduto(id) {
@@ -892,8 +901,9 @@ function renderProdutos() {
     (p.cod_intelbras||'').toLowerCase().includes(q) ||
     (p.descricao||'').toLowerCase().includes(q));
   document.getElementById('prod-total').textContent = lista.length;
-  if (!lista.length) { tb.innerHTML = '<tr><td colspan="8" style="text-align:center;color:var(--text2);padding:24px">Nenhum produto.</td></tr>'; return; }
+  if (!lista.length) { tb.innerHTML = '<tr><td colspan="9" style="text-align:center;color:var(--text2);padding:24px">Nenhum produto.</td></tr>'; return; }
   tb.innerHTML = lista.map(p => `<tr>
+    <td>${Fotos.miniaturas(fotosProd[p.id],{max:1})}</td>
     <td><strong>${p.cod_decio||'-'}</strong></td>
     <td>${p.cod_intelbras||'-'}</td>
     <td>${p.descricao||'-'}</td>

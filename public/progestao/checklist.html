@@ -141,7 +141,7 @@ a{color:var(--accent)}
       </select>
       <button class="btn-sm btn-primary" onclick="showTab('cadastro')">+ Nova</button>
     </div>
-    <div class="tbl-wrap"><table><thead><tr><th>Horário</th><th>Nome</th><th>Frequência</th><th>Início</th><th>Status</th><th>Descrição</th><th>Ações</th></tr></thead><tbody id="tb-ativ"></tbody></table></div>
+    <div class="tbl-wrap"><table><thead><tr><th>Foto</th><th>Horário</th><th>Nome</th><th>Frequência</th><th>Início</th><th>Status</th><th>Descrição</th><th>Ações</th></tr></thead><tbody id="tb-ativ"></tbody></table></div>
   </div>
 
   <!-- ABA CADASTRO -->
@@ -164,6 +164,7 @@ a{color:var(--accent)}
       <div class="form-group" id="grupo-horario2" style="display:none"><label>2º Horário <span style="font-size:.75rem;color:var(--text2)">(2ª execução)</span></label><input id="c-horario2" type="time"></div>
       <div class="form-group" style="grid-column:1/-1"><label>Descrição</label><textarea id="c-desc"></textarea></div>
     </div>
+    <div id="fotos-ativ"></div>
     <div style="margin-top:14px;display:flex;gap:10px">
       <button class="btn-sm btn-green" onclick="salvarAtiv()">Salvar</button>
       <button class="btn-sm btn-ghost" onclick="cancelarAtiv()">Cancelar</button>
@@ -206,9 +207,12 @@ a{color:var(--accent)}
   <div class="btns"><button class="btn-sm btn-ghost" onclick="fecharModalDia()">Fechar</button></div>
 </div></div>
 
+<script src="/js/fotos.js"></script>
 <script>
 var atividades=[], execucoes=[];
 var editClId=null;
+var fotosAtiv={};
+var galAtiv=Fotos.galeria('#fotos-ativ',{entidade:'atividade',titulo:'Fotos da atividade (como deve ficar, referência)'});
 
 var api={
   get:async function(u){var r=await fetch(u);if(r.status===401){location.href='/login';return null}return r.json()},
@@ -247,9 +251,10 @@ function toggleHorario2(){
 }
 
 async function loadAll(){
-  var results=await Promise.all([api.get('/api/cl-atividades'),api.get('/api/cl-execucoes')]);
+  var results=await Promise.all([api.get('/api/cl-atividades'),api.get('/api/cl-execucoes'),Fotos.mapa('atividade')]);
   atividades=results[0]||[];
   execucoes=results[1]||[];
+  fotosAtiv=results[2]||{};
   updateKPIs();renderHoje();renderAtiv();renderHist();
 }
 
@@ -380,8 +385,9 @@ function renderHoje(){
     if(doneCount>0){
       btns+=' <button class="btn-sm btn-ghost" onclick="desfazerUltimo('+a.id+')">Desfazer última</button>';
     }
+    var fotosHoje=(fotosAtiv[a.id]&&fotosAtiv[a.id].length)?'<div style="margin-bottom:6px">'+Fotos.miniaturas(fotosAtiv[a.id],{max:3})+'</div>':'';
     return '<div class="'+cardClass+'">'+
-      '<h4>'+icon+' '+a.nome+'</h4>'+
+      '<h4>'+icon+' '+a.nome+'</h4>'+fotosHoje+
       '<div class="meta">'+a.freq+(a.descricao?' — '+a.descricao:'')+'<br><span class="badge '+(allDone?'badge-green':partial?'badge-yellow':'badge-red')+'">'+statusTxt+'</span></div>'+
       (horarioInfo?'<div class="horario-info">'+horarioInfo+'</div>':'')+
       execInfo+
@@ -417,7 +423,7 @@ function renderAtiv(){
   }
   list=sortByHorario(list);
   var tb=document.getElementById('tb-ativ');
-  if(!list.length){tb.innerHTML='<tr><td colspan="7" style="text-align:center;color:var(--text2)">Nenhuma atividade</td></tr>';return}
+  if(!list.length){tb.innerHTML='<tr><td colspan="8" style="text-align:center;color:var(--text2)">Nenhuma atividade</td></tr>';return}
   tb.innerHTML=list.map(function(a){
     var stBadge=a.status==='Ativa'?'badge-green':a.status==='Pausada'?'badge-yellow':'badge-red';
     var horarios=fmtHora(a.horario)||'-';
@@ -426,6 +432,7 @@ function renderAtiv(){
     }
     var freqLabel=a.freq==='Diária'?'Todo dia':a.freq;
     return '<tr>'+
+      '<td>'+Fotos.miniaturas(fotosAtiv[a.id],{max:1})+'</td>'+
       '<td><strong style="color:var(--accent)">🕐 '+horarios+'</strong></td>'+
       '<td><strong>'+a.nome+'</strong></td>'+
       '<td><span class="badge badge-blue">'+freqLabel+'</span></td>'+
@@ -450,6 +457,7 @@ function editarAtiv(id){
   document.getElementById('c-horario').value=fmtHora(a.horario);
   document.getElementById('c-horario2').value=fmtHora(a.horario2);
   toggleHorario2();
+  galAtiv.carregar(id);
   showTab('cadastro');
 }
 
@@ -460,6 +468,7 @@ function cancelarAtiv(){
   document.getElementById('c-freq').value='Todo dia';document.getElementById('c-inicio').value=todayStr;
   document.getElementById('c-status').value='Ativa';document.getElementById('c-horario').value='';
   document.getElementById('c-horario2').value='';toggleHorario2();
+  galAtiv.limpar();
   showTab('atividades');
 }
 
@@ -475,8 +484,10 @@ async function salvarAtiv(){
     horario:document.getElementById('c-horario').value||null,
     horario2:freq==='2 vezes ao dia'?document.getElementById('c-horario2').value||null:null
   };
-  if(editClId){await api.put('/api/cl-atividades/'+editClId,body);toast('Atualizado!')}
-  else{await api.post('/api/cl-atividades',body);toast('Atividade criada!')}
+  var r=editClId?await api.put('/api/cl-atividades/'+editClId,body):await api.post('/api/cl-atividades',body);
+  if(!r||r.error)return toast(r&&r.error?r.error:'Erro ao salvar','error');
+  await galAtiv.salvar(r.id);
+  toast(editClId?'Atualizado!':'Atividade criada!');
   cancelarAtiv();await loadAll();
 }
 

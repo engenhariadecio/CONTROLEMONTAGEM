@@ -70,6 +70,7 @@ app.use('/api', require('./routes/diario'));
 app.use('/api', require('./routes/checklist'));
 app.use('/api', require('./routes/producao'));
 app.use('/api', require('./routes/produtos'));
+app.use('/api/fotos', require('./routes/fotos'));
 app.use('/api/export', require('./routes/export'));
 
 /* ════════════════ PÁGINAS ════════════════ */

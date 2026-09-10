@@ -65,17 +65,6 @@ tr.row-irregular:hover{background:rgba(239,68,68,.12)}
 .search-bar input,.search-bar select{padding:8px 14px;border-radius:8px;border:1px solid var(--border);background:var(--card2);color:var(--text);font-size:.88rem}
 .search-bar input{flex:1;min-width:200px}
 .section{display:none}.section.active{display:block}
-.foto-upload{display:flex;flex-direction:column;gap:8px}
-.foto-upload label{font-size:.8rem;color:var(--text2)}
-.foto-drop{width:100%;min-height:120px;border:2px dashed var(--border);border-radius:var(--radius);display:flex;align-items:center;justify-content:center;cursor:pointer;transition:.2s;position:relative;overflow:hidden;background:var(--card2)}
-.foto-drop:hover{border-color:var(--accent)}
-.foto-drop.has-img{border-style:solid;border-color:var(--green)}
-.foto-drop img{max-width:100%;max-height:200px;object-fit:contain;border-radius:8px}
-.foto-drop .placeholder{text-align:center;color:var(--text2);font-size:.85rem;padding:12px}
-.foto-drop .placeholder span{font-size:2rem;display:block;margin-bottom:6px}
-.foto-actions{display:flex;gap:8px}
-.foto-thumb{width:48px;height:48px;border-radius:8px;object-fit:cover;border:1px solid var(--border);cursor:pointer}
-.foto-modal-img{max-width:100%;max-height:70vh;object-fit:contain;border-radius:var(--radius)}
 
 /* ===== CHECKING — seletor de EPIs irregulares ===== */
 .epi-chips-wrap{background:var(--card2);border:1px solid var(--border);border-radius:8px;padding:12px;display:flex;flex-wrap:wrap;gap:8px;min-height:60px}
@@ -209,17 +198,7 @@ a{color:var(--accent)}
       </div>
       <div class="form-group"><label>Descrição</label><textarea id="f-desc"></textarea></div>
     </div>
-    <div class="foto-upload" style="margin-top:14px;max-width:700px">
-      <label>Foto do EPI (clique ou arraste)</label>
-      <div class="foto-drop" id="foto-drop" onclick="document.getElementById('foto-input').click()">
-        <div class="placeholder" id="foto-placeholder"><span>📷</span>Clique para selecionar ou arraste uma imagem</div>
-        <img id="foto-preview" style="display:none">
-      </div>
-      <input type="file" id="foto-input" accept="image/*" style="display:none" onchange="handleFotoSelect(event)">
-      <div class="foto-actions">
-        <button class="btn-sm btn-ghost" onclick="limparFoto()" id="btn-limpar-foto" style="display:none">Remover foto</button>
-      </div>
-    </div>
+    <div id="fotos-epi"></div>
     <div style="margin-top:16px;display:flex;gap:10px">
       <button class="btn-sm btn-green" onclick="salvarEPI()">Salvar</button>
       <button class="btn-sm btn-ghost" onclick="cancelarForm()">Cancelar</button>
@@ -385,15 +364,6 @@ a{color:var(--accent)}
   </div>
 </div>
 
-<!-- MODAL VER FOTO -->
-<div class="modal-overlay" id="modal-foto">
-  <div class="modal" style="text-align:center">
-    <h3 id="modal-foto-title">Foto do EPI</h3>
-    <img id="modal-foto-img" class="foto-modal-img" src="">
-    <div class="btns"><button class="btn-sm btn-ghost" onclick="fecharModal('modal-foto')">Fechar</button></div>
-  </div>
-</div>
-
 <!-- MODAL DETALHE CHECKING -->
 <div class="modal-overlay" id="modal-ch">
   <div class="modal lg">
@@ -403,11 +373,13 @@ a{color:var(--accent)}
   </div>
 </div>
 
+<script src="/js/fotos.js"></script>
 <script>
 /* ============ GLOBALS ============ */
 var epis=[], entregas=[], colabs=[], checkings=[];
 var editId=null;
-var fotoBase64=null;
+var fotosEpi={};   // { id_do_epi: [ids das fotos] }
+var galEpi=Fotos.galeria('#fotos-epi',{entidade:'epi',titulo:'Fotos do EPI'});
 var chStatus='OK';        // OK ou NOK
 var chEpisIrreg=[];       // ids dos EPIs marcados como irregulares
 var chColabsSel=[];       // ids dos colaboradores selecionados (multi)
@@ -449,18 +421,6 @@ function badgeMotivo(m){
   return '<span class="badge '+cfg.cls+'">'+cfg.ic+' '+escHtml(m)+'</span>';
 }
 
-/* ============ FOTO ============ */
-function handleFotoSelect(e){var file=e.target.files[0];if(file)processarFoto(file)}
-function processarFoto(file){
-  if(!file.type.startsWith('image/')){toast('Selecione uma imagem válida','error');return}
-  if(file.size>5*1024*1024){toast('Imagem muito grande (máx 5MB)','error');return}
-  var reader=new FileReader();reader.onload=function(ev){fotoBase64=ev.target.result;mostrarPreview(fotoBase64)};reader.readAsDataURL(file);
-}
-function mostrarPreview(src){var img=document.getElementById('foto-preview');var ph=document.getElementById('foto-placeholder');var drop=document.getElementById('foto-drop');var btnLimpar=document.getElementById('btn-limpar-foto');img.src=src;img.style.display='block';ph.style.display='none';drop.classList.add('has-img');btnLimpar.style.display='inline-flex'}
-function limparFoto(){fotoBase64=null;var img=document.getElementById('foto-preview');var ph=document.getElementById('foto-placeholder');var drop=document.getElementById('foto-drop');var btnLimpar=document.getElementById('btn-limpar-foto');var input=document.getElementById('foto-input');img.src='';img.style.display='none';ph.style.display='block';drop.classList.remove('has-img');btnLimpar.style.display='none';input.value=''}
-(function(){var drop=document.getElementById('foto-drop');if(!drop)return;drop.addEventListener('dragover',function(e){e.preventDefault();drop.style.borderColor='var(--accent)'});drop.addEventListener('dragleave',function(e){e.preventDefault();drop.style.borderColor=''});drop.addEventListener('drop',function(e){e.preventDefault();drop.style.borderColor='';if(e.dataTransfer.files.length)processarFoto(e.dataTransfer.files[0])})})();
-function verFoto(id){var e=epis.find(function(x){return x.id===id});if(!e||!e.foto)return;document.getElementById('modal-foto-title').textContent=e.nome;document.getElementById('modal-foto-img').src=e.foto;document.getElementById('modal-foto').classList.add('show')}
-
 /* ============ CLOCK / LOGOUT ============ */
 function updateClock(){var n=new Date();document.getElementById('clock').textContent=n.toLocaleTimeString('pt-BR')+' — '+n.toLocaleDateString('pt-BR')}
 setInterval(updateClock,1000);updateClock();
@@ -484,8 +444,10 @@ async function loadAll(){
     api.get('/api/epis'),
     api.get('/api/epis/entregas/todos'),
     api.get('/api/colaboradores'),
-    api.get('/api/epis/checklists/todos')
+    api.get('/api/epis/checklists/todos'),
+    Fotos.mapa('epi')
   ]);
+  fotosEpi=results[4]||{};
   epis=results[0]||[];
   entregas=results[1]||[];
   colabs=results[2]||[];
@@ -530,7 +492,7 @@ function renderLista(){
   tb.innerHTML=filtered.map(function(e){
     var cnt=entregas.filter(function(x){return x.epi_id===e.id}).length;
     var valTxt=e.dur_qtd>0?e.dur_qtd+' '+(e.dur_tipo||'meses'):'Sem validade';
-    var fotoHtml=e.foto?'<img src="'+e.foto+'" class="foto-thumb" onclick="verFoto('+e.id+')" title="Clique para ampliar">':'<span style="color:var(--text2);font-size:11px">Sem foto</span>';
+    var fotoHtml=Fotos.miniaturas(fotosEpi[e.id],{max:1,vazio:'<span style="color:var(--text2);font-size:11px">Sem foto</span>'});
     return '<tr><td>'+fotoHtml+'</td><td><strong>'+escHtml(e.nome)+'</strong></td><td>'+valTxt+'</td><td>'+escHtml(e.descricao||'-')+'</td><td><span class="badge badge-blue">'+cnt+'</span></td><td><button class="btn-sm btn-ghost" onclick="editarEPI('+e.id+')">✏</button> <button class="btn-sm btn-danger" onclick="confirmarDel(\'epi\','+e.id+',\''+e.nome.replace(/'/g,"\\'")+'\')">🗑</button></td></tr>';
   }).join('');
 }
@@ -544,7 +506,7 @@ function editarEPI(id){
   document.getElementById('f-dur-qtd').value=e.dur_qtd||0;
   document.getElementById('f-dur-tipo').value=e.dur_tipo||'meses';
   document.getElementById('f-desc').value=e.descricao||'';
-  if(e.foto){fotoBase64=e.foto;mostrarPreview(e.foto)}else{limparFoto()}
+  galEpi.carregar(id);
   showTab('cadastro');
 }
 function cancelarForm(){
@@ -554,15 +516,17 @@ function cancelarForm(){
   document.getElementById('f-dur-qtd').value=0;
   document.getElementById('f-dur-tipo').value='meses';
   document.getElementById('f-desc').value='';
-  limparFoto();
+  galEpi.limpar();
   showTab('lista');
 }
 async function salvarEPI(){
   var nome=document.getElementById('f-nome').value.trim();
   if(!nome)return toast('Nome obrigatório','error');
-  var body={nome:nome,dur_qtd:parseInt(document.getElementById('f-dur-qtd').value)||0,dur_tipo:document.getElementById('f-dur-tipo').value,descricao:document.getElementById('f-desc').value.trim()||null,foto:fotoBase64||null};
-  if(editId){await api.put('/api/epis/'+editId,body);toast('EPI atualizado!')}
-  else{await api.post('/api/epis',body);toast('EPI cadastrado!')}
+  var body={nome:nome,dur_qtd:parseInt(document.getElementById('f-dur-qtd').value)||0,dur_tipo:document.getElementById('f-dur-tipo').value,descricao:document.getElementById('f-desc').value.trim()||null};
+  var r=editId?await api.put('/api/epis/'+editId,body):await api.post('/api/epis',body);
+  if(!r||r.error)return toast(r&&r.error?r.error:'Erro ao salvar','error');
+  await galEpi.salvar(r.id);
+  toast(editId?'EPI atualizado!':'EPI cadastrado!');
   cancelarForm();await loadAll();
 }
 

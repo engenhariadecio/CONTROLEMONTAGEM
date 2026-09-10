@@ -36,6 +36,16 @@ Os sistemas eram independentes e guardavam dados em lugares diferentes. Agora co
 - As consultas de aniversariantes usavam `HAVING` sem `GROUP BY`, o que o Postgres rejeita. Reescritas com subquery.
 - Layout retematizado com a identidade da Décio.
 
+**Fotos nos cadastros (setembro/2026)**
+- Todos os cadastros do ProGestão aceitam fotos: ferramentas, EPIs, treinamentos, atividades do checklist e produtos. No Diário de Bordo, tanto ocorrências/pendências quanto resumos do turno.
+- As imagens são reduzidas no navegador antes do envio (lado maior 1600 px, JPEG). Uma foto de celular de 5 MB vira ~300 KB; a localização GPS gravada na foto é descartada.
+- No celular há o botão **Tirar foto**, que abre a câmera. No computador dá para arrastar ou colar com Ctrl+V.
+- As fotos ficam na tabela `fotos`, uma linha por imagem, com miniatura. As listagens só baixam a miniatura; a foto inteira só quando alguém abre o visualizador.
+- Fotos antigas (base64 nas colunas `epis.foto`, `ferramentas.foto`, `db_registros.foto/fotos`) são migradas automaticamente no primeiro boot.
+- Excluir um cadastro apaga as fotos dele (gatilho no banco).
+- Limites: 20 fotos por registro, 5 MB por foto depois de comprimida. Só JPG, PNG, WEBP e GIF — o servidor confere o conteúdo do arquivo, não a extensão.
+- Também foi corrigido o cadastro de ferramentas, que não gravava: a tela enviava `codigo`/`categoria`/`localizacao` e a API só aceitava `cod`/`cat`/`loc`. Empréstimos e manutenções tinham o mesmo problema. A API agora aceita e devolve os dois nomes.
+
 ---
 
 ## Subir no GitHub
@@ -149,11 +159,13 @@ O UID cadastrado precisa ser exatamente o que o aparelho lê. Se um crachá novo
 │   ├── schema.js             schema completo + migrações idempotentes
 │   └── seed.js               turnos, crachás, produtos, admin
 ├── lib/turnos.js             cálculo de ciclos e detecção de turno
+├── lib/fotos.js              entidades que aceitam fotos, validação, migração
 ├── middleware/auth.js        requireAuth / requireAdmin
 ├── routes/                   14 arquivos de API
 └── public/
     ├── css/decio.css         design system da marca
     ├── js/core.js            API, avisos, cabeçalho, voz
+    ├── js/fotos.js           upload com compressão, galeria e visualizador
     ├── login.html  index.html  admin.html
     ├── ponto.html  cadenciador.html
     └── progestao/            dashboard + 7 módulos
@@ -175,5 +187,7 @@ O Railway faz snapshots do Postgres. Para um dump manual:
 ```bash
 pg_dump "$DATABASE_URL" > backup_$(date +%F).sql
 ```
+
+As fotos estão dentro do banco (tabela `fotos`), então o dump já as inclui.
 
 Cada módulo também exporta Excel: `/api/export/ponto`, `/api/export/crachas`, `/api/export/takt`, `/api/export/ciclos`, `/api/export/paradas`, `/api/export/colaboradores`, `/api/export/ferramentas`, `/api/export/epis`, e assim por diante.

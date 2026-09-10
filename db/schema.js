@@ -1,4 +1,5 @@
 const { pool } = require('./index');
+const { ENTIDADES, migrarFotosAntigas } = require('../lib/fotos');
 
 /**
  * Schema único e idempotente do Sistema Integrado da Montagem.
@@ -480,7 +481,45 @@ CREATE INDEX IF NOT EXISTS idx_apont_det_data  ON prod_apontamentos_detalhados(d
 CREATE INDEX IF NOT EXISTS idx_apont_det_decio ON prod_apontamentos_detalhados(cod_decio);
 CREATE INDEX IF NOT EXISTS idx_apont_det_op    ON prod_apontamentos_detalhados(num_op);
 CREATE INDEX IF NOT EXISTS idx_apont_det_plano ON prod_apontamentos_detalhados(plano_id);
+
+/* ══════════════ FOTOS (cadastros do ProGestão + Diário de Bordo) ══════════════ */
+
+/* Uma linha por foto. (entidade, registro_id) aponta para o cadastro dono —
+   a lista de entidades válidas fica em lib/fotos.js. A imagem vem comprimida
+   do navegador; a miniatura é o que as tabelas exibem. */
+CREATE TABLE IF NOT EXISTS fotos (
+  id           SERIAL PRIMARY KEY,
+  entidade     VARCHAR(40) NOT NULL,
+  registro_id  INTEGER NOT NULL,
+  mime         VARCHAR(40) NOT NULL,
+  dados        BYTEA NOT NULL,
+  miniatura    BYTEA,
+  largura      INTEGER,
+  altura       INTEGER,
+  tamanho      INTEGER,
+  ordem        INTEGER DEFAULT 0,
+  enviado_por  INTEGER REFERENCES users(id) ON DELETE SET NULL,
+  created_at   TIMESTAMPTZ DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_fotos_registro ON fotos(entidade, registro_id, ordem, id);
 `;
+
+/**
+ * Excluir um cadastro apaga as fotos dele. Feito por gatilho para funcionar
+ * em qualquer caminho de exclusão, sem depender de cada rota lembrar disso.
+ * Fica fora de SQL_MIGRACOES porque o corpo da função tem ';'.
+ */
+const SQL_FOTOS_GATILHOS = `
+CREATE OR REPLACE FUNCTION fotos_apagar_do_registro() RETURNS trigger AS $$
+BEGIN
+  DELETE FROM fotos WHERE entidade = TG_ARGV[0] AND registro_id = OLD.id;
+  RETURN OLD;
+END
+$$ LANGUAGE plpgsql;
+` + Object.entries(ENTIDADES).map(([entidade, tabela]) => `
+DROP TRIGGER IF EXISTS trg_fotos_${tabela} ON ${tabela};
+CREATE TRIGGER trg_fotos_${tabela} AFTER DELETE ON ${tabela}
+  FOR EACH ROW EXECUTE FUNCTION fotos_apagar_do_registro('${entidade}');`).join('\n');
 
 /**
  * Migrações defensivas: cobrem bancos criados pela versão antiga do ProGestão,
@@ -638,9 +677,14 @@ async function initDB() {
       }
     }
     console.log('  ✓ Migrações aplicadas');
+
+    await client.query(SQL_FOTOS_GATILHOS);
   } finally {
     client.release();
   }
+
+  await migrarFotosAntigas();
+  console.log('  ✓ Fotos prontas');
 }
 
 module.exports = { initDB };

@@ -188,7 +188,7 @@ a{color:var(--accent)}
       <button class="btn-sm btn-primary" onclick="showTab('cadastro')">+ Nova Ferramenta</button>
     </div>
     <div class="tbl-wrap">
-      <table><thead><tr><th>Código</th><th>Nome</th><th>Categoria</th><th>Localização</th><th>Status</th><th>Calibração</th><th>Preventiva</th><th>Ações</th></tr></thead>
+      <table><thead><tr><th>Foto</th><th>Código</th><th>Nome</th><th>Categoria</th><th>Localização</th><th>Status</th><th>Calibração</th><th>Preventiva</th><th>Ações</th></tr></thead>
       <tbody id="lista-body"></tbody></table>
     </div>
   </div>
@@ -211,6 +211,7 @@ a{color:var(--accent)}
       <div class="form-group"><label>Venc. Preventiva</label><input type="date" id="f-prev"></div>
       <div class="form-group"><label>Observações</label><textarea id="f-obs" placeholder="Informações adicionais..."></textarea></div>
     </div>
+    <div id="fotos-ferr"></div>
     <div style="margin-top:16px;display:flex;gap:10px">
       <button class="btn-sm btn-green" onclick="salvar()">Salvar</button>
       <button class="btn-sm btn-ghost" onclick="resetForm()">Cancelar</button>
@@ -343,10 +344,13 @@ a{color:var(--accent)}
   </div>
 </div>
 
+<script src="/js/fotos.js"></script>
 <script>
 /* ============ GLOBALS ============ */
 let ferramentas=[],emprestimos=[],manutencoes=[],colabs=[],clData={};
 let editId=null;
+let fotosFerr={};   // { id_ferramenta: [ids das fotos] }
+const galFerr=Fotos.galeria('#fotos-ferr',{entidade:'ferramenta',titulo:'Fotos da ferramenta'});
 
 /* ============ API ============ */
 const api={
@@ -390,11 +394,12 @@ function showTab(t){
 
 /* ============ LOAD ============ */
 async function loadAll(){
-  [ferramentas,emprestimos,manutencoes,colabs]=await Promise.all([
+  [ferramentas,emprestimos,manutencoes,colabs,fotosFerr]=await Promise.all([
     api.get('/api/ferramentas'),
     api.get('/api/ferramentas/emprestimos/todos'),
     api.get('/api/ferramentas/manutencoes/todos'),
-    api.get('/api/colaboradores')
+    api.get('/api/colaboradores'),
+    Fotos.mapa('ferramenta')
   ]);
   updateKPIs();renderLista();renderEmp();renderMan();populateCatFilter();
 }
@@ -431,12 +436,13 @@ function renderLista(){
   if(fSt)list=list.filter(f=>f.status===fSt);
   if(fCat)list=list.filter(f=>f.categoria===fCat);
   const tb=document.getElementById('lista-body');
-  if(!list.length){tb.innerHTML='<tr><td colspan="8" style="text-align:center;color:var(--text2)">Nenhuma ferramenta encontrada</td></tr>';return}
+  if(!list.length){tb.innerHTML='<tr><td colspan="9" style="text-align:center;color:var(--text2)">Nenhuma ferramenta encontrada</td></tr>';return}
   tb.innerHTML=list.map(f=>{
     let calBadge='-',prevBadge='-';
     if(f.calibracao_venc){const d=diffDays(f.calibracao_venc);calBadge=d<0?`<span class="badge badge-red">${fmt(f.calibracao_venc)}</span>`:d<=30?`<span class="badge badge-yellow">${fmt(f.calibracao_venc)}</span>`:`<span class="badge badge-green">${fmt(f.calibracao_venc)}</span>`}
     if(f.preventiva_venc){const d=diffDays(f.preventiva_venc);prevBadge=d<0?`<span class="badge badge-red">${fmt(f.preventiva_venc)}</span>`:d<=30?`<span class="badge badge-yellow">${fmt(f.preventiva_venc)}</span>`:`<span class="badge badge-green">${fmt(f.preventiva_venc)}</span>`}
     return `<tr>
+      <td>${Fotos.miniaturas(fotosFerr[f.id],{max:1})}</td>
       <td><strong style="font-family:monospace;color:var(--accent)">${f.codigo||'-'}</strong></td>
       <td><strong>${f.nome}</strong></td>
       <td>${f.categoria||'-'}</td>
@@ -465,6 +471,7 @@ function editarFerr(id){
   document.getElementById('f-cal').value=f.calibracao_venc?f.calibracao_venc.split('T')[0]:'';
   document.getElementById('f-prev').value=f.preventiva_venc?f.preventiva_venc.split('T')[0]:'';
   document.getElementById('f-obs').value=f.obs||'';
+  galFerr.carregar(id);
   showTab('cadastro');
 }
 
@@ -477,6 +484,7 @@ function resetForm(){
   document.getElementById('f-sta').value='Disponível';
   document.getElementById('f-cal').value='';
   document.getElementById('f-prev').value='';
+  galFerr.limpar();
   showTab('lista');
 }
 
@@ -487,8 +495,10 @@ async function salvar(){
   const localizacao=document.getElementById('f-loc').value.trim();
   if(!nome||!codigo||!categoria||!localizacao)return toast('Preencha todos os campos obrigatórios','error');
   const body={nome,codigo,categoria,localizacao,status:document.getElementById('f-sta').value,calibracao_venc:document.getElementById('f-cal').value||null,preventiva_venc:document.getElementById('f-prev').value||null,obs:document.getElementById('f-obs').value.trim()||null};
-  if(editId){await api.put('/api/ferramentas/'+editId,body);toast('Ferramenta atualizada!')}
-  else{await api.post('/api/ferramentas',body);toast('Ferramenta cadastrada!')}
+  const r=editId?await api.put('/api/ferramentas/'+editId,body):await api.post('/api/ferramentas',body);
+  if(!r||r.error)return toast(r&&r.error?r.error:'Erro ao salvar','error');
+  await galFerr.salvar(r.id);
+  toast(editId?'Ferramenta atualizada!':'Ferramenta cadastrada!');
   resetForm();await loadAll();
 }
 

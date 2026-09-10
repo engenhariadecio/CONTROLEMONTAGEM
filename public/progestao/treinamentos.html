@@ -88,7 +88,7 @@ a{color:var(--accent)}
   <!-- LISTA -->
   <div class="section active" id="sec-lista">
     <div class="search-bar"><input id="search-tr" placeholder="Buscar treinamento..." oninput="renderLista()"><button class="btn-sm btn-primary" onclick="showTab('cadastro')">+ Novo</button></div>
-    <div class="tbl-wrap"><table><thead><tr><th>Nome</th><th>Categoria</th><th>Carga (h)</th><th>Validade</th><th>Registros</th><th>Ações</th></tr></thead><tbody id="tb-lista"></tbody></table></div>
+    <div class="tbl-wrap"><table><thead><tr><th>Foto</th><th>Nome</th><th>Categoria</th><th>Carga (h)</th><th>Validade</th><th>Registros</th><th>Ações</th></tr></thead><tbody id="tb-lista"></tbody></table></div>
   </div>
 
   <!-- CADASTRO -->
@@ -101,6 +101,7 @@ a{color:var(--accent)}
       <div class="form-group"><label>Validade (meses)</label><input id="t-val" type="number" min="0" value="0"></div>
       <div class="form-group"><label>Descrição</label><textarea id="t-desc"></textarea></div>
     </div>
+    <div id="fotos-treino"></div>
     <div style="margin-top:14px;display:flex;gap:10px">
       <button class="btn-sm btn-green" onclick="salvarTreino()">Salvar</button>
       <button class="btn-sm btn-ghost" onclick="cancelarTreino()">Cancelar</button>
@@ -151,9 +152,12 @@ a{color:var(--accent)}
 
 </div></div>
 
+<script src="/js/fotos.js"></script>
 <script>
 let treinos=[],registros=[],presencas=[],agenda=[],colabs=[];
 let editTrId=null;
+let fotosTreino={};
+const galTreino=Fotos.galeria('#fotos-treino',{entidade:'treinamento',titulo:'Fotos do treinamento (material, certificado, registro fotográfico)'});
 const api={
   async get(u){const r=await fetch(u);if(r.status===401)return location.href='/login';return r.json()},
   async post(u,d){const r=await fetch(u,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(d)});if(r.status===401)return location.href='/login';return r.json()},
@@ -188,8 +192,8 @@ function populateSelects(){
 }
 
 async function loadAll(){
-  [treinos,registros,presencas,agenda,colabs]=await Promise.all([
-    api.get('/api/treinamentos'),api.get('/api/tr-registros'),api.get('/api/tr-presencas'),api.get('/api/tr-agenda'),api.get('/api/colaboradores')
+  [treinos,registros,presencas,agenda,colabs,fotosTreino]=await Promise.all([
+    api.get('/api/treinamentos'),api.get('/api/tr-registros'),api.get('/api/tr-presencas'),api.get('/api/tr-agenda'),api.get('/api/colaboradores'),Fotos.mapa('treinamento')
   ]);
   updateKPIs();renderLista();renderReg();renderPres();renderAg();
 }
@@ -208,10 +212,10 @@ function renderLista(){
   const q=(document.getElementById('search-tr').value||'').toLowerCase();
   const list=treinos.filter(t=>t.nome.toLowerCase().includes(q));
   const tb=document.getElementById('tb-lista');
-  if(!list.length){tb.innerHTML='<tr><td colspan="6" style="text-align:center;color:var(--text2)">Nenhum treinamento</td></tr>';return}
+  if(!list.length){tb.innerHTML='<tr><td colspan="7" style="text-align:center;color:var(--text2)">Nenhum treinamento</td></tr>';return}
   tb.innerHTML=list.map(t=>{
     const cnt=registros.filter(r=>r.treinamento_id===t.id).length;
-    return `<tr><td><strong>${t.nome}</strong></td><td>${t.categoria||'-'}</td><td>${t.carga_horaria||0}h</td><td>${t.validade_meses?t.validade_meses+' meses':'Sem validade'}</td><td><span class="badge badge-blue">${cnt}</span></td><td><button class="btn-sm btn-ghost" onclick="editarTreino(${t.id})">✏</button> <button class="btn-sm btn-danger" onclick="delTreino(${t.id})">🗑</button></td></tr>`;
+    return `<tr><td>${Fotos.miniaturas(fotosTreino[t.id],{max:1})}</td><td><strong>${t.nome}</strong></td><td>${t.categoria||'-'}</td><td>${t.carga_horaria||0}h</td><td>${t.validade_meses?t.validade_meses+' meses':'Sem validade'}</td><td><span class="badge badge-blue">${cnt}</span></td><td><button class="btn-sm btn-ghost" onclick="editarTreino(${t.id})">✏</button> <button class="btn-sm btn-danger" onclick="delTreino(${t.id})">🗑</button></td></tr>`;
   }).join('');
 }
 
@@ -224,6 +228,7 @@ function editarTreino(id){
   document.getElementById('t-ch').value=t.carga_horaria||0;
   document.getElementById('t-val').value=t.validade_meses||0;
   document.getElementById('t-desc').value=t.descricao||'';
+  galTreino.carregar(id);
   showTab('cadastro');
 }
 function cancelarTreino(){
@@ -232,14 +237,17 @@ function cancelarTreino(){
   ['t-nome','t-desc'].forEach(id=>document.getElementById(id).value='');
   document.getElementById('t-cat').value='';
   document.getElementById('t-ch').value=0;document.getElementById('t-val').value=0;
+  galTreino.limpar();
   showTab('lista');
 }
 async function salvarTreino(){
   const nome=document.getElementById('t-nome').value.trim();
   if(!nome)return toast('Nome obrigatório','error');
   const body={nome,categoria:document.getElementById('t-cat').value||null,carga_horaria:parseInt(document.getElementById('t-ch').value)||0,validade_meses:parseInt(document.getElementById('t-val').value)||0,descricao:document.getElementById('t-desc').value.trim()||null};
-  if(editTrId){await api.put('/api/treinamentos/'+editTrId,body);toast('Atualizado!')}
-  else{await api.post('/api/treinamentos',body);toast('Cadastrado!')}
+  const r=editTrId?await api.put('/api/treinamentos/'+editTrId,body):await api.post('/api/treinamentos',body);
+  if(!r||r.error)return toast(r&&r.error?r.error:'Erro ao salvar','error');
+  await galTreino.salvar(r.id);
+  toast(editTrId?'Atualizado!':'Cadastrado!');
   cancelarTreino();await loadAll();
 }
 async function delTreino(id){if(!confirm('Excluir treinamento?'))return;await api.del('/api/treinamentos/'+id);toast('Excluído!');await loadAll()}
