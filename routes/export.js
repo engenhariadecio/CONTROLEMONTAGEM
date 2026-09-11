@@ -54,6 +54,44 @@ router.get('/:modulo', requireAuth, async (req, res) => {
       (await pool.query('SELECT * FROM ferramentas ORDER BY nome')).rows.forEach(r => sheet.addRow(r));
     }
 
+    // ── CHECKLISTS DE FERRAMENTAS (conferências) ──
+    else if (modulo === 'ferr-checklists') {
+      const NOME = { ok:'OK', problema:'Com problema', nao_encontrada:'Nao encontrada', pendente:'Nao conferida' };
+      sheet = workbook.addWorksheet('Conferencias');
+      sheet.columns = [
+        { header:'ID', key:'id', width:8 },
+        { header:'Data', key:'data', width:14 },
+        { header:'Hora', key:'hora', width:10 },
+        { header:'Turno', key:'turno', width:12 },
+        { header:'Responsavel', key:'responsavel_nome', width:25 },
+        { header:'Total', key:'total', width:8 },
+        { header:'OK', key:'ok', width:8 },
+        { header:'Com problema', key:'problema', width:14 },
+        { header:'Nao encontradas', key:'nao_encontrada', width:16 },
+        { header:'Nao conferidas', key:'pendente', width:15 },
+        { header:'Obs', key:'obs', width:40 }
+      ];
+      (await pool.query('SELECT * FROM ferr_checklists ORDER BY data DESC, hora DESC')).rows.forEach(r => sheet.addRow(r));
+
+      const itens = workbook.addWorksheet('Itens');
+      itens.columns = [
+        { header:'Conferencia (ID)', key:'checklist_id', width:16 },
+        { header:'Data', key:'data', width:14 },
+        { header:'Hora', key:'hora', width:10 },
+        { header:'Codigo', key:'cod', width:12 },
+        { header:'Ferramenta', key:'nome', width:30 },
+        { header:'Localizacao', key:'loc', width:22 },
+        { header:'Status na hora', key:'status_ferr', width:15 },
+        { header:'Situacao', key:'situacao', width:16 },
+        { header:'Obs', key:'obs', width:40 }
+      ];
+      (await pool.query(`SELECT i.*, c.data, c.hora FROM ferr_checklist_itens i
+                         JOIN ferr_checklists c ON c.id = i.checklist_id
+                         ORDER BY c.data DESC, c.hora DESC, i.cod`)).rows
+        .forEach(r => itens.addRow({ ...r, situacao: NOME[r.situacao] || r.situacao }));
+      styleHeader(itens);
+    }
+
     // ── EMPRESTIMOS ──
     else if (modulo === 'emprestimos') {
       sheet = workbook.addWorksheet('Emprestimos');

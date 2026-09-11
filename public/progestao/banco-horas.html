@@ -89,7 +89,14 @@ a{color:var(--accent)}
 
   <!-- LANCAMENTOS -->
   <div class="section active" id="sec-lancamentos">
-    <div class="search-bar"><input id="search-lanc" placeholder="Buscar..." oninput="renderLanc()"></div>
+    <div class="search-bar">
+      <select id="fl-lanc-colab" onchange="renderLanc()" style="min-width:220px"><option value="">Todos os colaboradores</option></select>
+      <select id="fl-lanc-tipo" onchange="renderLanc()"><option value="">Crédito e débito</option><option value="Crédito">Só crédito</option><option value="Débito">Só débito</option></select>
+      <input id="fl-lanc-mes" type="month" onchange="renderLanc()" title="Mês">
+      <input id="search-lanc" placeholder="Buscar por motivo..." oninput="renderLanc()">
+      <button class="btn-sm btn-ghost" onclick="limparFiltroLanc()">Limpar</button>
+    </div>
+    <div id="lanc-resumo" style="display:none;margin:-6px 0 12px;font-size:.85rem;color:var(--text2)"></div>
     <div class="tbl-wrap"><table><thead><tr><th>Colaborador</th><th>Tipo</th><th>Minutos</th><th>Data</th><th>Motivo</th><th>Ações</th></tr></thead><tbody id="tb-lanc"></tbody></table></div>
   </div>
 
@@ -248,7 +255,22 @@ async function loadAll(){
   [lancamentos,convites,colabs]=await Promise.all([
     api.get('/api/bh-lancamentos'),api.get('/api/bh-convites'),api.get('/api/colaboradores')
   ]);
+  popularFiltroColab();
   updateKPIs();renderLanc();renderConv();
+}
+
+function popularFiltroColab(){
+  const sel=document.getElementById('fl-lanc-colab');
+  const atual=sel.value;
+  // só quem tem lançamento aparece — quem não tem não precisa de filtro
+  const comLanc=new Set(lancamentos.map(l=>String(l.colaborador_id)));
+  const lista=colabs.filter(c=>comLanc.has(String(c.id))).sort((a,b)=>(a.nome||'').localeCompare(b.nome||'','pt-BR'));
+  sel.innerHTML='<option value="">Todos os colaboradores</option>'+lista.map(c=>`<option value="${c.id}">${c.nome}</option>`).join('');
+  sel.value=atual;
+}
+function limparFiltroLanc(){
+  ['fl-lanc-colab','fl-lanc-tipo','fl-lanc-mes','search-lanc'].forEach(id=>document.getElementById(id).value='');
+  renderLanc();
 }
 
 function updateKPIs(){
@@ -263,9 +285,27 @@ function updateKPIs(){
 /* LANCAMENTOS */
 function renderLanc(){
   const q=(document.getElementById('search-lanc').value||'').toLowerCase();
-  const list=lancamentos.filter(l=>(l.colab_nome||'').toLowerCase().includes(q));
+  const fColab=document.getElementById('fl-lanc-colab').value;
+  const fTipo=document.getElementById('fl-lanc-tipo').value;
+  const fMes=document.getElementById('fl-lanc-mes').value;   // "2026-09"
+  let list=lancamentos;
+  if(fColab)list=list.filter(l=>String(l.colaborador_id)===fColab);
+  if(fTipo)list=list.filter(l=>l.tipo===fTipo);
+  if(fMes)list=list.filter(l=>String(l.data||'').slice(0,7)===fMes);
+  if(q)list=list.filter(l=>(l.motivo||'').toLowerCase().includes(q)||(l.justificativa||'').toLowerCase().includes(q)||(l.colab_nome||'').toLowerCase().includes(q));
+
+  // resumo do que está filtrado (aparece só quando há algum filtro)
+  const resumo=document.getElementById('lanc-resumo');
+  if(fColab||fTipo||fMes||q){
+    let cred=0,deb=0;list.forEach(l=>{if(l.tipo==='Crédito')cred+=l.minutos;else deb+=l.minutos});
+    const saldo=cred-deb;
+    const nome=fColab?(colabs.find(c=>String(c.id)===fColab)||{}).nome:'';
+    resumo.style.display='block';
+    resumo.innerHTML=(nome?`<strong style="color:var(--text)">${nome}</strong> — `:'')+`${list.length} lançamento(s) · <span class="badge badge-green">+${minToH(cred)}</span> <span class="badge badge-red">−${minToH(deb)}</span> saldo <strong style="color:${saldo>=0?'var(--green)':'var(--red)'}">${saldo>=0?'+':''}${minToH(saldo)}</strong>`;
+  }else resumo.style.display='none';
+
   const tb=document.getElementById('tb-lanc');
-  if(!list.length){tb.innerHTML='<tr><td colspan="6" style="text-align:center;color:var(--text2)">Nenhum lançamento</td></tr>';return}
+  if(!list.length){tb.innerHTML='<tr><td colspan="6" style="text-align:center;color:var(--text2)">Nenhum lançamento com esses filtros</td></tr>';return}
   tb.innerHTML=list.map(l=>{
     const badge=l.tipo==='Crédito'?'badge-green':'badge-red';
     return `<tr>

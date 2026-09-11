@@ -231,6 +231,41 @@ CREATE TABLE IF NOT EXISTS checklist_ferramentas (
   CONSTRAINT uq_checklist_ferr_data UNIQUE (ferramenta_id, data)
 );
 
+/* Conferências salvas do ferramental: um cabeçalho por checklist e um item por
+   ferramenta, com a situação encontrada. checklist_ferramentas (acima) era a
+   versão antiga, por dia, que nunca chegou a funcionar com a tela — fica só
+   para não apagar dados de quem já tinha. */
+CREATE TABLE IF NOT EXISTS ferr_checklists (
+  id               SERIAL PRIMARY KEY,
+  data             DATE NOT NULL,
+  hora             TIME NOT NULL,
+  turno            VARCHAR(60),
+  responsavel_id   INTEGER REFERENCES users(id) ON DELETE SET NULL,
+  responsavel_nome VARCHAR(200),
+  obs              TEXT,
+  total            INTEGER DEFAULT 0,
+  ok               INTEGER DEFAULT 0,
+  problema         INTEGER DEFAULT 0,
+  nao_encontrada   INTEGER DEFAULT 0,
+  pendente         INTEGER DEFAULT 0,
+  created_at       TIMESTAMPTZ DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_ferr_cl_data ON ferr_checklists(data DESC, hora DESC);
+
+CREATE TABLE IF NOT EXISTS ferr_checklist_itens (
+  id             SERIAL PRIMARY KEY,
+  checklist_id   INTEGER NOT NULL REFERENCES ferr_checklists(id) ON DELETE CASCADE,
+  ferramenta_id  INTEGER REFERENCES ferramentas(id) ON DELETE SET NULL,
+  cod            VARCHAR(100),
+  nome           VARCHAR(200),
+  cat            VARCHAR(120),
+  loc            VARCHAR(200),
+  status_ferr    VARCHAR(50),
+  situacao       VARCHAR(20) NOT NULL DEFAULT 'pendente',
+  obs            TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_ferr_cl_itens ON ferr_checklist_itens(checklist_id);
+
 /* ── EPIs ── */
 CREATE TABLE IF NOT EXISTS epis (
   id          SERIAL PRIMARY KEY,

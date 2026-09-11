@@ -36,6 +36,12 @@ Os sistemas eram independentes e guardavam dados em lugares diferentes. Agora co
 - As consultas de aniversariantes usavam `HAVING` sem `GROUP BY`, o que o Postgres rejeita. Reescritas com subquery.
 - Layout retematizado com a identidade da Décio.
 
+**Checklist de ferramentas e filtro do banco de horas (11/09/2026)**
+- A aba *Checklist* em Ferramentas virou uma conferência com histórico: cada ferramenta recebe OK / Com problema / Não encontrada, com observação, e o botão **Salvar conferência** grava tudo com data, hora, turno e responsável (tabelas `ferr_checklists` e `ferr_checklist_itens`). O que foi marcado fica guardado no aparelho até salvar, então um F5 não perde nada. A versão anterior nunca gravou: a tela e a API usavam formatos diferentes.
+- Cada item guarda uma cópia do código, nome e status da ferramenta naquele momento — renomear ou excluir a ferramenta depois não altera o histórico.
+- Exportação em *Relatórios → Conferências* (Excel com duas abas: conferências e itens).
+- Banco de Horas → Lançamentos: filtros por colaborador, tipo e mês, com o saldo do que está filtrado.
+
 **Fotos nos cadastros (setembro/2026)**
 - Todos os cadastros do ProGestão aceitam fotos: ferramentas, EPIs, treinamentos, atividades do checklist e produtos. No Diário de Bordo, tanto ocorrências/pendências quanto resumos do turno.
 - As imagens são reduzidas no navegador antes do envio (lado maior 1600 px, JPEG). Uma foto de celular de 5 MB vira ~300 KB; a localização GPS gravada na foto é descartada.

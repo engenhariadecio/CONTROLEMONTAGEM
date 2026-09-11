@@ -74,6 +74,18 @@ tr:hover{background:rgba(59,130,246,.08)}
 .cl-cb:checked::after{content:'✓';position:absolute;color:#fff;font-size:13px;font-weight:800;top:50%;left:50%;transform:translate(-50%,-50%)}
 .cl-checked td{opacity:.5}
 .cl-checked .td-hi{text-decoration:line-through}
+.cl-sit{display:inline-flex;gap:4px}
+.cl-sit button{padding:5px 9px;border-radius:7px;border:1px solid var(--border);background:var(--card2);color:var(--text2);font-size:.78rem;font-weight:600;cursor:pointer;white-space:nowrap}
+.cl-sit button:hover{border-color:var(--accent);color:var(--text)}
+.cl-sit button.on-ok{background:rgba(52,211,153,.18);border-color:var(--green);color:var(--green)}
+.cl-sit button.on-problema{background:rgba(232,140,74,.18);border-color:var(--orange);color:var(--orange)}
+.cl-sit button.on-nao_encontrada{background:rgba(242,109,109,.18);border-color:var(--red);color:var(--red)}
+tr.cl-ok td{opacity:.6}
+.cl-res{display:inline-flex;gap:4px;flex-wrap:wrap}
+.cl-det{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:8px;margin:8px 0 14px}
+.cl-det div{background:var(--card2);border-radius:8px;padding:8px 10px;font-size:.8rem}
+.cl-det div b{display:block;font-size:.95rem;color:var(--text)}
+.modal.lg{max-width:900px}
 .cl-obs{padding:6px 10px;border:1px solid var(--border);border-radius:6px;background:var(--card2);color:var(--text);font-size:.82rem;width:100%;min-width:120px}
 /* COLAB GRID */
 .colab-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:14px;margin-top:14px}
@@ -258,23 +270,46 @@ a{color:var(--accent)}
 
   <!-- CHECKLIST -->
   <div class="section" id="sec-checklist">
-    <h3>☑ Checklist de Inventário</h3>
-    <div class="cl-stats" style="margin-top:14px">
+    <h3>☑ Conferência do Ferramental</h3>
+    <p style="color:var(--text2);font-size:.85rem;margin-top:4px">Marque a situação de cada ferramenta e salve. A conferência fica no histórico com data, hora, responsável e o que foi encontrado.</p>
+
+    <div class="form-grid" style="margin-top:14px;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));max-width:900px">
+      <div class="form-group"><label>Data *</label><input type="date" id="cl-data"></div>
+      <div class="form-group"><label>Hora *</label><input type="time" id="cl-hora"></div>
+      <div class="form-group"><label>Turno</label><select id="cl-turno"><option value="">—</option><option>1º Turno</option><option>2º Turno</option><option>3º Turno</option></select></div>
+      <div class="form-group" style="grid-column:span 2"><label>Observação geral</label><input id="cl-obs" placeholder="Ex: armário 2 sem cadeado"></div>
+    </div>
+
+    <div class="cl-stats" style="margin-top:16px">
       <span class="cl-pill badge-blue">🔧 <span id="cl-tot">0</span> total</span>
-      <span class="cl-pill badge-green">✅ <span id="cl-ok">0</span> conferidos</span>
+      <span class="cl-pill badge-green">✓ <span id="cl-ok">0</span> ok</span>
+      <span class="cl-pill badge-orange">⚠ <span id="cl-prob">0</span> com problema</span>
+      <span class="cl-pill badge-red">✗ <span id="cl-nao">0</span> não encontradas</span>
       <span class="cl-pill badge-yellow">⏳ <span id="cl-pend">0</span> pendentes</span>
     </div>
     <div class="cl-bar-wrap">
       <div class="cl-track"><div class="cl-fill" id="cl-bar" style="width:0%"></div></div>
       <span class="cl-pct" id="cl-pct">0%</span>
     </div>
-    <div style="margin-bottom:16px;display:flex;gap:10px">
-      <button class="btn-sm btn-green" onclick="clAll(true)">✅ Marcar Todos</button>
-      <button class="btn-sm btn-ghost" onclick="clAll(false)">↺ Desmarcar</button>
+    <div style="margin-bottom:12px;display:flex;gap:10px;flex-wrap:wrap;align-items:center">
+      <button class="btn-sm btn-ghost" onclick="clTodas('ok')">✓ Marcar todas como OK</button>
+      <button class="btn-sm btn-ghost" onclick="clTodas('pendente')">↺ Desmarcar</button>
+      <input id="cl-busca" placeholder="Filtrar por nome ou código..." oninput="renderChecklist()" style="flex:1;min-width:180px;padding:7px 12px;border-radius:8px;border:1px solid var(--border);background:var(--card2);color:var(--text);font-size:.85rem">
+      <span id="cl-rascunho" style="font-size:.75rem;color:var(--text2)"></span>
     </div>
     <div class="tbl-wrap">
-      <table><thead><tr><th style="width:50px;text-align:center">✓</th><th>Código</th><th>Nome</th><th>Categoria</th><th>Localização</th><th>Observação</th></tr></thead>
+      <table><thead><tr><th style="min-width:250px">Situação</th><th>Código</th><th>Nome</th><th>Localização</th><th>Status</th><th>Observação</th></tr></thead>
       <tbody id="cl-body"></tbody></table>
+    </div>
+    <div style="margin-top:16px;display:flex;gap:10px;flex-wrap:wrap">
+      <button class="btn-sm btn-green" id="cl-salvar" onclick="salvarChecklist()">💾 Salvar conferência</button>
+      <button class="btn-sm btn-ghost" onclick="limparChecklist()">Limpar</button>
+    </div>
+
+    <h3 style="margin-top:32px">📜 Histórico de conferências</h3>
+    <div class="tbl-wrap" style="margin-top:10px">
+      <table><thead><tr><th>Data</th><th>Hora</th><th>Turno</th><th>Responsável</th><th>Resultado</th><th>Obs</th><th>Ações</th></tr></thead>
+      <tbody id="cl-hist-body"></tbody></table>
     </div>
   </div>
 
@@ -300,12 +335,22 @@ a{color:var(--accent)}
       <div class="report-card" onclick="exportCSV('ferramentas')"><div class="rc-icon">📦</div><div class="rc-title">Inventário Geral</div><div class="rc-desc">Todas as ferramentas</div><button class="btn-sm btn-primary">⬇ CSV</button></div>
       <div class="report-card" onclick="exportCSV('emprestimos')"><div class="rc-icon">🤝</div><div class="rc-title">Empréstimos</div><div class="rc-desc">Histórico completo</div><button class="btn-sm btn-primary">⬇ CSV</button></div>
       <div class="report-card" onclick="exportCSV('manutencoes')"><div class="rc-icon">🔩</div><div class="rc-title">Manutenções</div><div class="rc-desc">Histórico de manutenções</div><button class="btn-sm btn-primary">⬇ CSV</button></div>
+      <div class="report-card" onclick="exportExcelChecklists()"><div class="rc-icon">☑</div><div class="rc-title">Conferências</div><div class="rc-desc">Histórico do checklist, ferramenta por ferramenta</div><button class="btn-sm btn-green">⬇ Excel</button></div>
       <div class="report-card" onclick="exportExcel()"><div class="rc-icon">📊</div><div class="rc-title">Excel Completo</div><div class="rc-desc">Exportar via servidor</div><button class="btn-sm btn-green">⬇ Excel</button></div>
     </div>
   </div>
 
 </div><!-- /main -->
 </div><!-- /layout -->
+
+<!-- MODAL DETALHE CHECKLIST -->
+<div class="modal-overlay" id="modal-cl" onclick="if(event.target===this)this.classList.remove('show')">
+  <div class="modal lg">
+    <h3 id="modal-cl-titulo">Conferência</h3>
+    <div id="modal-cl-corpo"></div>
+    <div class="btns"><button class="btn-sm btn-ghost" onclick="document.getElementById('modal-cl').classList.remove('show')">Fechar</button></div>
+  </div>
+</div>
 
 <!-- MODAL DELETE -->
 <div class="modal-overlay" id="modal-del">
@@ -387,7 +432,7 @@ function showTab(t){
   if(event&&event.target)event.target.classList.add('active');
   if(t==='emprestimos')populateEmpSelects();
   if(t==='manutencoes')populateManSelects();
-  if(t==='checklist')renderChecklist();
+  if(t==='checklist')abrirChecklist();
   if(t==='alertas')renderAlertas();
   if(t==='colaboradores')renderColabs();
 }
@@ -590,57 +635,153 @@ function fecharModalRet(){document.getElementById('modal-ret').classList.remove(
 async function delMan(id){if(!confirm('Excluir manutenção?'))return;await api.del('/api/ferramentas/manutencoes/'+id);toast('Excluído!');await loadAll()}
 
 /* ============ CHECKLIST ============ */
-async function renderChecklist(){
-  const today=new Date().toISOString().split('T')[0];
-  try{const r=await api.get('/api/ferramentas/checklist?data='+today);if(r&&typeof r==='object'&&!Array.isArray(r))clData=r;else clData={}}catch(e){clData={}}
+/* clSit: { id_ferramenta: { situacao, obs } } — rascunho da conferência em andamento.
+   Fica no localStorage do aparelho para não se perder num F5 ou troca de aba. */
+let clSit={}, clHist=[];
+const CL_RASCUNHO='decio.ferr.checklist.rascunho';
+const CL_SIT={ok:{txt:'✓ OK',cls:'on-ok'},problema:{txt:'⚠ Problema',cls:'on-problema'},nao_encontrada:{txt:'✗ Não achei',cls:'on-nao_encontrada'}};
+const CL_NOME={ok:'OK',problema:'Com problema',nao_encontrada:'Não encontrada',pendente:'Não conferida'};
+
+function clGuardarRascunho(){
+  try{localStorage.setItem(CL_RASCUNHO,JSON.stringify({sit:clSit,data:document.getElementById('cl-data').value,hora:document.getElementById('cl-hora').value,turno:document.getElementById('cl-turno').value,obs:document.getElementById('cl-obs').value,em:Date.now()}))}catch(e){}
+  const n=Object.values(clSit).filter(x=>x.situacao&&x.situacao!=='pendente').length;
+  document.getElementById('cl-rascunho').textContent=n?'Rascunho guardado neste aparelho':'';
+}
+function clLerRascunho(){
+  try{
+    const r=JSON.parse(localStorage.getItem(CL_RASCUNHO)||'null');
+    if(!r||!r.sit||Date.now()-(r.em||0)>36*3600*1000)return false;   // rascunho de mais de 36h não vale mais
+    clSit=r.sit;
+    if(r.data)document.getElementById('cl-data').value=r.data;
+    if(r.hora)document.getElementById('cl-hora').value=r.hora;
+    document.getElementById('cl-turno').value=r.turno||'';
+    document.getElementById('cl-obs').value=r.obs||'';
+    return true;
+  }catch(e){return false}
+}
+function clIniciarForm(){
+  const n=new Date();
+  document.getElementById('cl-data').value=n.getFullYear()+'-'+String(n.getMonth()+1).padStart(2,'0')+'-'+String(n.getDate()).padStart(2,'0');
+  document.getElementById('cl-hora').value=n.toTimeString().slice(0,5);
+  document.getElementById('cl-turno').value='';document.getElementById('cl-obs').value='';
+}
+
+async function abrirChecklist(){
+  if(!document.getElementById('cl-data').value){clIniciarForm();clLerRascunho()}
+  renderChecklist();
+  await carregarHistChecklist();
+}
+
+function renderChecklist(){
+  const q=(document.getElementById('cl-busca').value||'').toLowerCase();
   const tb=document.getElementById('cl-body');
-  if(!ferramentas.length){tb.innerHTML='<tr><td colspan="6" style="text-align:center;color:var(--text2)">Nenhuma ferramenta</td></tr>';return}
-  const checks=clData.registros?JSON.parse(clData.registros||'{}'):{};
-  let ok=0;
-  tb.innerHTML=ferramentas.map(f=>{
-    const checked=!!checks[f.id];
-    if(checked)ok++;
-    const obs=checks[f.id]||'';
-    return `<tr class="${checked?'cl-checked':''}">
-      <td style="text-align:center"><input type="checkbox" class="cl-cb" data-id="${f.id}" ${checked?'checked':''} onchange="clToggle(this)"></td>
-      <td class="td-hi">${f.codigo||'-'}</td>
-      <td class="td-hi">${f.nome}</td>
-      <td>${f.categoria||'-'}</td>
+  if(!ferramentas.length){tb.innerHTML='<tr><td colspan="6" style="text-align:center;color:var(--text2)">Nenhuma ferramenta cadastrada</td></tr>';renderClStats();return}
+  const lista=ferramentas.filter(f=>f.status!=='Inativo').filter(f=>!q||(f.nome||'').toLowerCase().includes(q)||(f.codigo||'').toLowerCase().includes(q));
+  tb.innerHTML=lista.map(f=>{
+    const st=clSit[f.id]||{};
+    const sit=st.situacao||'pendente';
+    const botoes=Object.keys(CL_SIT).map(k=>`<button type="button" class="${sit===k?CL_SIT[k].cls:''}" onclick="clMarcar(${f.id},'${k}')">${CL_SIT[k].txt}</button>`).join('');
+    return `<tr class="${sit==='ok'?'cl-ok':''}">
+      <td><span class="cl-sit">${botoes}</span></td>
+      <td><strong style="font-family:monospace;color:var(--accent)">${f.codigo||'-'}</strong></td>
+      <td>${f.nome}</td>
       <td>${f.localizacao||'-'}</td>
-      <td><input class="cl-obs" data-id="${f.id}" value="${obs.replace(/"/g,'&quot;')}" placeholder="Obs..." onchange="clObs(this)"></td>
+      <td>${stBadge(f.status)}</td>
+      <td><input class="cl-obs" value="${(st.obs||'').replace(/"/g,'&quot;')}" placeholder="Obs..." onchange="clObs(${f.id},this.value)"></td>
     </tr>`;
   }).join('');
-  const total=ferramentas.length;
-  document.getElementById('cl-tot').textContent=total;
-  document.getElementById('cl-ok').textContent=ok;
-  document.getElementById('cl-pend').textContent=total-ok;
-  const pct=total?Math.round(ok/total*100):0;
-  document.getElementById('cl-bar').style.width=pct+'%';
-  document.getElementById('cl-pct').textContent=pct+'%';
+  if(!lista.length)tb.innerHTML='<tr><td colspan="6" style="text-align:center;color:var(--text2)">Nada encontrado</td></tr>';
+  renderClStats();
 }
-
-async function clSave(){
-  const today=new Date().toISOString().split('T')[0];
-  const cbs=document.querySelectorAll('.cl-cb');
-  const obs=document.querySelectorAll('.cl-obs');
-  const regs={};let ok=0;
-  cbs.forEach(cb=>{if(cb.checked){regs[cb.dataset.id]=true;ok++}});
-  obs.forEach(o=>{if(o.value.trim()&&regs[o.dataset.id]!==undefined)regs[o.dataset.id]=o.value.trim()});
-  await api.post('/api/ferramentas/checklist',{data:today,total:ferramentas.length,conformes:ok,registros:JSON.stringify(regs)});
+function clMarcar(id,sit){
+  const atual=clSit[id]||{};
+  clSit[id]={situacao:atual.situacao===sit?'pendente':sit,obs:atual.obs||''};   // clicar de novo desmarca
+  clGuardarRascunho();renderChecklist();
 }
-
-function clToggle(cb){const tr=cb.closest('tr');if(cb.checked)tr.classList.add('cl-checked');else tr.classList.remove('cl-checked');clSave();renderClStats()}
-function clObs(inp){clSave()}
-function clAll(val){document.querySelectorAll('.cl-cb').forEach(cb=>{cb.checked=val;const tr=cb.closest('tr');if(val)tr.classList.add('cl-checked');else tr.classList.remove('cl-checked')});clSave();renderClStats()}
+function clObs(id,v){clSit[id]=Object.assign(clSit[id]||{situacao:'pendente'},{obs:v});clGuardarRascunho()}
+function clTodas(sit){
+  ferramentas.filter(f=>f.status!=='Inativo').forEach(f=>{clSit[f.id]=Object.assign(clSit[f.id]||{},{situacao:sit})});
+  clGuardarRascunho();renderChecklist();
+}
+function clContar(){
+  const c={total:0,ok:0,problema:0,nao_encontrada:0,pendente:0};
+  ferramentas.filter(f=>f.status!=='Inativo').forEach(f=>{c.total++;const s=(clSit[f.id]||{}).situacao||'pendente';c[s]=(c[s]||0)+1});
+  return c;
+}
 function renderClStats(){
-  const total=ferramentas.length;
-  const ok=document.querySelectorAll('.cl-cb:checked').length;
-  document.getElementById('cl-tot').textContent=total;
-  document.getElementById('cl-ok').textContent=ok;
-  document.getElementById('cl-pend').textContent=total-ok;
-  const pct=total?Math.round(ok/total*100):0;
+  const c=clContar();
+  document.getElementById('cl-tot').textContent=c.total;
+  document.getElementById('cl-ok').textContent=c.ok;
+  document.getElementById('cl-prob').textContent=c.problema;
+  document.getElementById('cl-nao').textContent=c.nao_encontrada;
+  document.getElementById('cl-pend').textContent=c.pendente;
+  const pct=c.total?Math.round((c.total-c.pendente)/c.total*100):0;
   document.getElementById('cl-bar').style.width=pct+'%';
   document.getElementById('cl-pct').textContent=pct+'%';
+}
+function limparChecklist(){
+  const c=clContar();
+  if(c.total-c.pendente>0&&!confirm('Descartar as marcações desta conferência?'))return;
+  clSit={};try{localStorage.removeItem(CL_RASCUNHO)}catch(e){}
+  clIniciarForm();document.getElementById('cl-rascunho').textContent='';renderChecklist();
+}
+
+async function salvarChecklist(){
+  const data=document.getElementById('cl-data').value,hora=document.getElementById('cl-hora').value;
+  if(!data||!hora)return toast('Informe data e hora','error');
+  const c=clContar();
+  if(c.total-c.pendente===0)return toast('Marque pelo menos uma ferramenta','error');
+  if(c.pendente>0&&!confirm(c.pendente+' ferramenta(s) ainda sem marcação. Salvar mesmo assim? Elas ficam como "não conferida".'))return;
+  const itens=ferramentas.filter(f=>f.status!=='Inativo').map(f=>({ferramenta_id:f.id,situacao:(clSit[f.id]||{}).situacao||'pendente',obs:(clSit[f.id]||{}).obs||''}));
+  const btn=document.getElementById('cl-salvar');btn.disabled=true;
+  try{
+    const r=await api.post('/api/ferramentas/checklists',{data,hora,turno:document.getElementById('cl-turno').value||null,obs:document.getElementById('cl-obs').value,itens});
+    if(!r||r.error)return toast(r&&r.error?r.error:'Erro ao salvar','error');
+    toast('Conferência salva!');
+    clSit={};try{localStorage.removeItem(CL_RASCUNHO)}catch(e){}
+    clIniciarForm();document.getElementById('cl-rascunho').textContent='';renderChecklist();
+    await carregarHistChecklist();
+  }finally{btn.disabled=false}
+}
+
+/* --- histórico --- */
+function clResultadoHTML(c){
+  let h='<span class="cl-res">';
+  h+=`<span class="badge badge-green">✓ ${c.ok}</span>`;
+  if(c.problema)h+=`<span class="badge badge-orange">⚠ ${c.problema}</span>`;
+  if(c.nao_encontrada)h+=`<span class="badge badge-red">✗ ${c.nao_encontrada}</span>`;
+  if(c.pendente)h+=`<span class="badge badge-yellow">⏳ ${c.pendente}</span>`;
+  return h+`<span style="font-size:.78rem;color:var(--text2);align-self:center">de ${c.total}</span></span>`;
+}
+async function carregarHistChecklist(){
+  clHist=await api.get('/api/ferramentas/checklists')||[];
+  const tb=document.getElementById('cl-hist-body');
+  if(!clHist.length){tb.innerHTML='<tr><td colspan="7" style="text-align:center;color:var(--text2)">Nenhuma conferência salva ainda</td></tr>';return}
+  tb.innerHTML=clHist.map(c=>`<tr>
+    <td>${fmt(c.data)}</td><td>${String(c.hora||'').slice(0,5)}</td><td>${c.turno||'-'}</td><td>${c.responsavel_nome||'-'}</td>
+    <td>${clResultadoHTML(c)}</td>
+    <td style="max-width:220px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${c.obs||'-'}</td>
+    <td style="white-space:nowrap"><button class="btn-sm btn-ghost" onclick="verChecklist(${c.id})">👁 Ver</button> <button class="btn-sm btn-danger" onclick="delChecklist(${c.id})">🗑</button></td>
+  </tr>`).join('');
+}
+async function verChecklist(id){
+  const c=await api.get('/api/ferramentas/checklists/'+id);
+  if(!c||c.error)return toast('Não foi possível abrir','error');
+  document.getElementById('modal-cl-titulo').textContent='Conferência de '+fmt(c.data)+' às '+String(c.hora||'').slice(0,5);
+  const badge={ok:'badge-green',problema:'badge-orange',nao_encontrada:'badge-red',pendente:'badge-yellow'};
+  const ordem={problema:0,nao_encontrada:1,pendente:2,ok:3};
+  const itens=(c.itens||[]).slice().sort((a,b)=>(ordem[a.situacao]??9)-(ordem[b.situacao]??9)||String(a.cod).localeCompare(String(b.cod)));
+  let h=`<div class="cl-det"><div>Responsável<b>${c.responsavel_nome||'-'}</b></div><div>Turno<b>${c.turno||'-'}</b></div><div>Resultado<b>${clResultadoHTML(c)}</b></div></div>`;
+  if(c.obs)h+=`<p style="font-size:.85rem;margin-bottom:12px"><span style="color:var(--text2)">Obs:</span> ${c.obs}</p>`;
+  h+='<div class="tbl-wrap" style="max-height:55vh;overflow:auto"><table><thead><tr><th>Situação</th><th>Código</th><th>Nome</th><th>Localização</th><th>Status na hora</th><th>Obs</th></tr></thead><tbody>';
+  h+=itens.map(i=>`<tr><td><span class="badge ${badge[i.situacao]||'badge-blue'}">${CL_NOME[i.situacao]||i.situacao}</span></td><td style="font-family:monospace;color:var(--accent)">${i.cod||'-'}</td><td>${i.nome||'-'}</td><td>${i.loc||'-'}</td><td>${stBadge(i.status_ferr)}</td><td>${i.obs||'-'}</td></tr>`).join('');
+  h+='</tbody></table></div>';
+  document.getElementById('modal-cl-corpo').innerHTML=h;
+  document.getElementById('modal-cl').classList.add('show');
+}
+async function delChecklist(id){
+  if(!confirm('Excluir esta conferência do histórico?'))return;
+  await api.del('/api/ferramentas/checklists/'+id);toast('Excluída!');await carregarHistChecklist();
 }
 
 /* ============ ALERTAS ============ */
@@ -686,6 +827,16 @@ function exportCSV(tipo){
   const blob=new Blob([csv],{type:'text/csv;charset=utf-8;'});
   const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=tipo+'_relatorio.csv';a.click();
   toast('CSV exportado!');
+}
+
+async function exportExcelChecklists(){
+  try{
+    const r=await fetch('/api/export/ferr-checklists');
+    if(!r.ok)throw new Error('Erro');
+    const blob=await r.blob();
+    const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='conferencias_ferramentas.xlsx';a.click();
+    toast('Excel exportado!');
+  }catch(e){toast('Erro ao exportar Excel','error')}
 }
 
 async function exportExcel(){

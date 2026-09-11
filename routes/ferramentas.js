@@ -26,36 +26,96 @@ function camposFerramenta(b) {
   };
 }
 
-// ======================== CHECKLIST FERRAMENTAS ========================
+// ======================== CHECKLISTS (conferências salvas) ========================
+/*
+ * GET    /api/ferramentas/checklists          histórico (cabeçalhos com totais)
+ * GET    /api/ferramentas/checklists/:id      cabeçalho + itens
+ * POST   /api/ferramentas/checklists          { data, hora, turno, obs, itens: [{ ferramenta_id, situacao, obs }] }
+ * DELETE /api/ferramentas/checklists/:id
+ *
+ * Ficam antes das rotas /:id para não serem capturadas por elas.
+ * Cada item guarda uma cópia do código/nome/status da ferramenta naquele
+ * momento: se ela for renomeada ou excluída depois, o histórico continua legível.
+ */
+const SITUACOES = ['ok', 'problema', 'nao_encontrada', 'pendente'];
 
-// GET /api/ferramentas/checklist?data=2026-05-08
-router.get('/checklist', requireAuth, async (req, res) => {
+router.get('/checklists', requireAuth, async (req, res) => {
   try {
-    const data = req.query.data || new Date().toISOString().slice(0, 10);
-    const r = await pool.query(
-      `SELECT cf.*, f.nome as ferr_nome, f.cod as ferr_cod, f.cat as ferr_cat, f.loc as ferr_loc
-       FROM checklist_ferramentas cf
-       JOIN ferramentas f ON cf.ferramenta_id = f.id
-       WHERE cf.data = $1`,
-      [data]
-    );
+    const r = await pool.query('SELECT * FROM ferr_checklists ORDER BY data DESC, hora DESC, id DESC');
     res.json(r.rows);
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-// POST /api/ferramentas/checklist
-router.post('/checklist', requireAuth, async (req, res) => {
+router.get('/checklists/:id', requireAuth, async (req, res) => {
   try {
-    const { ferramenta_id, checked, obs, data } = req.body;
-    const d = data || new Date().toISOString().slice(0, 10);
-    const r = await pool.query(
-      `INSERT INTO checklist_ferramentas (ferramenta_id,checked,obs,data)
-       VALUES ($1,$2,$3,$4)
-       ON CONFLICT (ferramenta_id,data) DO UPDATE SET checked=$2, obs=$3, updated_at=NOW()
-       RETURNING *`,
-      [ferramenta_id, checked||false, obs||null, d]
+    if (!/^\d+$/.test(req.params.id)) return res.status(400).json({ error: 'ID inválido' });
+    const cab = await pool.query('SELECT * FROM ferr_checklists WHERE id=$1', [req.params.id]);
+    if (!cab.rows.length) return res.status(404).json({ error: 'Checklist não encontrado' });
+    const itens = await pool.query(
+      'SELECT * FROM ferr_checklist_itens WHERE checklist_id=$1 ORDER BY cod, nome, id',
+      [req.params.id]
     );
-    res.json(r.rows[0]);
+    res.json({ ...cab.rows[0], itens: itens.rows });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+router.post('/checklists', requireAuth, async (req, res) => {
+  const client = await pool.connect();
+  try {
+    const { data, hora, turno, obs } = req.body;
+    const itens = Array.isArray(req.body.itens) ? req.body.itens : [];
+    if (!data) return res.status(400).json({ error: 'Data obrigatória' });
+    if (!itens.length) return res.status(400).json({ error: 'Checklist sem ferramentas' });
+
+    // Situação vem da tela; o resto (código, nome, status) vem do cadastro atual
+    const ids = [...new Set(itens.map(i => Number(i.ferramenta_id)).filter(n => Number.isInteger(n) && n > 0))];
+    const ferr = await client.query('SELECT id, cod, nome, cat, loc, status FROM ferramentas WHERE id = ANY($1)', [ids]);
+    const porId = new Map(ferr.rows.map(f => [f.id, f]));
+
+    // Uma linha por ferramenta; se vier repetida, vale a última
+    const porFerr = new Map();
+    for (const it of itens) {
+      const f = porId.get(Number(it.ferramenta_id));
+      if (!f) continue;
+      const sit = SITUACOES.includes(it.situacao) ? it.situacao : 'pendente';
+      porFerr.set(f.id, [f.id, f.cod, f.nome, f.cat, f.loc, f.status, sit, (it.obs || '').trim() || null]);
+    }
+    const linhas = [...porFerr.values()];
+    const cont = { ok: 0, problema: 0, nao_encontrada: 0, pendente: 0 };
+    linhas.forEach(l => cont[l[6]]++);
+    if (!linhas.length) return res.status(400).json({ error: 'Nenhuma ferramenta válida no checklist' });
+    if (cont.pendente === linhas.length) return res.status(400).json({ error: 'Marque pelo menos uma ferramenta antes de salvar' });
+
+    const usuario = await client.query('SELECT nome, username FROM users WHERE id=$1', [req.session.userId]);
+    const respNome = usuario.rows[0] ? (usuario.rows[0].nome || usuario.rows[0].username) : null;
+
+    await client.query('BEGIN');
+    const cab = await client.query(
+      `INSERT INTO ferr_checklists (data, hora, turno, responsavel_id, responsavel_nome, obs, total, ok, problema, nao_encontrada, pendente)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) RETURNING *`,
+      [data, hora || new Date().toTimeString().slice(0, 8), turno || null, req.session.userId || null, respNome,
+       (obs || '').trim() || null, linhas.length, cont.ok, cont.problema, cont.nao_encontrada, cont.pendente]
+    );
+    const cid = cab.rows[0].id;
+    for (const l of linhas) {
+      await client.query(
+        `INSERT INTO ferr_checklist_itens (checklist_id, ferramenta_id, cod, nome, cat, loc, status_ferr, situacao, obs)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
+        [cid, ...l]
+      );
+    }
+    await client.query('COMMIT');
+    res.json(cab.rows[0]);
+  } catch (e) {
+    await client.query('ROLLBACK').catch(() => {});
+    res.status(500).json({ error: e.message });
+  } finally { client.release(); }
+});
+
+router.delete('/checklists/:id', requireAuth, async (req, res) => {
+  try {
+    await pool.query('DELETE FROM ferr_checklists WHERE id=$1', [req.params.id]);
+    res.json({ success: true });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
