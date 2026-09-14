@@ -219,6 +219,7 @@ a{color:var(--accent)}
           <option value="Gasto">🧰 Gasto</option>
           <option value="Vencimento">⏰ Vencimento</option>
           <option value="Perda">❌ Perda</option>
+          <option value="Esqueceu">🤦 Esqueceu</option>
         </select>
       </div>
     </div>
@@ -234,6 +235,7 @@ a{color:var(--accent)}
         <option value="Gasto">🧰 Gasto</option>
         <option value="Vencimento">⏰ Vencimento</option>
         <option value="Perda">❌ Perda</option>
+        <option value="Esqueceu">🤦 Esqueceu</option>
       </select>
     </div>
     <div class="tbl-wrap">
@@ -415,7 +417,8 @@ function badgeMotivo(m){
     'Novo':{cls:'badge-green',ic:'🆕'},
     'Gasto':{cls:'badge-yellow',ic:'🧰'},
     'Vencimento':{cls:'badge-orange',ic:'⏰'},
-    'Perda':{cls:'badge-red',ic:'❌'}
+    'Perda':{cls:'badge-red',ic:'❌'},
+    'Esqueceu':{cls:'badge-purple',ic:'🤦'}
   };
   var cfg=map[m]||{cls:'badge-blue',ic:''};
   return '<span class="badge '+cfg.cls+'">'+cfg.ic+' '+escHtml(m)+'</span>';
@@ -855,7 +858,7 @@ function renderResumo(){
 
 function renderResumoMotivo(){
   var tb=document.getElementById('tb-resumo-motivo');
-  var motivos=['Novo','Gasto','Vencimento','Perda'];
+  var motivos=['Novo','Gasto','Vencimento','Perda','Esqueceu'];
   var map={};
   motivos.forEach(function(m){map[m]=0});
   var semMot=0;
