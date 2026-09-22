@@ -28,13 +28,21 @@ function sqlAniversarios(campo, rotuloIdade) {
   `;
 }
 
-/* GET /api/colaboradores */
+/* Desligado leva data (hoje, se não informada). Qualquer outro status zera a data. */
+function dataDesligamento(status, dt) {
+  if (status !== 'Desligado') return null;
+  return dt || new Date().toISOString().slice(0, 10);
+}
+
+/* GET /api/colaboradores            todos (histórico, relatórios)
+   GET /api/colaboradores?ativos=1   sem os desligados (para selects de lançamento) */
 router.get('/', requireAuth, async (req, res) => {
   try {
-    const { status, turno, q } = req.query;
+    const { status, turno, q, ativos } = req.query;
     const where = [];
     const params = [];
     if (status) { params.push(status); where.push(`status = $${params.length}`); }
+    if (ativos) where.push(`status IS DISTINCT FROM 'Desligado'`);
     if (turno)  { params.push(turno);  where.push(`turno = $${params.length}`); }
     if (q)      { params.push('%' + q.toLowerCase() + '%'); where.push(`LOWER(nome) LIKE $${params.length}`); }
 
@@ -78,12 +86,13 @@ router.post('/', requireAuth, async (req, res) => {
   try {
     const { nome, mat, cargo, setor, turno, status, dt_admissao, dt_nascimento } = req.body;
     if (!nome || !nome.trim()) return res.status(400).json({ error: 'Nome é obrigatório' });
+    const desl = dataDesligamento(status, req.body.dt_desligamento);
 
     const r = await pool.query(
-      `INSERT INTO colaboradores (nome,mat,cargo,setor,turno,status,dt_admissao,dt_nascimento)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING *`,
+      `INSERT INTO colaboradores (nome,mat,cargo,setor,turno,status,dt_admissao,dt_nascimento,dt_desligamento)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING *`,
       [nome.trim(), mat || null, cargo || null, setor || 'Montagem',
-       turno || null, status || 'Ativo', dt_admissao || null, dt_nascimento || null]
+       turno || null, status || 'Ativo', dt_admissao || null, dt_nascimento || null, desl]
     );
     res.json(r.rows[0]);
   } catch (e) { res.status(500).json({ error: e.message }); }
@@ -93,13 +102,14 @@ router.post('/', requireAuth, async (req, res) => {
 router.put('/:id', requireAuth, async (req, res) => {
   try {
     const { nome, mat, cargo, setor, turno, status, dt_admissao, dt_nascimento } = req.body;
+    const desl = dataDesligamento(status, req.body.dt_desligamento);
     const r = await pool.query(
       `UPDATE colaboradores SET
          nome=COALESCE($1,nome), mat=$2, cargo=$3, setor=$4, turno=$5,
-         status=COALESCE($6,status), dt_admissao=$7, dt_nascimento=$8, updated_at=NOW()
-       WHERE id=$9 RETURNING *`,
+         status=COALESCE($6,status), dt_admissao=$7, dt_nascimento=$8, dt_desligamento=$9, updated_at=NOW()
+       WHERE id=$10 RETURNING *`,
       [nome || null, mat || null, cargo || null, setor || null, turno || null,
-       status || null, dt_admissao || null, dt_nascimento || null, req.params.id]
+       status || null, dt_admissao || null, dt_nascimento || null, desl, req.params.id]
     );
     if (!r.rows.length) return res.status(404).json({ error: 'Colaborador não encontrado' });
     res.json(r.rows[0]);
@@ -114,7 +124,7 @@ router.delete('/:id', requireAuth, async (req, res) => {
   } catch (e) {
     if (e.code === '23503') {
       return res.status(409).json({
-        error: 'Este colaborador tem registros vinculados. Mude o status para "Inativo" em vez de excluir.'
+        error: 'Este colaborador tem registros vinculados. Em vez de excluir, edite e marque o status "Desligado" — o histórico dele é mantido.'
       });
     }
     res.status(500).json({ error: e.message });

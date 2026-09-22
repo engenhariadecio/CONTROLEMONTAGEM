@@ -36,6 +36,11 @@ Os sistemas eram independentes e guardavam dados em lugares diferentes. Agora co
 - As consultas de aniversariantes usavam `HAVING` sem `GROUP BY`, o que o Postgres rejeita. Reescritas com subquery.
 - Layout retematizado com a identidade da Décio.
 
+**Desligamento, EPI descartável, seed (22/09/2026)**
+- Colaborador tem o status **Desligado** com data (Administração → Colaboradores → Editar). Some das listas de lançamento (banco de horas, EPIs, ferramentas, treinamentos, diário), mas todo o histórico continua. Na lista da administração ficam ocultos por padrão; há um "Mostrar desligados".
+- `seed.js` só cria os colaboradores e crachás padrão no **primeiro boot** (banco sem colaboradores). Antes rodava a cada deploy e recriava, como Ativo, qualquer montador padrão que tivesse sido excluído.
+- EPI **descartável** (checkbox no cadastro): quando a validade passa, a entrega vira "Descartado" em vez de "Vencido" e não gera alerta. EPIs já cadastrados com "descart" no nome foram marcados automaticamente uma única vez.
+
 **Banco de horas e EPIs (22/09/2026)**
 - Banco de Horas tem o tipo **Justificado** (atestado, declaração): fica registrado com os minutos, aparece nos KPIs, no saldo por colaborador e no histórico, mas não soma nem desconta do saldo. A API só aceita Crédito, Débito ou Justificado.
 - EPIs: quando um colaborador recebe uma nova entrega do mesmo EPI, a entrega anterior passa a **Substituído** e sai dos alertas, dos vencidos e dos KPIs. Vale para qualquer entrega anterior, vencida ou não. A regra é calculada na tela a partir das datas, então funciona também para entregas antigas.

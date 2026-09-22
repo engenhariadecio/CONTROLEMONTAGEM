@@ -197,6 +197,10 @@ a{color:var(--accent)}
         <select id="f-dur-tipo"><option value="meses">Meses</option><option value="dias">Dias</option><option value="anos">Anos</option></select>
       </div>
       <div class="form-group"><label>Descrição</label><textarea id="f-desc"></textarea></div>
+      <div class="form-group"><label>Tipo de uso</label>
+        <label style="display:flex;align-items:center;gap:8px;font-size:.88rem;color:var(--text);cursor:pointer;padding:8px 0"><input type="checkbox" id="f-descartavel" style="width:18px;height:18px;accent-color:var(--accent)"> Descartável (uso único)</label>
+        <small style="color:var(--text2)">Ex.: protetor auricular. Quando vence, a entrega vira "Descartado" em vez de "Vencido" e não gera alerta.</small>
+      </div>
     </div>
     <div id="fotos-epi"></div>
     <div style="margin-top:16px;display:flex;gap:10px">
@@ -329,7 +333,7 @@ a{color:var(--accent)}
     <div style="margin-top:20px">
       <h4>Resumo por EPI</h4>
       <div class="tbl-wrap" style="margin-top:10px">
-        <table><thead><tr><th>EPI</th><th>Entregas</th><th>Ativos</th><th>Vencidos</th><th>Substituídos</th><th>Reprovado em Checking</th></tr></thead>
+        <table><thead><tr><th>EPI</th><th>Entregas</th><th>Ativos</th><th>Vencidos</th><th>Substituídos / Descartados</th><th>Reprovado em Checking</th></tr></thead>
         <tbody id="tb-resumo"></tbody></table>
       </div>
     </div>
@@ -482,7 +486,12 @@ function statusEntrega(e){
   if(epi&&epi.dur_qtd>0){
     r.val=calcValidade(e.dt,epi.dur_qtd,epi.dur_tipo||'meses');
     r.dd=diffDays(r.val);
-    if(r.dd<0)r={chave:'vencido',badge:'<span class="badge badge-red">Vencido</span>',val:r.val,dd:r.dd};
+    // Descartável (protetor auricular etc.): o fim da validade é o descarte, não um vencimento — sem alerta
+    if(epi.descartavel){
+      if(r.dd<0)r={chave:'descartado',badge:'<span class="badge badge-gray" title="EPI descartável: validade encerrada">Descartado</span>',val:r.val,dd:r.dd};
+      else r={chave:'valido',badge:'<span class="badge badge-green">Válido</span>',val:r.val,dd:r.dd};
+    }
+    else if(r.dd<0)r={chave:'vencido',badge:'<span class="badge badge-red">Vencido</span>',val:r.val,dd:r.dd};
     else if(r.dd<=30)r={chave:'a_vencer',badge:'<span class="badge badge-yellow">A vencer</span>',val:r.val,dd:r.dd};
     else r={chave:'valido',badge:'<span class="badge badge-green">Válido</span>',val:r.val,dd:r.dd};
   }
@@ -519,7 +528,7 @@ function renderLista(){
     var cnt=entregas.filter(function(x){return x.epi_id===e.id}).length;
     var valTxt=e.dur_qtd>0?e.dur_qtd+' '+(e.dur_tipo||'meses'):'Sem validade';
     var fotoHtml=Fotos.miniaturas(fotosEpi[e.id],{max:1,vazio:'<span style="color:var(--text2);font-size:11px">Sem foto</span>'});
-    return '<tr><td>'+fotoHtml+'</td><td><strong>'+escHtml(e.nome)+'</strong></td><td>'+valTxt+'</td><td>'+escHtml(e.descricao||'-')+'</td><td><span class="badge badge-blue">'+cnt+'</span></td><td><button class="btn-sm btn-ghost" onclick="editarEPI('+e.id+')">✏</button> <button class="btn-sm btn-danger" onclick="confirmarDel(\'epi\','+e.id+',\''+e.nome.replace(/'/g,"\\'")+'\')">🗑</button></td></tr>';
+    return '<tr><td>'+fotoHtml+'</td><td><strong>'+escHtml(e.nome)+'</strong>'+(e.descartavel?' <span class="badge badge-gray" title="Uso único: ao vencer vira Descartado">♻ descartável</span>':'')+'</td><td>'+valTxt+'</td><td>'+escHtml(e.descricao||'-')+'</td><td><span class="badge badge-blue">'+cnt+'</span></td><td><button class="btn-sm btn-ghost" onclick="editarEPI('+e.id+')">✏</button> <button class="btn-sm btn-danger" onclick="confirmarDel(\'epi\','+e.id+',\''+e.nome.replace(/'/g,"\\'")+'\')">🗑</button></td></tr>';
   }).join('');
 }
 
@@ -532,6 +541,7 @@ function editarEPI(id){
   document.getElementById('f-dur-qtd').value=e.dur_qtd||0;
   document.getElementById('f-dur-tipo').value=e.dur_tipo||'meses';
   document.getElementById('f-desc').value=e.descricao||'';
+  document.getElementById('f-descartavel').checked=!!e.descartavel;
   galEpi.carregar(id);
   showTab('cadastro');
 }
@@ -542,13 +552,14 @@ function cancelarForm(){
   document.getElementById('f-dur-qtd').value=0;
   document.getElementById('f-dur-tipo').value='meses';
   document.getElementById('f-desc').value='';
+  document.getElementById('f-descartavel').checked=false;
   galEpi.limpar();
   showTab('lista');
 }
 async function salvarEPI(){
   var nome=document.getElementById('f-nome').value.trim();
   if(!nome)return toast('Nome obrigatório','error');
-  var body={nome:nome,dur_qtd:parseInt(document.getElementById('f-dur-qtd').value)||0,dur_tipo:document.getElementById('f-dur-tipo').value,descricao:document.getElementById('f-desc').value.trim()||null};
+  var body={nome:nome,dur_qtd:parseInt(document.getElementById('f-dur-qtd').value)||0,dur_tipo:document.getElementById('f-dur-tipo').value,descricao:document.getElementById('f-desc').value.trim()||null,descartavel:document.getElementById('f-descartavel').checked};
   var r=editId?await api.put('/api/epis/'+editId,body):await api.post('/api/epis',body);
   if(!r||r.error)return toast(r&&r.error?r.error:'Erro ao salvar','error');
   await galEpi.salvar(r.id);
@@ -561,7 +572,7 @@ function populateSelects(){
   var se=document.getElementById('e-epi');
   se.innerHTML='<option value="">Selecione...</option>'+epis.map(function(e){return'<option value="'+e.id+'">'+escHtml(e.nome)+'</option>'}).join('');
   var sc=document.getElementById('e-colab');
-  sc.innerHTML='<option value="">Selecione...</option>'+colabs.map(function(c){return'<option value="'+c.id+'">'+escHtml(c.nome)+'</option>'}).join('');
+  sc.innerHTML='<option value="">Selecione...</option>'+colabs.filter(function(c){return c.status!=='Desligado'}).map(function(c){return'<option value="'+c.id+'">'+escHtml(c.nome)+'</option>'}).join('');
   if(!document.getElementById('e-data').value)document.getElementById('e-data').value=hoje();
 }
 async function salvarEntrega(){
@@ -862,7 +873,7 @@ function renderResumo(){
     var ativos=0,vencidos=0,subst=0;
     ents.forEach(function(en){
       var st=statusEntrega(en).chave;
-      if(st==='vencido')vencidos++;else if(st==='substituido')subst++;else ativos++;
+      if(st==='vencido')vencidos++;else if(st==='substituido'||st==='descartado')subst++;else ativos++;
     });
     var reprov=0;
     checkings.forEach(function(c){var det=(c.registros&&c.registros[0])||{};if(det.epis_irregulares_ids&&det.epis_irregulares_ids.indexOf(e.id)>=0)reprov++});
@@ -917,7 +928,7 @@ function exportCSV(){
   entregas.forEach(function(e){
     var epi=epis.find(function(x){return x.id===e.epi_id});var nome=epi?epi.nome:'?';
     var s=statusEntrega(e);var val=s.val?fmtDate(s.val):'-';
-    var st={sem_validade:'Sem validade',vencido:'Vencido',a_vencer:'A vencer',valido:'Válido',substituido:'Substituído'}[s.chave];
+    var st={sem_validade:'Sem validade',vencido:'Vencido',a_vencer:'A vencer',valido:'Válido',substituido:'Substituído',descartado:'Descartado'}[s.chave];
     csv+=nome+';'+(e.colab_nome||'-')+';'+fmtDate(e.dt)+';'+val+';'+(e.motivo||'-')+';'+st+'\n';
   });
   baixarCSV(csv,'epis_entregas.csv');

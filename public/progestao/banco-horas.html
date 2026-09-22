@@ -231,6 +231,8 @@ function isoMes(d){return d?String(d).slice(0,7):''}
 
 /* Efeito de um lançamento no saldo: crédito soma, débito desconta, justificado
    (atestado, declaração) só fica registrado e vale 0. */
+/* Desligados ficam fora dos selects de lançamento novo; no histórico e no saldo continuam */
+function ativos(){return colabs.filter(c=>c.status!=='Desligado')}
 function valorSaldo(l){return l.tipo==='Crédito'?l.minutos:l.tipo==='Débito'?-l.minutos:0}
 function badgeTipo(t){return t==='Crédito'?'badge-green':t==='Débito'?'badge-red':'badge-purple'}
 function somar(list){const s={cred:0,deb:0,just:0};list.forEach(l=>{if(l.tipo==='Crédito')s.cred+=l.minutos;else if(l.tipo==='Débito')s.deb+=l.minutos;else s.just+=l.minutos});return s}
@@ -252,7 +254,7 @@ function showTab(t){
 function populateSelects(){
   ['n-colab','cv-colab','aj-colab','ajc-colab'].forEach(id=>{
     const s=document.getElementById(id);if(!s)return;
-    s.innerHTML='<option value="">Selecione...</option>'+colabs.map(c=>`<option value="${c.id}">${c.nome}</option>`).join('');
+    s.innerHTML='<option value="">Selecione...</option>'+ativos().map(c=>`<option value="${c.id}">${c.nome}</option>`).join('');
   });
   const today=new Date().toISOString().split('T')[0];
   ['n-data','cv-data','cv-db'].forEach(id=>{const e=document.getElementById(id);if(e&&!e.value)e.value=today});
@@ -482,7 +484,7 @@ function fecharModalHistConv(){document.getElementById('modal-hist-conv').classL
 function renderSaldo(){
   const tb=document.getElementById('tb-saldo');
   const map={};
-  colabs.forEach(c=>map[c.id]={id:c.id,nome:c.nome,turno:c.turno||'-',cred:0,deb:0,just:0});
+  colabs.forEach(c=>map[c.id]={id:c.id,nome:c.nome+(c.status==='Desligado'?' (desligado)':''),turno:c.turno||'-',cred:0,deb:0,just:0});
   lancamentos.forEach(l=>{const m=map[l.colaborador_id];if(!m)return;if(l.tipo==='Crédito')m.cred+=l.minutos;else if(l.tipo==='Débito')m.deb+=l.minutos;else m.just+=l.minutos});
   const rows=Object.values(map).sort((a,b)=>a.nome.localeCompare(b.nome));
   if(!rows.length){tb.innerHTML='<tr><td colspan="6" style="text-align:center;color:var(--text2)">Sem dados</td></tr>';return}

@@ -33,7 +33,9 @@ router.get('/:modulo', requireAuth, async (req, res) => {
         { header:'Cargo', key:'cargo', width:20 },
         { header:'Setor', key:'setor', width:20 },
         { header:'Turno', key:'turno', width:15 },
-        { header:'Status', key:'status', width:12 }
+        { header:'Status', key:'status', width:12 },
+        { header:'Admissao', key:'dt_admissao', width:12 },
+        { header:'Desligamento', key:'dt_desligamento', width:14 }
       ];
       (await pool.query('SELECT * FROM colaboradores ORDER BY nome')).rows.forEach(r => sheet.addRow(r));
     }

@@ -200,7 +200,11 @@ async function seed() {
     const t1 = await client.query("SELECT nome FROM turnos WHERE codigo='T1'");
     const turnoT1 = t1.rows[0] ? t1.rows[0].nome : 'Turno 1';
 
-    for (const c of CRACHAS_PADRAO) {
+    /* Só no primeiro boot (banco sem nenhum colaborador). Antes isso rodava
+       sempre e recriava como "Ativo" qualquer montador padrão que o admin
+       tivesse excluído — a cada deploy os desligados voltavam. */
+    const jaTemColab = (await client.query('SELECT 1 FROM colaboradores LIMIT 1')).rows.length > 0;
+    for (const c of jaTemColab ? [] : CRACHAS_PADRAO) {
       let colab = await client.query('SELECT id FROM colaboradores WHERE nome=$1', [c.nome]);
       if (colab.rows.length === 0) {
         colab = await client.query(

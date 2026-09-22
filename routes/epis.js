@@ -21,11 +21,11 @@ router.get('/:id', requireAuth, async (req, res) => {
 router.post('/', requireAuth, async (req, res) => {
   try {
     // Fotos ficam na tabela `fotos` (rota /api/fotos/epi/:id), não mais aqui
-    const { nome, dur_qtd, dur_tipo, descricao } = req.body;
+    const { nome, dur_qtd, dur_tipo, descricao, descartavel } = req.body;
     if (!nome) return res.status(400).json({ error: 'Nome obrigatorio' });
     const r = await pool.query(
-      'INSERT INTO epis (nome,dur_qtd,dur_tipo,descricao) VALUES ($1,$2,$3,$4) RETURNING *',
-      [nome, dur_qtd||null, dur_tipo||null, descricao||null]
+      'INSERT INTO epis (nome,dur_qtd,dur_tipo,descricao,descartavel) VALUES ($1,$2,$3,$4,$5) RETURNING *',
+      [nome, dur_qtd||null, dur_tipo||null, descricao||null, descartavel === true]
     );
     res.json(r.rows[0]);
   } catch (e) { res.status(500).json({ error: e.message }); }
@@ -33,10 +33,10 @@ router.post('/', requireAuth, async (req, res) => {
 
 router.put('/:id', requireAuth, async (req, res) => {
   try {
-    const { nome, dur_qtd, dur_tipo, descricao } = req.body;
+    const { nome, dur_qtd, dur_tipo, descricao, descartavel } = req.body;
     const r = await pool.query(
-      'UPDATE epis SET nome=$1,dur_qtd=$2,dur_tipo=$3,descricao=$4,updated_at=NOW() WHERE id=$5 RETURNING *',
-      [nome, dur_qtd, dur_tipo, descricao, req.params.id]
+      'UPDATE epis SET nome=$1,dur_qtd=$2,dur_tipo=$3,descricao=$4,descartavel=$5,updated_at=NOW() WHERE id=$6 RETURNING *',
+      [nome, dur_qtd, dur_tipo, descricao, descartavel === true, req.params.id]
     );
     if (r.rows.length === 0) return res.status(404).json({ error: 'Nao encontrado' });
     res.json(r.rows[0]);

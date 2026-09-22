@@ -7,6 +7,7 @@
 <link rel="icon" href="/assets/logo-decio.png">
 <link rel="stylesheet" href="/css/decio.css">
 <style>
+.mini{font-size:.74rem;color:var(--t2);margin-top:4px}
 .abas { display: flex; gap: 4px; border-bottom: 1px solid var(--linha); margin-bottom: 24px; overflow-x: auto; padding-bottom: 1px; }
 .aba {
   background: none; border: none; border-bottom: 2px solid transparent;
@@ -94,6 +95,7 @@
     <div class="barra-acoes">
       <button class="btn btn-primario btn-sm" onclick="abrirColab()">Novo colaborador</button>
       <input class="controle busca" id="buscaColab" placeholder="Buscar por nome…">
+      <label style="display:flex;align-items:center;gap:6px;font-size:.85rem;cursor:pointer;white-space:nowrap"><input type="checkbox" id="verDesligados" onchange="renderColabs()"> <span id="lblDesligados">Mostrar desligados</span></label>
       <a class="btn btn-fantasma btn-sm empurra" href="/api/export/colaboradores">Exportar Excel</a>
     </div>
     <div class="cartao"><div class="tabela-wrap">
@@ -404,7 +406,10 @@ async function carregarColabs() {
 }
 function renderColabs() {
   const busca = document.getElementById('buscaColab').value.toLowerCase();
-  const lista = COLABS.filter(c => !busca || c.nome.toLowerCase().includes(busca));
+  const verDesl = document.getElementById('verDesligados').checked;
+  const lista = COLABS.filter(c => (!busca || c.nome.toLowerCase().includes(busca)) && (verDesl || c.status !== 'Desligado'));
+  const nDesl = COLABS.filter(c => c.status === 'Desligado').length;
+  document.getElementById('lblDesligados').textContent = nDesl ? `Mostrar desligados (${nDesl})` : 'Mostrar desligados';
   const c = document.getElementById('corpoColabs');
   c.innerHTML = lista.length ? lista.map(x => `
     <tr>
@@ -412,7 +417,7 @@ function renderColabs() {
       <td class="num">${escapar(x.mat || '—')}</td>
       <td>${escapar(x.cargo || '—')}</td>
       <td>${escapar(x.turno || '—')}</td>
-      <td><span class="selo ${x.status === 'Ativo' ? 'selo-ok' : 'selo-neutro'}">${escapar(x.status || '—')}</span></td>
+      <td><span class="selo ${x.status === 'Ativo' ? 'selo-ok' : x.status === 'Desligado' ? 'selo-erro' : 'selo-neutro'}">${escapar(x.status || '—')}</span>${x.status === 'Desligado' && x.dt_desligamento ? `<div class="mini">desde ${String(x.dt_desligamento).slice(0,10).split('-').reverse().join('/')}</div>` : ''}</td>
       <td><button class="btn btn-fantasma btn-xs" onclick="abrirColab(${x.id})">Editar</button>
           <button class="btn btn-erro btn-xs" onclick="excluirColab(${x.id})">Excluir</button></td>
     </tr>`).join('') : '<tr><td colspan="6" class="vazio">Nenhum colaborador encontrado.</td></tr>';
@@ -438,8 +443,11 @@ function abrirColab(id) {
         <select class="controle" id="coTurno">${opcTurno}</select></div>
       <div class="campo"><label class="rotulo" for="coStatus">Status</label>
         <select class="controle" id="coStatus">
-          ${['Ativo','Inativo','Afastado','Férias'].map(s => `<option ${c.status === s ? 'selected' : ''}>${s}</option>`).join('')}
+          ${['Ativo','Inativo','Afastado','Férias','Desligado'].map(s => `<option ${c.status === s ? 'selected' : ''}>${s}</option>`).join('')}
         </select></div>
+      <div class="campo" id="campoDesl" style="display:${c.status === 'Desligado' ? '' : 'none'}"><label class="rotulo" for="coDesl">Data do desligamento</label>
+        <input class="controle" type="date" id="coDesl" value="${c.dt_desligamento ? String(c.dt_desligamento).slice(0,10) : ''}">
+        <div class="mini">O colaborador some das listas de lançamento, mas o histórico dele (ponto, EPIs, horas, treinamentos) continua.</div></div>
       <div class="campo"><label class="rotulo" for="coAdm">Admissão</label>
         <input class="controle" type="date" id="coAdm" value="${c.dt_admissao ? String(c.dt_admissao).slice(0,10) : ''}"></div>
       <div class="campo"><label class="rotulo" for="coNasc">Nascimento</label>
@@ -448,12 +456,19 @@ function abrirColab(id) {
     const corpo = {
       nome: val('coNome'), mat: val('coMat') || null, cargo: val('coCargo') || null,
       setor: val('coSetor') || null, turno: val('coTurno') || null, status: val('coStatus'),
-      dt_admissao: val('coAdm') || null, dt_nascimento: val('coNasc') || null
+      dt_admissao: val('coAdm') || null, dt_nascimento: val('coNasc') || null,
+      dt_desligamento: val('coDesl') || null
     };
     if (!corpo.nome) return avisoErro('Informe o nome.');
+    if (corpo.status === 'Desligado' && !corpo.dt_desligamento) return avisoErro('Informe a data do desligamento.');
     const r = await tentar(() => id ? API.put('/api/colaboradores/' + id, corpo) : API.post('/api/colaboradores', corpo), 'Colaborador salvo.');
     if (r) { fecharModal('modal'); carregarColabs(); carregarCrachas(); }
   });
+  document.getElementById('coStatus').onchange = function () {
+    const desl = this.value === 'Desligado';
+    document.getElementById('campoDesl').style.display = desl ? '' : 'none';
+    if (desl && !val('coDesl')) document.getElementById('coDesl').value = new Date().toISOString().slice(0, 10);
+  };
 }
 async function excluirColab(id) {
   if (!confirm('Excluir este colaborador?')) return;

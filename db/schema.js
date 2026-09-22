@@ -591,6 +591,15 @@ ALTER TABLE manutencoes       ADD COLUMN IF NOT EXISTS ret DATE;
 ALTER TABLE manutencoes       ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ DEFAULT NOW();
 ALTER TABLE manutencoes       ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT NOW();
 
+/* EPI descartável (protetor auricular etc.): quando vence vira "Descartado", sem alerta.
+   Sem DEFAULT de propósito: a linha seguinte marca só os já cadastrados (NULL) uma única vez
+   pelo nome, e depois disso o que o usuário escolher na tela é respeitado. */
+ALTER TABLE epis ADD COLUMN IF NOT EXISTS descartavel BOOLEAN;
+UPDATE epis SET descartavel = (nome ILIKE '%descart%') WHERE descartavel IS NULL;
+
+/* Desligamento de colaborador: status 'Desligado' + data. Fica no cadastro, some das listas de seleção. */
+ALTER TABLE colaboradores ADD COLUMN IF NOT EXISTS dt_desligamento DATE;
+
 ALTER TABLE checklist_ferramentas ADD COLUMN IF NOT EXISTS checked BOOLEAN DEFAULT FALSE;
 ALTER TABLE checklist_ferramentas ADD COLUMN IF NOT EXISTS obs TEXT;
 ALTER TABLE checklist_ferramentas ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT NOW();

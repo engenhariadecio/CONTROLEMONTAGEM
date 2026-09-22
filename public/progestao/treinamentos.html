@@ -186,7 +186,7 @@ function populateSelects(){
     s.innerHTML='<option value="">Selecione...</option>'+treinos.map(t=>`<option value="${t.id}">${t.nome}</option>`).join('');
   });
   const sc=document.getElementById('r-colab');
-  if(sc)sc.innerHTML='<option value="">Selecione...</option>'+colabs.map(c=>`<option value="${c.id}">${c.nome}</option>`).join('');
+  if(sc)sc.innerHTML='<option value="">Selecione...</option>'+colabs.filter(c=>c.status!=='Desligado').map(c=>`<option value="${c.id}">${c.nome}</option>`).join('');
   const today=new Date().toISOString().split('T')[0];
   ['r-data','ag-data'].forEach(id=>{const e=document.getElementById(id);if(e&&!e.value)e.value=today});
 }
