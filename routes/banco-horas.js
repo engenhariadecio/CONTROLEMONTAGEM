@@ -3,6 +3,9 @@ const router = express.Router();
 const { pool } = require('../db');
 const { requireAuth } = require('../middleware/auth');
 
+// Justificado (atestado, declaração) fica registrado mas não entra no saldo
+const TIPOS = ['Crédito', 'Débito', 'Justificado'];
+
 // ======================== LANCAMENTOS ========================
 
 router.get('/bh-lancamentos', requireAuth, async (req, res) => {
@@ -20,6 +23,7 @@ router.post('/bh-lancamentos', requireAuth, async (req, res) => {
   try {
     const { colaborador_id, tipo, minutos, data, motivo, justificativa } = req.body;
     if (!colaborador_id || !data || !minutos) return res.status(400).json({ error: 'Campos obrigatorios' });
+    if (!TIPOS.includes(tipo)) return res.status(400).json({ error: 'Tipo inválido (Crédito, Débito ou Justificado)' });
     const r = await pool.query(
       'INSERT INTO bh_lancamentos (colaborador_id,tipo,minutos,data,motivo,justificativa) VALUES ($1,$2,$3,$4,$5,$6) RETURNING *',
       [colaborador_id, tipo, minutos, data, motivo||null, justificativa||null]
@@ -32,6 +36,7 @@ router.put('/bh-lancamentos/:id', requireAuth, async (req, res) => {
   try {
     const { colaborador_id, tipo, minutos, data, motivo, justificativa } = req.body;
     if (!colaborador_id || !data || !minutos) return res.status(400).json({ error: 'Campos obrigatorios' });
+    if (!TIPOS.includes(tipo)) return res.status(400).json({ error: 'Tipo inválido (Crédito, Débito ou Justificado)' });
     const r = await pool.query(
       `UPDATE bh_lancamentos
          SET colaborador_id=$1, tipo=$2, minutos=$3, data=$4, motivo=$5, justificativa=$6

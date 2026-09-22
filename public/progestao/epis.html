@@ -329,7 +329,7 @@ a{color:var(--accent)}
     <div style="margin-top:20px">
       <h4>Resumo por EPI</h4>
       <div class="tbl-wrap" style="margin-top:10px">
-        <table><thead><tr><th>EPI</th><th>Entregas</th><th>Ativos</th><th>Vencidos</th><th>Reprovado em Checking</th></tr></thead>
+        <table><thead><tr><th>EPI</th><th>Entregas</th><th>Ativos</th><th>Vencidos</th><th>Substituídos</th><th>Reprovado em Checking</th></tr></thead>
         <tbody id="tb-resumo"></tbody></table>
       </div>
     </div>
@@ -463,18 +463,41 @@ async function loadAll(){
   renderCheckings();
 }
 
+/* ============ STATUS DE UMA ENTREGA ============
+   Uma entrega mais nova do mesmo EPI para o mesmo colaborador substitui a
+   anterior: a antiga passa a "Substituído" e sai dos alertas e dos vencidos,
+   não importa se já estava vencida ou não. Sem isso, o alerta do EPI antigo
+   continuaria aparecendo mesmo depois da troca. */
+function foiSubstituida(e){
+  return entregas.some(function(o){
+    if(o.id===e.id||o.epi_id!==e.epi_id||o.colaborador_id!==e.colaborador_id)return false;
+    var a=String(o.dt||'').slice(0,10),b=String(e.dt||'').slice(0,10);
+    return a>b||(a===b&&o.id>e.id);
+  });
+}
+/* → { chave, badge, val (Date|null), dd (dias até vencer|null) } */
+function statusEntrega(e){
+  var epi=epis.find(function(x){return x.id===e.epi_id});
+  var r={chave:'sem_validade',badge:'<span class="badge badge-blue">Sem validade</span>',val:null,dd:null};
+  if(epi&&epi.dur_qtd>0){
+    r.val=calcValidade(e.dt,epi.dur_qtd,epi.dur_tipo||'meses');
+    r.dd=diffDays(r.val);
+    if(r.dd<0)r={chave:'vencido',badge:'<span class="badge badge-red">Vencido</span>',val:r.val,dd:r.dd};
+    else if(r.dd<=30)r={chave:'a_vencer',badge:'<span class="badge badge-yellow">A vencer</span>',val:r.val,dd:r.dd};
+    else r={chave:'valido',badge:'<span class="badge badge-green">Válido</span>',val:r.val,dd:r.dd};
+  }
+  if(foiSubstituida(e))r={chave:'substituido',badge:'<span class="badge badge-gray" title="Recebeu um novo depois">Substituído</span>',val:r.val,dd:r.dd};
+  return r;
+}
+
 /* ============ KPIs ============ */
 function updateKPIs(){
   document.getElementById('k-total').textContent=epis.length;
   document.getElementById('k-entregas').textContent=entregas.length;
   var vencer=0,vencidos=0;
   entregas.forEach(function(e){
-    var epi=epis.find(function(x){return x.id===e.epi_id});
-    if(epi&&epi.dur_qtd>0){
-      var val=calcValidade(e.dt,epi.dur_qtd,epi.dur_tipo||'meses');
-      var dd=diffDays(val);
-      if(dd!==null){if(dd<0)vencidos++;else if(dd<=30)vencer++}
-    }
+    var st=statusEntrega(e).chave;
+    if(st==='vencido')vencidos++;else if(st==='a_vencer')vencer++;
   });
   document.getElementById('k-vencer').textContent=vencer;
   document.getElementById('k-vencidos').textContent=vencidos;
@@ -569,14 +592,7 @@ function renderEntregas(){
   tb.innerHTML=list.map(function(e){
     var epi=epis.find(function(x){return x.id===e.epi_id});
     var epiNome=epi?epi.nome:'?';
-    var valDate=null,statusBadge='<span class="badge badge-blue">Sem validade</span>';
-    if(epi&&epi.dur_qtd>0){
-      valDate=calcValidade(e.dt,epi.dur_qtd,epi.dur_tipo||'meses');
-      var dd=diffDays(valDate);
-      if(dd<0)statusBadge='<span class="badge badge-red">Vencido</span>';
-      else if(dd<=30)statusBadge='<span class="badge badge-yellow">A vencer</span>';
-      else statusBadge='<span class="badge badge-green">Válido</span>';
-    }
+    var st=statusEntrega(e),valDate=st.val,statusBadge=st.badge;
     return '<tr><td>'+escHtml(epiNome)+'</td><td>'+escHtml(e.colab_nome||'-')+'</td><td>'+fmtDate(e.dt)+'</td><td>'+(valDate?fmtDate(valDate):'-')+'</td><td>'+badgeMotivo(e.motivo)+'</td><td>'+statusBadge+'</td><td><button class="btn-sm btn-danger" onclick="confirmarDel(\'entrega\','+e.id+',\'entrega de '+epiNome.replace(/'/g,"\\'")+'\')">🗑</button></td></tr>';
   }).join('');
 }
@@ -823,12 +839,10 @@ function limparFiltrosCh(){
 function renderAlertas(){
   var rows=[];
   entregas.forEach(function(e){
+    var st=statusEntrega(e);
+    if(st.chave!=='vencido'&&st.chave!=='a_vencer')return;   // substituídas e válidas ficam de fora
     var epi=epis.find(function(x){return x.id===e.epi_id});
-    if(!epi||!epi.dur_qtd||epi.dur_qtd<=0)return;
-    var val=calcValidade(e.dt,epi.dur_qtd,epi.dur_tipo||'meses');
-    var dd=diffDays(val);
-    if(dd===null)return;
-    if(dd<=30)rows.push({epiNome:epi.nome,colab:e.colab_nome||'-',dt:e.dt,val:val,dd:dd});
+    rows.push({epiNome:epi?epi.nome:'?',colab:e.colab_nome||'-',dt:e.dt,val:st.val,dd:st.dd});
   });
   rows.sort(function(a,b){return a.dd-b.dd});
   var tb=document.getElementById('tb-alertas');
@@ -842,17 +856,17 @@ function renderAlertas(){
 /* ============ RELATÓRIOS ============ */
 function renderResumo(){
   var tb=document.getElementById('tb-resumo');
-  if(!epis.length){tb.innerHTML='<tr><td colspan="5" style="text-align:center;color:var(--text2)">Sem dados</td></tr>';return}
+  if(!epis.length){tb.innerHTML='<tr><td colspan="6" style="text-align:center;color:var(--text2)">Sem dados</td></tr>';return}
   tb.innerHTML=epis.map(function(e){
     var ents=entregas.filter(function(x){return x.epi_id===e.id});
-    var ativos=0,vencidos=0;
+    var ativos=0,vencidos=0,subst=0;
     ents.forEach(function(en){
-      if(e.dur_qtd>0){var val=calcValidade(en.dt,e.dur_qtd,e.dur_tipo||'meses');var dd=diffDays(val);if(dd!==null&&dd<0)vencidos++;else ativos++}
-      else ativos++;
+      var st=statusEntrega(en).chave;
+      if(st==='vencido')vencidos++;else if(st==='substituido')subst++;else ativos++;
     });
     var reprov=0;
     checkings.forEach(function(c){var det=(c.registros&&c.registros[0])||{};if(det.epis_irregulares_ids&&det.epis_irregulares_ids.indexOf(e.id)>=0)reprov++});
-    return '<tr><td>'+escHtml(e.nome)+'</td><td>'+ents.length+'</td><td><span class="badge badge-green">'+ativos+'</span></td><td><span class="badge badge-red">'+vencidos+'</span></td><td><span class="badge badge-orange">'+reprov+'</span></td></tr>';
+    return '<tr><td>'+escHtml(e.nome)+'</td><td>'+ents.length+'</td><td><span class="badge badge-green">'+ativos+'</span></td><td><span class="badge badge-red">'+vencidos+'</span></td><td><span class="badge badge-gray">'+subst+'</span></td><td><span class="badge badge-orange">'+reprov+'</span></td></tr>';
   }).join('');
 }
 
@@ -901,8 +915,9 @@ function renderResumoColab(){
 function exportCSV(){
   var csv='EPI;Colaborador;Data Entrega;Validade;Motivo;Status\n';
   entregas.forEach(function(e){
-    var epi=epis.find(function(x){return x.id===e.epi_id});var nome=epi?epi.nome:'?';var val='-',st='Sem validade';
-    if(epi&&epi.dur_qtd>0){val=calcValidade(e.dt,epi.dur_qtd,epi.dur_tipo||'meses');var dd=diffDays(val);st=dd<0?'Vencido':dd<=30?'A vencer':'Válido';val=fmtDate(val)}
+    var epi=epis.find(function(x){return x.id===e.epi_id});var nome=epi?epi.nome:'?';
+    var s=statusEntrega(e);var val=s.val?fmtDate(s.val):'-';
+    var st={sem_validade:'Sem validade',vencido:'Vencido',a_vencer:'A vencer',valido:'Válido',substituido:'Substituído'}[s.chave];
     csv+=nome+';'+(e.colab_nome||'-')+';'+fmtDate(e.dt)+';'+val+';'+(e.motivo||'-')+';'+st+'\n';
   });
   baixarCSV(csv,'epis_entregas.csv');

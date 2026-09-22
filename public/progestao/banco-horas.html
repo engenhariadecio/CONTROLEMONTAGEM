@@ -77,6 +77,7 @@ a{color:var(--accent)}
     <div class="kpi"><div class="num" id="k-lancamentos" style="color:var(--accent)">0</div><div class="lbl">Lançamentos</div></div>
     <div class="kpi"><div class="num" id="k-positivo" style="color:var(--green)">0h</div><div class="lbl">Saldo Positivo</div></div>
     <div class="kpi"><div class="num" id="k-negativo" style="color:var(--red)">0h</div><div class="lbl">Saldo Negativo</div></div>
+    <div class="kpi"><div class="num" id="k-justificado" style="color:var(--accent2)">0h</div><div class="lbl">Justificado (não desconta)</div></div>
     <div class="kpi"><div class="num" id="k-colabs" style="color:var(--accent2)">0</div><div class="lbl">Colaboradores</div></div>
   </div>
 
@@ -91,7 +92,7 @@ a{color:var(--accent)}
   <div class="section active" id="sec-lancamentos">
     <div class="search-bar">
       <select id="fl-lanc-colab" onchange="renderLanc()" style="min-width:220px"><option value="">Todos os colaboradores</option></select>
-      <select id="fl-lanc-tipo" onchange="renderLanc()"><option value="">Crédito e débito</option><option value="Crédito">Só crédito</option><option value="Débito">Só débito</option></select>
+      <select id="fl-lanc-tipo" onchange="renderLanc()"><option value="">Todos os tipos</option><option value="Crédito">Só crédito</option><option value="Débito">Só débito</option><option value="Justificado">Só justificado</option></select>
       <input id="fl-lanc-mes" type="month" onchange="renderLanc()" title="Mês">
       <input id="search-lanc" placeholder="Buscar por motivo..." oninput="renderLanc()">
       <button class="btn-sm btn-ghost" onclick="limparFiltroLanc()">Limpar</button>
@@ -105,7 +106,7 @@ a{color:var(--accent)}
     <h3>Novo Lançamento</h3>
     <div class="form-grid" style="margin-top:14px">
       <div class="form-group"><label>Colaborador *</label><select id="n-colab"></select></div>
-      <div class="form-group"><label>Tipo *</label><select id="n-tipo"><option value="Crédito">Crédito (+)</option><option value="Débito">Débito (-)</option></select></div>
+      <div class="form-group"><label>Tipo *</label><select id="n-tipo" onchange="dicaTipo('n')"><option value="Crédito">Crédito (+)</option><option value="Débito">Débito (-)</option><option value="Justificado">Justificado (atestado/declaração — não desconta)</option></select><small id="n-tipo-dica" style="display:none;color:var(--text2);margin-top:4px">Ausência justificada: fica registrada, mas não entra no saldo.</small></div>
       <div class="form-group"><label>Minutos *</label><input id="n-min" type="number" min="1"></div>
       <div class="form-group"><label>Data *</label><input id="n-data" type="date"></div>
       <div class="form-group"><label>Motivo</label><input id="n-motivo"></div>
@@ -135,7 +136,7 @@ a{color:var(--accent)}
   <div class="section" id="sec-saldo">
     <h3>💰 Saldo por Colaborador</h3>
     <p style="font-size:.8rem;color:var(--text2);margin-top:6px">Clique no nome do colaborador para ver o histórico mensal</p>
-    <div class="tbl-wrap" style="margin-top:14px"><table><thead><tr><th>Colaborador</th><th>Turno</th><th>Créditos</th><th>Débitos</th><th>Saldo</th></tr></thead><tbody id="tb-saldo"></tbody></table></div>
+    <div class="tbl-wrap" style="margin-top:14px"><table><thead><tr><th>Colaborador</th><th>Turno</th><th>Créditos</th><th>Débitos</th><th>Justificado</th><th>Saldo</th></tr></thead><tbody id="tb-saldo"></tbody></table></div>
   </div>
 
 </div></div>
@@ -149,7 +150,7 @@ a{color:var(--accent)}
   <input type="hidden" id="aj-id">
   <div class="form-grid" style="grid-template-columns:1fr 1fr;gap:12px;margin-top:8px">
     <div class="form-group"><label>Colaborador *</label><select id="aj-colab"></select></div>
-    <div class="form-group"><label>Tipo *</label><select id="aj-tipo"><option value="Crédito">Crédito (+)</option><option value="Débito">Débito (-)</option></select></div>
+    <div class="form-group"><label>Tipo *</label><select id="aj-tipo"><option value="Crédito">Crédito (+)</option><option value="Débito">Débito (-)</option><option value="Justificado">Justificado (não desconta)</option></select></div>
     <div class="form-group"><label>Minutos *</label><input id="aj-min" type="number" min="1"></div>
     <div class="form-group"><label>Data *</label><input id="aj-data" type="date"></div>
     <div class="form-group" style="grid-column:1/-1"><label>Motivo</label><input id="aj-motivo"></div>
@@ -228,6 +229,12 @@ function fmt(d){
 function isoDate(d){return d?String(d).slice(0,10):''}
 function isoMes(d){return d?String(d).slice(0,7):''}
 
+/* Efeito de um lançamento no saldo: crédito soma, débito desconta, justificado
+   (atestado, declaração) só fica registrado e vale 0. */
+function valorSaldo(l){return l.tipo==='Crédito'?l.minutos:l.tipo==='Débito'?-l.minutos:0}
+function badgeTipo(t){return t==='Crédito'?'badge-green':t==='Débito'?'badge-red':'badge-purple'}
+function somar(list){const s={cred:0,deb:0,just:0};list.forEach(l=>{if(l.tipo==='Crédito')s.cred+=l.minutos;else if(l.tipo==='Débito')s.deb+=l.minutos;else s.just+=l.minutos});return s}
+function dicaTipo(p){const d=document.getElementById(p+'-tipo-dica');if(d)d.style.display=document.getElementById(p+'-tipo').value==='Justificado'?'block':'none'}
 function minToH(m){const h=Math.floor(Math.abs(m)/60);const mm=Math.abs(m)%60;return(m<0?'-':'')+h+'h'+String(mm).padStart(2,'0')}
 function updateClock(){const n=new Date();document.getElementById('clock').textContent=n.toLocaleTimeString('pt-BR')+' — '+n.toLocaleDateString('pt-BR')}
 setInterval(updateClock,1000);updateClock();
@@ -275,10 +282,10 @@ function limparFiltroLanc(){
 
 function updateKPIs(){
   document.getElementById('k-lancamentos').textContent=lancamentos.length;
-  let pos=0,neg=0;
-  lancamentos.forEach(l=>{if(l.tipo==='Crédito')pos+=l.minutos;else neg+=l.minutos});
-  document.getElementById('k-positivo').textContent=minToH(pos);
-  document.getElementById('k-negativo').textContent=minToH(neg);
+  const s=somar(lancamentos);
+  document.getElementById('k-positivo').textContent=minToH(s.cred);
+  document.getElementById('k-negativo').textContent=minToH(s.deb);
+  document.getElementById('k-justificado').textContent=minToH(s.just);
   document.getElementById('k-colabs').textContent=colabs.length;
 }
 
@@ -297,17 +304,17 @@ function renderLanc(){
   // resumo do que está filtrado (aparece só quando há algum filtro)
   const resumo=document.getElementById('lanc-resumo');
   if(fColab||fTipo||fMes||q){
-    let cred=0,deb=0;list.forEach(l=>{if(l.tipo==='Crédito')cred+=l.minutos;else deb+=l.minutos});
+    const {cred,deb,just}=somar(list);
     const saldo=cred-deb;
     const nome=fColab?(colabs.find(c=>String(c.id)===fColab)||{}).nome:'';
     resumo.style.display='block';
-    resumo.innerHTML=(nome?`<strong style="color:var(--text)">${nome}</strong> — `:'')+`${list.length} lançamento(s) · <span class="badge badge-green">+${minToH(cred)}</span> <span class="badge badge-red">−${minToH(deb)}</span> saldo <strong style="color:${saldo>=0?'var(--green)':'var(--red)'}">${saldo>=0?'+':''}${minToH(saldo)}</strong>`;
+    resumo.innerHTML=(nome?`<strong style="color:var(--text)">${nome}</strong> — `:'')+`${list.length} lançamento(s) · <span class="badge badge-green">+${minToH(cred)}</span> <span class="badge badge-red">−${minToH(deb)}</span>`+(just?` <span class="badge badge-purple">${minToH(just)} justificado</span>`:'')+` saldo <strong style="color:${saldo>=0?'var(--green)':'var(--red)'}">${saldo>=0?'+':''}${minToH(saldo)}</strong>`;
   }else resumo.style.display='none';
 
   const tb=document.getElementById('tb-lanc');
   if(!list.length){tb.innerHTML='<tr><td colspan="6" style="text-align:center;color:var(--text2)">Nenhum lançamento com esses filtros</td></tr>';return}
   tb.innerHTML=list.map(l=>{
-    const badge=l.tipo==='Crédito'?'badge-green':'badge-red';
+    const badge=badgeTipo(l.tipo);
     return `<tr>
       <td>${l.colab_nome||'-'}</td>
       <td><span class="badge ${badge}">${l.tipo}</span></td>
@@ -475,10 +482,10 @@ function fecharModalHistConv(){document.getElementById('modal-hist-conv').classL
 function renderSaldo(){
   const tb=document.getElementById('tb-saldo');
   const map={};
-  colabs.forEach(c=>map[c.id]={id:c.id,nome:c.nome,turno:c.turno||'-',cred:0,deb:0});
-  lancamentos.forEach(l=>{if(!map[l.colaborador_id])return;if(l.tipo==='Crédito')map[l.colaborador_id].cred+=l.minutos;else map[l.colaborador_id].deb+=l.minutos});
+  colabs.forEach(c=>map[c.id]={id:c.id,nome:c.nome,turno:c.turno||'-',cred:0,deb:0,just:0});
+  lancamentos.forEach(l=>{const m=map[l.colaborador_id];if(!m)return;if(l.tipo==='Crédito')m.cred+=l.minutos;else if(l.tipo==='Débito')m.deb+=l.minutos;else m.just+=l.minutos});
   const rows=Object.values(map).sort((a,b)=>a.nome.localeCompare(b.nome));
-  if(!rows.length){tb.innerHTML='<tr><td colspan="5" style="text-align:center;color:var(--text2)">Sem dados</td></tr>';return}
+  if(!rows.length){tb.innerHTML='<tr><td colspan="6" style="text-align:center;color:var(--text2)">Sem dados</td></tr>';return}
   tb.innerHTML=rows.map(r=>{
     const saldo=r.cred-r.deb;
     const badge=saldo>0?'badge-green':saldo<0?'badge-red':'badge-blue';
@@ -487,6 +494,7 @@ function renderSaldo(){
       <td>${r.turno}</td>
       <td><span class="badge badge-green">${minToH(r.cred)}</span></td>
       <td><span class="badge badge-red">${minToH(r.deb)}</span></td>
+      <td>${r.just?`<span class="badge badge-purple">${minToH(r.just)}</span>`:'<span style="color:var(--text2)">-</span>'}</td>
       <td><span class="badge ${badge}">${minToH(saldo)}</span></td>
     </tr>`;
   }).join('');
@@ -531,15 +539,13 @@ function renderHistMes(){
 
   let acc=0;
   const enriched=todos.map(l=>{
-    const v=l.tipo==='Crédito'?l.minutos:-l.minutos;
-    acc+=v;
+    acc+=valorSaldo(l);
     return {...l, acumulado:acc};
   });
 
   const list=enriched.filter(l=>isoMes(l.data)===mes);
 
-  let cred=0,deb=0;
-  list.forEach(l=>{if(l.tipo==='Crédito')cred+=l.minutos;else deb+=l.minutos});
+  const {cred,deb,just}=somar(list);
   const saldoMes=cred-deb;
   const saldoTotal=enriched.length?enriched[enriched.length-1].acumulado:0;
 
@@ -547,6 +553,7 @@ function renderHistMes(){
     <div class="hs-item"><div class="hs-num" style="color:var(--accent)">${list.length}</div><div class="hs-lbl">Lançamentos no mês</div></div>
     <div class="hs-item"><div class="hs-num" style="color:var(--green)">${minToH(cred)}</div><div class="hs-lbl">Créditos do mês</div></div>
     <div class="hs-item"><div class="hs-num" style="color:var(--red)">${minToH(deb)}</div><div class="hs-lbl">Débitos do mês</div></div>
+    <div class="hs-item"><div class="hs-num" style="color:var(--accent2)">${minToH(just)}</div><div class="hs-lbl">Justificado (não desconta)</div></div>
     <div class="hs-item"><div class="hs-num" style="color:${saldoMes>=0?'var(--green)':'var(--red)'}">${minToH(saldoMes)}</div><div class="hs-lbl">Saldo do mês</div></div>
     <div class="hs-item"><div class="hs-num" style="color:${saldoTotal>=0?'var(--green)':'var(--red)'}">${minToH(saldoTotal)}</div><div class="hs-lbl">Saldo acumulado</div></div>
   `;
@@ -557,7 +564,7 @@ function renderHistMes(){
     return;
   }
   tb.innerHTML=list.map(l=>{
-    const badge=l.tipo==='Crédito'?'badge-green':'badge-red';
+    const badge=badgeTipo(l.tipo);
     const accBadge=l.acumulado>0?'badge-green':l.acumulado<0?'badge-red':'badge-blue';
     return `<tr>
       <td>${fmt(l.data)}</td>

@@ -36,6 +36,11 @@ Os sistemas eram independentes e guardavam dados em lugares diferentes. Agora co
 - As consultas de aniversariantes usavam `HAVING` sem `GROUP BY`, o que o Postgres rejeita. Reescritas com subquery.
 - Layout retematizado com a identidade da Décio.
 
+**Banco de horas e EPIs (22/09/2026)**
+- Banco de Horas tem o tipo **Justificado** (atestado, declaração): fica registrado com os minutos, aparece nos KPIs, no saldo por colaborador e no histórico, mas não soma nem desconta do saldo. A API só aceita Crédito, Débito ou Justificado.
+- EPIs: quando um colaborador recebe uma nova entrega do mesmo EPI, a entrega anterior passa a **Substituído** e sai dos alertas, dos vencidos e dos KPIs. Vale para qualquer entrega anterior, vencida ou não. A regra é calculada na tela a partir das datas, então funciona também para entregas antigas.
+- Entregas → Motivo: opção **Esqueceu**.
+
 **Checklist de ferramentas e filtro do banco de horas (11/09/2026)**
 - A aba *Checklist* em Ferramentas virou uma conferência com histórico: cada ferramenta recebe OK / Com problema / Não encontrada, com observação, e o botão **Salvar conferência** grava tudo com data, hora, turno e responsável (tabelas `ferr_checklists` e `ferr_checklist_itens`). O que foi marcado fica guardado no aparelho até salvar, então um F5 não perde nada. A versão anterior nunca gravou: a tela e a API usavam formatos diferentes.
 - Cada item guarda uma cópia do código, nome e status da ferramenta naquele momento — renomear ou excluir a ferramenta depois não altera o histórico.
