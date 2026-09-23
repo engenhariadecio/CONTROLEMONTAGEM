@@ -94,6 +94,40 @@ router.get('/:modulo', requireAuth, async (req, res) => {
       styleHeader(itens);
     }
 
+    // ── LIMPEZA ──
+    else if (modulo === 'limpeza') {
+      sheet = workbook.addWorksheet('Limpezas feitas');
+      sheet.columns = [
+        { header:'Data', key:'feito_em', width:12 },
+        { header:'Hora', key:'feito_hora', width:8 },
+        { header:'Item', key:'item', width:30 },
+        { header:'Local', key:'local', width:22 },
+        { header:'Quem fez', key:'quem', width:28 },
+        { header:'Obs', key:'obs', width:40 }
+      ];
+      (await pool.query(`
+        SELECT to_char(a.feito_em,'DD/MM/YYYY') feito_em, to_char(a.feito_hora,'HH24:MI') feito_hora,
+               i.nome item, i.local, COALESCE(f.nome, c.nome) quem, a.obs
+          FROM lp_agenda a JOIN lp_itens i ON i.id=a.item_id
+          LEFT JOIN colaboradores c ON c.id=a.colaborador_id
+          LEFT JOIN colaboradores f ON f.id=a.feito_por_id
+         WHERE a.status='feito' ORDER BY a.feito_em DESC, a.feito_hora DESC`)).rows.forEach(r => sheet.addRow(r));
+
+      const it = workbook.addWorksheet('Itens');
+      it.columns = [
+        { header:'Item', key:'nome', width:30 }, { header:'Local', key:'local', width:22 },
+        { header:'Frequencia', key:'freq', width:16 }, { header:'Aviso (dias)', key:'aviso_dias', width:12 },
+        { header:'Responsavel', key:'responsavel', width:28 }, { header:'Ultima', key:'ultima', width:12 },
+        { header:'Ativo', key:'ativo', width:8 }, { header:'Descricao', key:'descricao', width:40 }
+      ];
+      (await pool.query(`
+        SELECT i.nome, i.local, i.freq_qtd || ' ' || i.freq_tipo freq, i.aviso_dias, c.nome responsavel,
+               to_char((SELECT MAX(feito_em) FROM lp_agenda a WHERE a.item_id=i.id AND a.status='feito'),'DD/MM/YYYY') ultima,
+               CASE WHEN i.ativo THEN 'Sim' ELSE 'Nao' END ativo, i.descricao
+          FROM lp_itens i LEFT JOIN colaboradores c ON c.id=i.responsavel_id ORDER BY i.nome`)).rows.forEach(r => it.addRow(r));
+      styleHeader(it);
+    }
+
     // ── EMPRESTIMOS ──
     else if (modulo === 'emprestimos') {
       sheet = workbook.addWorksheet('Emprestimos');

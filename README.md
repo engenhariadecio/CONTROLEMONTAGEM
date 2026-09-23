@@ -36,6 +36,13 @@ Os sistemas eram independentes e guardavam dados em lugares diferentes. Agora co
 - As consultas de aniversariantes usavam `HAVING` sem `GROUP BY`, o que o Postgres rejeita. Reescritas com subquery.
 - Layout retematizado com a identidade da Décio.
 
+**Módulo Limpeza (23/09/2026)** — `/progestao/limpeza`
+- **Itens** com local, frequência (a cada N dias/semanas/meses), antecedência do aviso, responsável padrão, descrição e fotos. A próxima limpeza é a última feita + frequência (ou a data de início, se nunca foi feita).
+- **Alertas**: itens agrupados em Vencidos / Vencem hoje / A vencer / Em dia, com "Registrar limpeza" (quem, data, hora, obs) e "Agendar" direto no card.
+- **Agenda**: por dia, com colaborador e turno. "Gerar agenda" cria os agendamentos de todos os itens pela frequência até uma data (pulando fins de semana, sem duplicar). Dar baixa num agendamento vira registro no histórico; registrar pelo item dá baixa no agendamento aberto mais próximo.
+- **Histórico** filtrável por item, colaborador e mês, com Excel (`/api/export/limpeza`).
+- Tabelas `lp_itens` e `lp_agenda` (agendado/feito na mesma tabela); rotas em `routes/limpeza.js`.
+
 **Desligamento, EPI descartável, seed (22/09/2026)**
 - Colaborador tem o status **Desligado** com data (Administração → Colaboradores → Editar). Some das listas de lançamento (banco de horas, EPIs, ferramentas, treinamentos, diário), mas todo o histórico continua. Na lista da administração ficam ocultos por padrão; há um "Mostrar desligados".
 - `seed.js` só cria os colaboradores e crachás padrão no **primeiro boot** (banco sem colaboradores). Antes rodava a cada deploy e recriava, como Ativo, qualquer montador padrão que tivesse sido excluído.
@@ -177,7 +184,7 @@ O UID cadastrado precisa ser exatamente o que o aparelho lê. Se um crachá novo
 ├── lib/turnos.js             cálculo de ciclos e detecção de turno
 ├── lib/fotos.js              entidades que aceitam fotos, validação, migração
 ├── middleware/auth.js        requireAuth / requireAdmin
-├── routes/                   14 arquivos de API
+├── routes/                   16 arquivos de API (inclui limpeza.js e fotos.js)
 └── public/
     ├── css/decio.css         design system da marca
     ├── js/core.js            API, avisos, cabeçalho, voz

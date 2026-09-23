@@ -517,6 +517,44 @@ CREATE INDEX IF NOT EXISTS idx_apont_det_decio ON prod_apontamentos_detalhados(c
 CREATE INDEX IF NOT EXISTS idx_apont_det_op    ON prod_apontamentos_detalhados(num_op);
 CREATE INDEX IF NOT EXISTS idx_apont_det_plano ON prod_apontamentos_detalhados(plano_id);
 
+/* ══════════════ LIMPEZA (itens com frequência + agenda por colaborador) ══════════════ */
+
+/* O que precisa ser limpo e de quanto em quanto tempo. A próxima limpeza é
+   calculada a partir da última feita (ou de "inicio", se nunca foi feita). */
+CREATE TABLE IF NOT EXISTS lp_itens (
+  id              SERIAL PRIMARY KEY,
+  nome            VARCHAR(200) NOT NULL,
+  local           VARCHAR(200),
+  descricao       TEXT,
+  freq_qtd        INTEGER NOT NULL DEFAULT 1,
+  freq_tipo       VARCHAR(10) NOT NULL DEFAULT 'dias',   -- dias | semanas | meses
+  aviso_dias      INTEGER NOT NULL DEFAULT 2,            -- alerta "a vencer" com N dias de antecedência
+  responsavel_id  INTEGER REFERENCES colaboradores(id) ON DELETE SET NULL,
+  inicio          DATE NOT NULL DEFAULT CURRENT_DATE,
+  ativo           BOOLEAN NOT NULL DEFAULT TRUE,
+  created_at      TIMESTAMPTZ DEFAULT NOW(),
+  updated_at      TIMESTAMPTZ DEFAULT NOW()
+);
+
+/* Agenda e histórico na mesma tabela: 'agendado' é o que está por fazer,
+   'feito' é o que já foi (com quem fez e quando). Registrar uma limpeza
+   sem agendamento prévio cria uma linha já como 'feito'. */
+CREATE TABLE IF NOT EXISTS lp_agenda (
+  id              SERIAL PRIMARY KEY,
+  item_id         INTEGER NOT NULL REFERENCES lp_itens(id) ON DELETE CASCADE,
+  colaborador_id  INTEGER REFERENCES colaboradores(id) ON DELETE SET NULL,
+  data            DATE NOT NULL,
+  turno           VARCHAR(60),
+  status          VARCHAR(20) NOT NULL DEFAULT 'agendado',  -- agendado | feito | cancelado
+  feito_em        DATE,
+  feito_hora      TIME,
+  feito_por_id    INTEGER REFERENCES colaboradores(id) ON DELETE SET NULL,
+  obs             TEXT,
+  created_at      TIMESTAMPTZ DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_lp_agenda_item ON lp_agenda(item_id, status, data);
+CREATE INDEX IF NOT EXISTS idx_lp_agenda_data ON lp_agenda(data, status);
+
 /* ══════════════ FOTOS (cadastros do ProGestão + Diário de Bordo) ══════════════ */
 
 /* Uma linha por foto. (entidade, registro_id) aponta para o cadastro dono —
