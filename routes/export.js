@@ -94,6 +94,29 @@ router.get('/:modulo', requireAuth, async (req, res) => {
       styleHeader(itens);
     }
 
+    // ── ADVERTÊNCIAS ──
+    else if (modulo === 'advertencias') {
+      sheet = workbook.addWorksheet('Advertencias');
+      sheet.columns = [
+        { header:'Data', key:'data', width:12 },
+        { header:'Colaborador', key:'colab', width:30 },
+        { header:'Tipo', key:'tipo', width:12 },
+        { header:'Dias suspensao', key:'dias_suspensao', width:14 },
+        { header:'Motivo', key:'motivo', width:30 },
+        { header:'Descricao', key:'descricao', width:50 },
+        { header:'Aplicada por', key:'aplicada_por', width:25 },
+        { header:'Testemunhas', key:'testemunhas', width:30 },
+        { header:'Assinou', key:'assinou', width:10 },
+        { header:'Obs', key:'obs', width:30 }
+      ];
+      (await pool.query(`
+        SELECT to_char(a.data,'DD/MM/YYYY') data, COALESCE(c.nome, a.colaborador_nome) colab, a.tipo, a.dias_suspensao,
+               a.motivo, a.descricao, a.aplicada_por, a.testemunhas,
+               CASE WHEN a.assinou IS TRUE THEN 'Sim' WHEN a.assinou IS FALSE THEN 'Recusou' ELSE '' END assinou, a.obs
+          FROM tr_advertencias a LEFT JOIN colaboradores c ON c.id=a.colaborador_id
+         ORDER BY a.data DESC`)).rows.forEach(r => sheet.addRow(r));
+    }
+
     // ── LIMPEZA ──
     else if (modulo === 'limpeza') {
       sheet = workbook.addWorksheet('Limpezas feitas');

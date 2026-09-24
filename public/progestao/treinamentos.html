@@ -18,6 +18,13 @@
 .toast{position:fixed;top:20px;right:20px;padding:14px 24px;border-radius:var(--radius);color:#fff;font-weight:600;z-index:9999;animation:slideIn .3s}@keyframes slideIn{from{transform:translateX(100%);opacity:0}to{transform:translateX(0);opacity:1}}
 .section{display:none}.section.active{display:block}
 .search-bar{display:flex;gap:10px;margin-bottom:16px;flex-wrap:wrap;align-items:center}.search-bar input,.search-bar select{padding:8px 14px;border-radius:8px;border:1px solid var(--border);background:var(--card2);color:var(--text);font-size:.88rem}.search-bar input{flex:1;min-width:200px}
+.badge-orange{background:rgba(232,140,74,.15);color:var(--orange,#E88C4A)}.badge-gray{background:rgba(160,180,190,.15);color:var(--text2)}
+.modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:999;align-items:center;justify-content:center}.modal-overlay.show{display:flex}
+.modal{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:24px;max-width:760px;width:92%;max-height:90vh;overflow-y:auto}.modal h3{margin-bottom:12px}.modal .btns{display:flex;gap:10px;margin-top:16px;justify-content:flex-end}
+.adv-det{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px;margin:10px 0 14px}.adv-det div{background:var(--card2);border-radius:8px;padding:8px 12px;font-size:.78rem;color:var(--text2)}.adv-det div b{display:block;color:var(--text);font-size:.92rem;margin-top:2px}
+.adv-texto{background:var(--card2);border-radius:8px;padding:12px;white-space:pre-wrap;font-size:.88rem;line-height:1.5;margin-bottom:12px}
+.adv-hist{font-size:.78rem;color:var(--text2);margin:-6px 0 12px}
+.search-bar{display:flex;gap:10px;margin-bottom:14px;flex-wrap:wrap;align-items:center}.search-bar input,.search-bar select{padding:8px 12px;border-radius:8px;border:1px solid var(--border);background:var(--card2);color:var(--text);font-size:.85rem}
 @media(max-width:768px){.sidebar{display:none}.form-grid{grid-template-columns:1fr}.kpis{grid-template-columns:1fr 1fr}}
 </style>
 <link rel="icon" href="/assets/logo-decio.png">
@@ -83,6 +90,7 @@ a{color:var(--accent)}
     <div class="tab" onclick="showTab('presencas')">✅ Presenças</div>
     <div class="tab" onclick="showTab('agenda')">📅 Agenda</div>
     <div class="tab" onclick="showTab('alertas')">⚠ Alertas</div>
+    <div class="tab" onclick="showTab('advertencias')">📢 Advertências</div>
   </div>
 
   <!-- LISTA -->
@@ -150,6 +158,44 @@ a{color:var(--accent)}
     <div class="tbl-wrap" style="margin-top:14px"><table><thead><tr><th>Treinamento</th><th>Colaborador</th><th>Data</th><th>Validade</th><th>Dias Rest.</th><th>Status</th></tr></thead><tbody id="tb-alertas"></tbody></table></div>
   </div>
 
+  <!-- ADVERTÊNCIAS -->
+  <div class="section" id="sec-advertencias">
+    <h3 id="adv-form-titulo">📢 Registrar Advertência</h3>
+    <div class="form-grid" style="margin:14px 0">
+      <div class="form-group"><label>Colaborador *</label><select id="adv-colab" onchange="advHistColab()"></select><div class="adv-hist" id="adv-hist" style="margin-top:6px"></div></div>
+      <div class="form-group"><label>Tipo *</label><select id="adv-tipo" onchange="advTipoMudou()"><option>Verbal</option><option>Escrita</option><option>Suspensão</option></select></div>
+      <div class="form-group"><label>Data *</label><input id="adv-data" type="date"></div>
+      <div class="form-group" id="adv-dias-wrap" style="display:none"><label>Dias de suspensão</label><input id="adv-dias" type="number" min="1" value="1"></div>
+      <div class="form-group" style="grid-column:1/-1"><label>Motivo *</label><input id="adv-motivo" placeholder="Ex: Atraso reiterado / Uso indevido de EPI / Descumprimento de procedimento" maxlength="200"></div>
+      <div class="form-group" style="grid-column:1/-1"><label>Descrição dos fatos</label><textarea id="adv-desc" rows="4" placeholder="O que aconteceu, quando, onde, quem estava presente..."></textarea></div>
+      <div class="form-group"><label>Aplicada por</label><input id="adv-por" placeholder="Em branco = usuário logado"></div>
+      <div class="form-group"><label>Testemunhas</label><input id="adv-test" placeholder="Nomes, separados por vírgula"></div>
+      <div class="form-group"><label>Colaborador assinou?</label><select id="adv-assinou"><option value="">Não informado</option><option value="true">Sim, assinou</option><option value="false">Recusou-se a assinar</option></select></div>
+      <div class="form-group"><label>Obs</label><input id="adv-obs"></div>
+    </div>
+    <div id="fotos-adv"></div>
+    <div style="margin-top:14px;display:flex;gap:10px">
+      <button class="btn-sm btn-green" onclick="salvarAdv()">💾 Salvar advertência</button>
+      <button class="btn-sm btn-ghost" onclick="cancelarAdv()">Limpar</button>
+    </div>
+
+    <h3 style="margin-top:32px">Histórico de advertências</h3>
+    <div class="search-bar" style="margin-top:10px">
+      <select id="adv-f-colab" onchange="renderAdv()"><option value="">Todos os colaboradores</option></select>
+      <select id="adv-f-tipo" onchange="renderAdv()"><option value="">Todos os tipos</option><option>Verbal</option><option>Escrita</option><option>Suspensão</option></select>
+      <input type="month" id="adv-f-mes" onchange="renderAdv()">
+      <span id="adv-resumo" style="font-size:.82rem;color:var(--text2)"></span>
+      <button class="btn-sm btn-green" onclick="exportAdv()" style="margin-left:auto">⬇ Excel</button>
+    </div>
+    <div class="tbl-wrap"><table><thead><tr><th>Data</th><th>Colaborador</th><th>Nº</th><th>Tipo</th><th>Motivo</th><th>Aplicada por</th><th>Assinatura</th><th>Doc.</th><th>Ações</th></tr></thead><tbody id="tb-adv"></tbody></table></div>
+  </div>
+
+  <!-- MODAL DETALHE ADVERTÊNCIA -->
+  <div class="modal-overlay" id="modal-adv" onclick="if(event.target===this)this.classList.remove('show')">
+    <div class="modal"><h3 id="madv-titulo">Advertência</h3><div id="madv-corpo"></div>
+      <div class="btns"><button class="btn-sm btn-ghost" onclick="document.getElementById('modal-adv').classList.remove('show')">Fechar</button></div></div>
+  </div>
+
 </div></div>
 
 <script src="/js/fotos.js"></script>
@@ -157,6 +203,8 @@ a{color:var(--accent)}
 let treinos=[],registros=[],presencas=[],agenda=[],colabs=[],colabsTodos=[];   // colabs = sem desligados
 let editTrId=null;
 let fotosTreino={};
+let advertencias=[],fotosAdv={},advEditId=null;
+const galAdv=Fotos.galeria('#fotos-adv',{entidade:'advertencia',titulo:'Documento assinado / fotos (opcional)'});
 const galTreino=Fotos.galeria('#fotos-treino',{entidade:'treinamento',titulo:'Fotos do treinamento (material, certificado, registro fotográfico)'});
 const api={
   async get(u){const r=await fetch(u);if(r.status===401)return location.href='/login';return r.json()},
@@ -175,9 +223,10 @@ function showTab(t){
   document.querySelectorAll('.section').forEach(s=>s.classList.remove('active'));
   document.querySelectorAll('.tab').forEach(s=>s.classList.remove('active'));
   document.getElementById('sec-'+t).classList.add('active');
-  if(event&&event.target)event.target.classList.add('active');
-  if(['registros','agenda'].includes(t))populateSelects();
+  const tab=document.querySelector(`.tab[onclick="showTab('${t}')"]`);if(tab)tab.classList.add('active');
+  if(['registros','agenda','advertencias'].includes(t))populateSelects();
   if(t==='alertas')renderAlertas();
+  if(t==='advertencias'){const d=document.getElementById('adv-data');if(!d.value)d.value=new Date().toISOString().split('T')[0]}
 }
 
 function populateSelects(){
@@ -187,16 +236,19 @@ function populateSelects(){
   });
   const sc=document.getElementById('r-colab');
   if(sc)sc.innerHTML='<option value="">Selecione...</option>'+colabs.map(c=>`<option value="${c.id}">${c.nome}</option>`).join('');
+  const sa=document.getElementById('adv-colab');const va=sa.value;
+  sa.innerHTML='<option value="">Selecione...</option>'+colabs.map(c=>`<option value="${c.id}">${c.nome}</option>`).join('');sa.value=va;
   const today=new Date().toISOString().split('T')[0];
   ['r-data','ag-data'].forEach(id=>{const e=document.getElementById(id);if(e&&!e.value)e.value=today});
 }
 
 async function loadAll(){
-  [treinos,registros,presencas,agenda,colabs,fotosTreino]=await Promise.all([
-    api.get('/api/treinamentos'),api.get('/api/tr-registros'),api.get('/api/tr-presencas'),api.get('/api/tr-agenda'),api.get('/api/colaboradores'),Fotos.mapa('treinamento')
+  [treinos,registros,presencas,agenda,colabs,fotosTreino,advertencias,fotosAdv]=await Promise.all([
+    api.get('/api/treinamentos'),api.get('/api/tr-registros'),api.get('/api/tr-presencas'),api.get('/api/tr-agenda'),api.get('/api/colaboradores'),Fotos.mapa('treinamento'),
+    api.get('/api/tr-advertencias'),Fotos.mapa('advertencia')
   ]);
   colabsTodos=colabs;colabs=colabs.filter(c=>c.status!=='Desligado');
-  updateKPIs();renderLista();renderReg();renderPres();renderAg();
+  updateKPIs();renderLista();renderReg();renderPres();renderAg();renderAdv();
 }
 
 function updateKPIs(){
@@ -322,6 +374,86 @@ function renderAlertas(){
     return `<tr><td>${r.treino}</td><td>${r.colab}</td><td>${fmt(r.data)}</td><td>${fmt(r.val)}</td><td>${r.dd}d</td><td>${badge}</td></tr>`;
   }).join('');
 }
+
+/* ============ ADVERTÊNCIAS ============ */
+const ADV_BADGE={Verbal:'badge-yellow',Escrita:'badge-orange','Suspensão':'badge-red'};
+function fmtISO(s){if(!s)return'-';const p=String(s).slice(0,10).split('-');return p.length===3?p[2]+'/'+p[1]+'/'+p[0]:'-'}
+function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
+/* nº da advertência para o colaborador, contando da mais antiga para a mais nova */
+function advNumero(a){
+  const doColab=advertencias.filter(x=>x.colaborador_id===a.colaborador_id).sort((x,y)=>(x.data+x.id).localeCompare(y.data+y.id));
+  return doColab.findIndex(x=>x.id===a.id)+1;
+}
+function advTipoMudou(){document.getElementById('adv-dias-wrap').style.display=document.getElementById('adv-tipo').value==='Suspensão'?'':'none'}
+function advHistColab(){
+  const id=Number(document.getElementById('adv-colab').value);const el=document.getElementById('adv-hist');
+  if(!id){el.textContent='';return}
+  const lst=advertencias.filter(a=>a.colaborador_id===id);
+  if(!lst.length){el.innerHTML='<span style="color:var(--green)">Nenhuma advertência anterior</span>';return}
+  const c={Verbal:0,Escrita:0,'Suspensão':0};lst.forEach(a=>c[a.tipo]=(c[a.tipo]||0)+1);
+  el.innerHTML='<span style="color:var(--yellow)">Já tem '+lst.length+' advertência(s):</span> '+Object.keys(c).filter(k=>c[k]).map(k=>c[k]+' '+k.toLowerCase()).join(', ')+' — última em '+fmtISO(lst[0].data);
+}
+function cancelarAdv(){
+  advEditId=null;document.getElementById('adv-form-titulo').textContent='📢 Registrar Advertência';
+  ['adv-colab','adv-motivo','adv-desc','adv-por','adv-test','adv-obs','adv-assinou'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('adv-tipo').value='Verbal';document.getElementById('adv-dias').value=1;advTipoMudou();
+  document.getElementById('adv-data').value=new Date().toISOString().split('T')[0];
+  document.getElementById('adv-colab').disabled=false;document.getElementById('adv-hist').textContent='';
+  galAdv.limpar();
+}
+async function salvarAdv(){
+  const body={colaborador_id:document.getElementById('adv-colab').value,tipo:document.getElementById('adv-tipo').value,data:document.getElementById('adv-data').value,dias_suspensao:parseInt(document.getElementById('adv-dias').value)||null,motivo:document.getElementById('adv-motivo').value.trim(),descricao:document.getElementById('adv-desc').value,aplicada_por:document.getElementById('adv-por').value,testemunhas:document.getElementById('adv-test').value,assinou:document.getElementById('adv-assinou').value||null,obs:document.getElementById('adv-obs').value};
+  if(!body.colaborador_id)return toast('Selecione o colaborador','error');
+  if(!body.data)return toast('Informe a data','error');
+  if(!body.motivo)return toast('Informe o motivo','error');
+  const r=advEditId?await api.put('/api/tr-advertencias/'+advEditId,body):await api.post('/api/tr-advertencias',body);
+  if(!r||r.error)return toast(r&&r.error?r.error:'Erro ao salvar','error');
+  await galAdv.salvar(r.id);
+  toast(advEditId?'Advertência atualizada!':'Advertência registrada!');
+  cancelarAdv();await loadAll();showTab('advertencias');
+}
+function editarAdv(id){
+  const a=advertencias.find(x=>x.id===id);if(!a)return;
+  advEditId=id;document.getElementById('adv-form-titulo').textContent='✏ Editar advertência';
+  populateSelects();
+  const sc=document.getElementById('adv-colab');
+  if(![...sc.options].some(o=>Number(o.value)===a.colaborador_id))sc.innerHTML+=`<option value="${a.colaborador_id||''}">${esc(a.colab_nome)} (desligado)</option>`;
+  sc.value=a.colaborador_id||'';sc.disabled=true;
+  document.getElementById('adv-tipo').value=a.tipo;document.getElementById('adv-dias').value=a.dias_suspensao||1;advTipoMudou();
+  document.getElementById('adv-data').value=a.data;document.getElementById('adv-motivo').value=a.motivo||'';document.getElementById('adv-desc').value=a.descricao||'';
+  document.getElementById('adv-por').value=a.aplicada_por||'';document.getElementById('adv-test').value=a.testemunhas||'';document.getElementById('adv-obs').value=a.obs||'';
+  document.getElementById('adv-assinou').value=a.assinou===true?'true':a.assinou===false?'false':'';
+  advHistColab();galAdv.carregar(id);
+  window.scrollTo({top:0,behavior:'smooth'});
+}
+function renderAdv(){
+  const fc=document.getElementById('adv-f-colab');const fcv=fc.value;
+  const comAdv=new Map();advertencias.forEach(a=>{if(a.colaborador_id)comAdv.set(a.colaborador_id,a.colab_nome)});
+  fc.innerHTML='<option value="">Todos os colaboradores</option>'+[...comAdv].sort((a,b)=>a[1].localeCompare(b[1])).map(([id,n])=>`<option value="${id}">${esc(n)}</option>`).join('');fc.value=fcv;
+  const ft=document.getElementById('adv-f-tipo').value,fm=document.getElementById('adv-f-mes').value;
+  const list=advertencias.filter(a=>(!fcv||String(a.colaborador_id)===fcv)&&(!ft||a.tipo===ft)&&(!fm||String(a.data).slice(0,7)===fm));
+  document.getElementById('adv-resumo').textContent=list.length+' registro(s)';
+  const tb=document.getElementById('tb-adv');
+  if(!list.length){tb.innerHTML='<tr><td colspan="9" style="text-align:center;color:var(--text2)">Nenhuma advertência</td></tr>';return}
+  tb.innerHTML=list.map(a=>{
+    const ass=a.assinou===true?'<span class="badge badge-green">Assinou</span>':a.assinou===false?'<span class="badge badge-red">Recusou</span>':'<span class="badge badge-gray">—</span>';
+    const tipo=`<span class="badge ${ADV_BADGE[a.tipo]||'badge-blue'}">${a.tipo}${a.tipo==='Suspensão'&&a.dias_suspensao?' · '+a.dias_suspensao+'d':''}</span>`;
+    return `<tr><td>${fmtISO(a.data)}</td><td><strong>${esc(a.colab_nome)}</strong>${a.colaborador_id?'':' <span class="badge badge-gray">excluído</span>'}</td><td>${advNumero(a)}ª</td><td style="white-space:nowrap">${tipo}</td><td style="max-width:260px;white-space:normal">${esc(a.motivo)}</td><td>${esc(a.aplicada_por||'-')}</td><td>${ass}</td><td>${Fotos.miniaturas(fotosAdv[a.id],{max:1})}</td>
+      <td style="white-space:nowrap"><button class="btn-sm btn-ghost" onclick="verAdv(${a.id})">👁</button> <button class="btn-sm btn-ghost" onclick="editarAdv(${a.id})">✏</button> <button class="btn-sm btn-danger" onclick="delAdv(${a.id})">🗑</button></td></tr>`;
+  }).join('');
+}
+function verAdv(id){
+  const a=advertencias.find(x=>x.id===id);if(!a)return;
+  document.getElementById('madv-titulo').textContent=`${advNumero(a)}ª advertência — ${a.colab_nome}`;
+  let h=`<div class="adv-det"><div>Data<b>${fmtISO(a.data)}</b></div><div>Tipo<b><span class="badge ${ADV_BADGE[a.tipo]||'badge-blue'}">${a.tipo}</span>${a.tipo==='Suspensão'&&a.dias_suspensao?' '+a.dias_suspensao+' dia(s)':''}</b></div><div>Aplicada por<b>${esc(a.aplicada_por||'-')}</b></div><div>Assinatura<b>${a.assinou===true?'Assinou':a.assinou===false?'Recusou-se a assinar':'Não informado'}</b></div>${a.testemunhas?`<div>Testemunhas<b>${esc(a.testemunhas)}</b></div>`:''}${a.registrado_por_nome?`<div>Registrado por<b>${esc(a.registrado_por_nome)}</b></div>`:''}</div>`;
+  h+=`<div style="font-size:.8rem;color:var(--text2);margin-bottom:4px">Motivo</div><div class="adv-texto">${esc(a.motivo)}</div>`;
+  if(a.descricao)h+=`<div style="font-size:.8rem;color:var(--text2);margin-bottom:4px">Descrição dos fatos</div><div class="adv-texto">${esc(a.descricao)}</div>`;
+  if(a.obs)h+=`<div style="font-size:.8rem;color:var(--text2);margin-bottom:4px">Obs</div><div class="adv-texto">${esc(a.obs)}</div>`;
+  const g=Fotos.grade(fotosAdv[a.id]);if(g)h+=`<div style="font-size:.8rem;color:var(--text2)">Documento / fotos</div>`+g;
+  document.getElementById('madv-corpo').innerHTML=h;document.getElementById('modal-adv').classList.add('show');
+}
+async function delAdv(id){if(!confirm('Excluir esta advertência do histórico?'))return;await api.del('/api/tr-advertencias/'+id);toast('Excluída');await loadAll();showTab('advertencias')}
+async function exportAdv(){try{const r=await fetch('/api/export/advertencias');if(!r.ok)throw 0;const b=await r.blob();const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download='advertencias.xlsx';a.click();toast('Excel exportado!')}catch(e){toast('Erro ao exportar','error')}}
 
 async function loadUser(){try{const u=await api.get('/api/me');document.getElementById('user-display').textContent=u.nome||u.username}catch(e){}}
 async function init(){updateClock();await loadUser();await loadAll()}

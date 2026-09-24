@@ -36,6 +36,11 @@ Os sistemas eram independentes e guardavam dados em lugares diferentes. Agora co
 - As consultas de aniversariantes usavam `HAVING` sem `GROUP BY`, o que o Postgres rejeita. Reescritas com subquery.
 - Layout retematizado com a identidade da Décio.
 
+**Advertências (24/09/2026)** — aba nova em Treinamentos
+- Registro por colaborador com tipo (Verbal, Escrita, Suspensão com dias), data, motivo, descrição dos fatos, quem aplicou (em branco = usuário logado), testemunhas, se o colaborador assinou ou recusou, e fotos do documento assinado.
+- Ao escolher o colaborador, o formulário mostra quantas advertências ele já tem. O histórico numera (1ª, 2ª, 3ª...) e filtra por colaborador, tipo e mês; detalhe em modal; Excel em `/api/export/advertencias`.
+- Tabela `tr_advertencias` guarda uma cópia do nome do colaborador para o registro sobreviver à exclusão do cadastro.
+
 **Desligados fora de todas as listas (24/09/2026)**
 - Regra única em todos os módulos: cada tela carrega a lista de colaboradores **sem os desligados** (`colabs`) e guarda a completa (`colabsTodos`) só para exibir o nome em registros antigos. Vale para selects de lançamento, checking de EPIs, saldo do banco de horas, sugestões do diário, aba Colaboradores de ferramentas, responsável/filtros de limpeza e vínculo de crachá na administração.
 - Ao editar um registro de quem já foi desligado (lançamento, convite, agendamento, crachá), o nome dele continua na lista, marcado "(desligado)", para não perder o vínculo.

@@ -517,6 +517,27 @@ CREATE INDEX IF NOT EXISTS idx_apont_det_decio ON prod_apontamentos_detalhados(c
 CREATE INDEX IF NOT EXISTS idx_apont_det_op    ON prod_apontamentos_detalhados(num_op);
 CREATE INDEX IF NOT EXISTS idx_apont_det_plano ON prod_apontamentos_detalhados(plano_id);
 
+/* ══════════════ ADVERTÊNCIAS (módulo Treinamentos) ══════════════ */
+/* Guarda uma cópia do nome do colaborador: a advertência continua legível
+   mesmo se o cadastro for excluído. */
+CREATE TABLE IF NOT EXISTS tr_advertencias (
+  id               SERIAL PRIMARY KEY,
+  colaborador_id   INTEGER REFERENCES colaboradores(id) ON DELETE SET NULL,
+  colaborador_nome VARCHAR(200),
+  data             DATE NOT NULL,
+  tipo             VARCHAR(20) NOT NULL DEFAULT 'Verbal',   -- Verbal | Escrita | Suspensão
+  dias_suspensao   INTEGER,
+  motivo           VARCHAR(200) NOT NULL,
+  descricao        TEXT,
+  aplicada_por     VARCHAR(200),
+  testemunhas      VARCHAR(300),
+  assinou          BOOLEAN,                                  -- NULL = não informado, FALSE = recusou
+  obs              TEXT,
+  registrado_por   INTEGER REFERENCES users(id) ON DELETE SET NULL,
+  created_at       TIMESTAMPTZ DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_tr_adv_colab ON tr_advertencias(colaborador_id, data DESC);
+
 /* ══════════════ LIMPEZA (itens com frequência + agenda por colaborador) ══════════════ */
 
 /* O que precisa ser limpo e de quanto em quanto tempo. A próxima limpeza é
