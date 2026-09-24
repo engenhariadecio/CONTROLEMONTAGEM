@@ -392,7 +392,7 @@ a{color:var(--accent)}
 <script src="/js/fotos.js"></script>
 <script>
 /* ============ GLOBALS ============ */
-let ferramentas=[],emprestimos=[],manutencoes=[],colabs=[],clData={};
+let ferramentas=[],emprestimos=[],manutencoes=[],colabs=[],colabsTodos=[],clData={};   // colabs = sem desligados
 let editId=null;
 let fotosFerr={};   // { id_ferramenta: [ids das fotos] }
 const galFerr=Fotos.galeria('#fotos-ferr',{entidade:'ferramenta',titulo:'Fotos da ferramenta'});
@@ -446,6 +446,7 @@ async function loadAll(){
     api.get('/api/colaboradores'),
     Fotos.mapa('ferramenta')
   ]);
+  colabsTodos=colabs;colabs=colabs.filter(c=>c.status!=='Desligado');
   updateKPIs();renderLista();renderEmp();renderMan();populateCatFilter();
 }
 
@@ -552,7 +553,7 @@ function populateEmpSelects(){
   const sf=document.getElementById('emp-ferr');
   sf.innerHTML='<option value="">Selecione...</option>'+ferramentas.filter(f=>f.status==='Disponível').map(f=>`<option value="${f.id}">${f.codigo} — ${f.nome}</option>`).join('');
   const sc=document.getElementById('emp-colab');
-  sc.innerHTML='<option value="">Selecione...</option>'+colabs.filter(c=>c.status!=='Desligado').map(c=>`<option value="${c.id}">${c.nome}</option>`).join('');
+  sc.innerHTML='<option value="">Selecione...</option>'+colabs.map(c=>`<option value="${c.id}">${c.nome}</option>`).join('');
   document.getElementById('emp-dt').value=new Date().toISOString().slice(0,16);
 }
 
@@ -593,7 +594,7 @@ function populateManSelects(){
   const sf=document.getElementById('man-ferr');
   sf.innerHTML='<option value="">Selecione...</option>'+ferramentas.map(f=>`<option value="${f.id}">${f.codigo} — ${f.nome}</option>`).join('');
   const sr=document.getElementById('man-resp');
-  sr.innerHTML='<option value="">Selecione...</option>'+colabs.filter(c=>c.status!=='Desligado').map(c=>`<option value="${c.id}">${c.nome}</option>`).join('');
+  sr.innerHTML='<option value="">Selecione...</option>'+colabs.map(c=>`<option value="${c.id}">${c.nome}</option>`).join('');
   document.getElementById('man-env').value=new Date().toISOString().split('T')[0];
 }
 
@@ -805,7 +806,7 @@ function renderAlertas(){
 /* ============ COLABORADORES ============ */
 function renderColabs(){
   const q=(document.getElementById('colab-busca').value||'').toLowerCase();
-  const list=colabs.filter(c=>c.status!=='Desligado'&&(c.nome||'').toLowerCase().includes(q));
+  const list=colabs.filter(c=>(c.nome||'').toLowerCase().includes(q));
   const grid=document.getElementById('colab-grid');
   if(!list.length){grid.innerHTML='<p style="color:var(--text2)">Nenhum colaborador encontrado.</p>';return}
   grid.innerHTML=list.map(c=>`<div class="colab-card"><div class="colab-av">${initials(c.nome)}</div><div class="colab-info"><div class="cn">${c.nome}</div><div class="cm">${c.cargo||'-'}</div><div class="cc">${c.turno||'-'}</div></div></div>`).join('');

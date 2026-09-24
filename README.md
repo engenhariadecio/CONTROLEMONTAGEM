@@ -36,6 +36,10 @@ Os sistemas eram independentes e guardavam dados em lugares diferentes. Agora co
 - As consultas de aniversariantes usavam `HAVING` sem `GROUP BY`, o que o Postgres rejeita. Reescritas com subquery.
 - Layout retematizado com a identidade da Décio.
 
+**Desligados fora de todas as listas (24/09/2026)**
+- Regra única em todos os módulos: cada tela carrega a lista de colaboradores **sem os desligados** (`colabs`) e guarda a completa (`colabsTodos`) só para exibir o nome em registros antigos. Vale para selects de lançamento, checking de EPIs, saldo do banco de horas, sugestões do diário, aba Colaboradores de ferramentas, responsável/filtros de limpeza e vínculo de crachá na administração.
+- Ao editar um registro de quem já foi desligado (lançamento, convite, agendamento, crachá), o nome dele continua na lista, marcado "(desligado)", para não perder o vínculo.
+
 **Módulo Limpeza (23/09/2026)** — `/progestao/limpeza`
 - **Itens** com local, frequência (a cada N dias/semanas/meses), antecedência do aviso, responsável padrão, descrição e fotos. A próxima limpeza é a última feita + frequência (ou a data de início, se nunca foi feita).
 - **Alertas**: itens agrupados em Vencidos / Vencem hoje / A vencer / Em dia, com "Registrar limpeza" (quem, data, hora, obs) e "Agendar" direto no card.

@@ -382,7 +382,7 @@ a{color:var(--accent)}
 <script src="/js/fotos.js"></script>
 <script>
 /* ============ GLOBALS ============ */
-var epis=[], entregas=[], colabs=[], checkings=[];
+var epis=[], entregas=[], colabs=[], colabsTodos=[], checkings=[];   // colabs = sem desligados
 var editId=null;
 var fotosEpi={};   // { id_do_epi: [ids das fotos] }
 var galEpi=Fotos.galeria('#fotos-epi',{entidade:'epi',titulo:'Fotos do EPI'});
@@ -457,7 +457,7 @@ async function loadAll(){
   fotosEpi=results[4]||{};
   epis=results[0]||[];
   entregas=results[1]||[];
-  colabs=results[2]||[];
+  colabsTodos=results[2]||[];colabs=colabsTodos.filter(function(c){return c.status!=='Desligado'});
   checkings=results[3]||[];
   colabs.sort(function(a,b){return (a.nome||'').localeCompare(b.nome||'','pt-BR')});
   checkings.forEach(function(c){if(typeof c.registros==='string'){try{c.registros=JSON.parse(c.registros)}catch(e){c.registros=[]}}});
@@ -572,7 +572,7 @@ function populateSelects(){
   var se=document.getElementById('e-epi');
   se.innerHTML='<option value="">Selecione...</option>'+epis.map(function(e){return'<option value="'+e.id+'">'+escHtml(e.nome)+'</option>'}).join('');
   var sc=document.getElementById('e-colab');
-  sc.innerHTML='<option value="">Selecione...</option>'+colabs.filter(function(c){return c.status!=='Desligado'}).map(function(c){return'<option value="'+c.id+'">'+escHtml(c.nome)+'</option>'}).join('');
+  sc.innerHTML='<option value="">Selecione...</option>'+colabs.map(function(c){return'<option value="'+c.id+'">'+escHtml(c.nome)+'</option>'}).join('');
   if(!document.getElementById('e-data').value)document.getElementById('e-data').value=hoje();
 }
 async function salvarEntrega(){
@@ -735,7 +735,7 @@ async function salvarChecking(){
     var colab_id=chColabsSel[i];
     btn.textContent='Salvando '+(i+1)+'/'+total+'...';
 
-    var colab=colabs.find(function(c){return c.id===colab_id});
+    var colab=colabsTodos.find(function(c){return c.id===colab_id});
     var detalhe={
       hora:hora,
       colaborador_id:colab_id,

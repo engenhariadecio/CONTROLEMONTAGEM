@@ -494,7 +494,9 @@ async function carregarCrachas() {
 
 function abrirCracha(id) {
   const c = CRACHAS.find(x => x.id === id) || {};
-  const opc = COLABS.map(x => `<option value="${x.id}" ${c.colaborador_id === x.id ? 'selected' : ''}>${escapar(x.nome)}</option>`).join('');
+  // só quem está na empresa, mais o colaborador já vinculado a este crachá (mesmo que desligado)
+  const opc = COLABS.filter(x => x.status !== 'Desligado' || x.id === c.colaborador_id)
+    .map(x => `<option value="${x.id}" ${c.colaborador_id === x.id ? 'selected' : ''}>${escapar(x.nome)}${x.status === 'Desligado' ? ' (desligado)' : ''}</option>`).join('');
   modal(id ? 'Editar crachá' : 'Novo crachá NFC', `
     <div class="grade-form">
       <div class="campo"><label class="rotulo" for="crUid">UID do crachá <span class="obrig">*</span></label>

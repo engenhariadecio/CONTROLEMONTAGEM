@@ -154,7 +154,7 @@ a{color:var(--accent)}
 
 <script src="/js/fotos.js"></script>
 <script>
-let treinos=[],registros=[],presencas=[],agenda=[],colabs=[];
+let treinos=[],registros=[],presencas=[],agenda=[],colabs=[],colabsTodos=[];   // colabs = sem desligados
 let editTrId=null;
 let fotosTreino={};
 const galTreino=Fotos.galeria('#fotos-treino',{entidade:'treinamento',titulo:'Fotos do treinamento (material, certificado, registro fotográfico)'});
@@ -186,7 +186,7 @@ function populateSelects(){
     s.innerHTML='<option value="">Selecione...</option>'+treinos.map(t=>`<option value="${t.id}">${t.nome}</option>`).join('');
   });
   const sc=document.getElementById('r-colab');
-  if(sc)sc.innerHTML='<option value="">Selecione...</option>'+colabs.filter(c=>c.status!=='Desligado').map(c=>`<option value="${c.id}">${c.nome}</option>`).join('');
+  if(sc)sc.innerHTML='<option value="">Selecione...</option>'+colabs.map(c=>`<option value="${c.id}">${c.nome}</option>`).join('');
   const today=new Date().toISOString().split('T')[0];
   ['r-data','ag-data'].forEach(id=>{const e=document.getElementById(id);if(e&&!e.value)e.value=today});
 }
@@ -195,6 +195,7 @@ async function loadAll(){
   [treinos,registros,presencas,agenda,colabs,fotosTreino]=await Promise.all([
     api.get('/api/treinamentos'),api.get('/api/tr-registros'),api.get('/api/tr-presencas'),api.get('/api/tr-agenda'),api.get('/api/colaboradores'),Fotos.mapa('treinamento')
   ]);
+  colabsTodos=colabs;colabs=colabs.filter(c=>c.status!=='Desligado');
   updateKPIs();renderLista();renderReg();renderPres();renderAg();
 }
 

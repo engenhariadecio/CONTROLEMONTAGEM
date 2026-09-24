@@ -206,7 +206,7 @@ a{color:var(--accent)}
 </div></div>
 
 <script>
-let lancamentos=[],convites=[],colabs=[];
+let lancamentos=[],convites=[],colabs=[],colabsTodos=[];   // colabs = sem desligados; colabsTodos = inclusive desligados (só para registros antigos)
 let histColabId=null;
 
 const api={
@@ -231,8 +231,13 @@ function isoMes(d){return d?String(d).slice(0,7):''}
 
 /* Efeito de um lançamento no saldo: crédito soma, débito desconta, justificado
    (atestado, declaração) só fica registrado e vale 0. */
-/* Desligados ficam fora dos selects de lançamento novo; no histórico e no saldo continuam */
-function ativos(){return colabs.filter(c=>c.status!=='Desligado')}
+function ativos(){return colabs}
+/* Select de edição: os ativos + o colaborador do registro, mesmo que já desligado */
+function opcoesEdicao(idAtual){
+  let lista=colabs.slice();
+  if(idAtual&&!lista.some(c=>c.id===idAtual)){const d=colabsTodos.find(c=>c.id===idAtual);if(d)lista.push(Object.assign({},d,{nome:d.nome+' (desligado)'}))}
+  return lista.map(c=>`<option value="${c.id}">${c.nome}</option>`).join('');
+}
 function valorSaldo(l){return l.tipo==='Crédito'?l.minutos:l.tipo==='Débito'?-l.minutos:0}
 function badgeTipo(t){return t==='Crédito'?'badge-green':t==='Débito'?'badge-red':'badge-purple'}
 function somar(list){const s={cred:0,deb:0,just:0};list.forEach(l=>{if(l.tipo==='Crédito')s.cred+=l.minutos;else if(l.tipo==='Débito')s.deb+=l.minutos;else s.just+=l.minutos});return s}
@@ -264,6 +269,7 @@ async function loadAll(){
   [lancamentos,convites,colabs]=await Promise.all([
     api.get('/api/bh-lancamentos'),api.get('/api/bh-convites'),api.get('/api/colaboradores')
   ]);
+  colabsTodos=colabs;colabs=colabs.filter(c=>c.status!=='Desligado');
   popularFiltroColab();
   updateKPIs();renderLanc();renderConv();
 }
@@ -308,7 +314,7 @@ function renderLanc(){
   if(fColab||fTipo||fMes||q){
     const {cred,deb,just}=somar(list);
     const saldo=cred-deb;
-    const nome=fColab?(colabs.find(c=>String(c.id)===fColab)||{}).nome:'';
+    const nome=fColab?(colabsTodos.find(c=>String(c.id)===fColab)||{}).nome:'';
     resumo.style.display='block';
     resumo.innerHTML=(nome?`<strong style="color:var(--text)">${nome}</strong> — `:'')+`${list.length} lançamento(s) · <span class="badge badge-green">+${minToH(cred)}</span> <span class="badge badge-red">−${minToH(deb)}</span>`+(just?` <span class="badge badge-purple">${minToH(just)} justificado</span>`:'')+` saldo <strong style="color:${saldo>=0?'var(--green)':'var(--red)'}">${saldo>=0?'+':''}${minToH(saldo)}</strong>`;
   }else resumo.style.display='none';
@@ -347,7 +353,7 @@ function abrirAjuste(id){
   const l=lancamentos.find(x=>x.id===id);
   if(!l)return toast('Lançamento não encontrado','error');
   const sel=document.getElementById('aj-colab');
-  sel.innerHTML=colabs.map(c=>`<option value="${c.id}">${c.nome}</option>`).join('');
+  sel.innerHTML=opcoesEdicao(l.colaborador_id);
   document.getElementById('aj-id').value=l.id;
   document.getElementById('aj-colab').value=l.colaborador_id;
   document.getElementById('aj-tipo').value=l.tipo;
@@ -413,7 +419,7 @@ function abrirAjusteConv(id){
   const c=convites.find(x=>x.id===id);
   if(!c)return toast('Convite não encontrado','error');
   const sel=document.getElementById('ajc-colab');
-  sel.innerHTML=colabs.map(co=>`<option value="${co.id}">${co.nome}</option>`).join('');
+  sel.innerHTML=opcoesEdicao(c.colaborador_id);
   document.getElementById('ajc-id').value=c.id;
   document.getElementById('ajc-colab').value=c.colaborador_id;
   document.getElementById('ajc-resp').value=c.resposta||'Pendente';
@@ -484,7 +490,7 @@ function fecharModalHistConv(){document.getElementById('modal-hist-conv').classL
 function renderSaldo(){
   const tb=document.getElementById('tb-saldo');
   const map={};
-  colabs.forEach(c=>map[c.id]={id:c.id,nome:c.nome+(c.status==='Desligado'?' (desligado)':''),turno:c.turno||'-',cred:0,deb:0,just:0});
+  colabs.forEach(c=>map[c.id]={id:c.id,nome:c.nome,turno:c.turno||'-',cred:0,deb:0,just:0});   // só ativos: desligados não entram no saldo
   lancamentos.forEach(l=>{const m=map[l.colaborador_id];if(!m)return;if(l.tipo==='Crédito')m.cred+=l.minutos;else if(l.tipo==='Débito')m.deb+=l.minutos;else m.just+=l.minutos});
   const rows=Object.values(map).sort((a,b)=>a.nome.localeCompare(b.nome));
   if(!rows.length){tb.innerHTML='<tr><td colspan="6" style="text-align:center;color:var(--text2)">Sem dados</td></tr>';return}
