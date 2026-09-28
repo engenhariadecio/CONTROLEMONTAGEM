@@ -322,6 +322,75 @@ router.post('/prod-apontamentos-detalhados', requireAuth, async (req, res) => {
   }
 });
 
+/* Editar apontamento: tira o realizado antigo do plano antigo e soma o novo
+   no plano da OP informada (que pode ser outra). */
+router.put('/prod-apontamentos-detalhados/:id', requireAuth, async (req, res) => {
+  const client = await pool.connect();
+  try {
+    let {
+      data_execucao, turno, celula, num_op, serie_inicial, serie_final,
+      cod_decio, cod_intelbras, descricao, categoria,
+      meta, realizado, hora_reportada_total, observacoes
+    } = req.body;
+    if (serie_inicial) serie_inicial = String(serie_inicial).trim().toUpperCase();
+    if (serie_final) serie_final = String(serie_final).trim().toUpperCase();
+
+    if (!data_execucao) return res.status(400).json({ error: 'Data de execução obrigatória' });
+    if (!turno) return res.status(400).json({ error: 'Turno obrigatório' });
+    if (!celula) return res.status(400).json({ error: 'Célula obrigatória' });
+    if (!validarDigitos(num_op, 8)) return res.status(400).json({ error: 'N° OP deve ter exatos 8 dígitos numéricos' });
+    if (!validarAlfanumerico(serie_inicial, 13)) return res.status(400).json({ error: 'N° Série Inicial deve ter exatos 13 caracteres (letras/números)' });
+    if (!validarAlfanumerico(serie_final, 13)) return res.status(400).json({ error: 'N° Série Final deve ter exatos 13 caracteres (letras/números)' });
+    if (!cod_decio) return res.status(400).json({ error: 'Código Décio obrigatório' });
+
+    const planoRes = await client.query('SELECT id FROM prod_planos WHERE num_op = $1 LIMIT 1', [num_op]);
+    if (!planoRes.rows.length) {
+      return res.status(400).json({ error: `OP ${num_op} não cadastrada no plano mensal.` });
+    }
+    const novoPlano = planoRes.rows[0].id;
+
+    await client.query('BEGIN');
+    const ap = await client.query('SELECT * FROM prod_apontamentos_detalhados WHERE id=$1 FOR UPDATE', [req.params.id]);
+    if (!ap.rows.length) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ error: 'Apontamento não encontrado' });
+    }
+    const antigo = ap.rows[0];
+
+    if (antigo.plano_id) {
+      await client.query(
+        'UPDATE prod_planos SET realizado = GREATEST(COALESCE(realizado,0) - $1, 0) WHERE id=$2',
+        [parseFloat(antigo.realizado) || 0, antigo.plano_id]
+      );
+    }
+    const r = await client.query(
+      `UPDATE prod_apontamentos_detalhados SET
+         data_execucao=$1, turno=$2, celula=$3, num_op=$4, serie_inicial=$5, serie_final=$6,
+         cod_decio=$7, cod_intelbras=$8, descricao=$9, categoria=$10,
+         meta=$11, realizado=$12, hora_reportada_total=$13, observacoes=$14, plano_id=$15
+       WHERE id=$16 RETURNING *`,
+      [data_execucao, turno, celula, num_op, serie_inicial, serie_final,
+       cod_decio, cod_intelbras || null, descricao || null, categoria || null,
+       meta || 0, realizado || 0, hora_reportada_total || 0, observacoes || null, novoPlano, req.params.id]
+    );
+    await client.query(
+      'UPDATE prod_planos SET realizado = COALESCE(realizado,0) + $1 WHERE id=$2',
+      [parseFloat(realizado) || 0, novoPlano]
+    );
+    await atualizarStatusPlano(novoPlano, client);
+    if (antigo.plano_id && antigo.plano_id !== novoPlano) await atualizarStatusPlano(antigo.plano_id, client);
+
+    await client.query('COMMIT');
+    res.json(r.rows[0]);
+  } catch (err) {
+    await client.query('ROLLBACK');
+    console.error('PUT /prod-apontamentos-detalhados/:id', err);
+    res.status(500).json({ error: 'Erro ao atualizar apontamento' });
+  } finally {
+    client.release();
+  }
+});
+
 router.delete('/prod-apontamentos-detalhados/:id', requireAuth, async (req, res) => {
   const client = await pool.connect();
   try {

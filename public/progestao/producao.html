@@ -224,7 +224,8 @@ a{color:var(--accent)}
     <!-- ============ APONTAMENTO DIÁRIO ============ -->
     <div class="section" id="sec-apontar">
       <div class="card">
-        <div class="card-title">✏️ Novo Apontamento Detalhado</div>
+        <div class="card-title" id="apont-titulo">✏️ Novo Apontamento Detalhado</div>
+        <div id="apont-edit-aviso" style="display:none;background:rgba(232,140,74,.12);border:1px solid var(--orange,#E88C4A);border-radius:8px;padding:8px 12px;margin-bottom:12px;font-size:.85rem">✏️ Editando apontamento <strong id="apont-edit-id"></strong>. O realizado do plano será recalculado ao salvar. <a href="#" onclick="limparApontamento();return false" style="color:var(--accent);margin-left:8px">Cancelar edição</a></div>
         <div class="form-row">
           <div class="form-group">
             <label>Data de Execução *</label>
@@ -414,6 +415,7 @@ a{color:var(--accent)}
 // =================== GLOBAIS ===================
 let planos = [], apontamentos = [], apontamentosDet = [], produtos = [];
 let fotosProd = {};
+let apontEditId = null;   // id do apontamento em edição (null = novo)
 const galProd = Fotos.galeria('#fotos-prod', { entidade: 'produto', titulo: 'Fotos do produto' });
 let chartBarObj = null, chartLineObj = null;
 
@@ -730,13 +732,16 @@ async function salvarApontamentoDetalhado() {
   btn.textContent = 'Salvando...';
 
   try {
-    const res = await api('/prod-apontamentos-detalhados', {
-      method:'POST',
-      body:{ data_execucao, turno, celula, num_op, serie_inicial, serie_final,
-             cod_decio, cod_intelbras, descricao, categoria, meta, realizado,
-             hora_reportada_total, observacoes }
-    });
-    toast('✅ Apontamento salvo e somado ao plano da OP ' + num_op + '!');
+    const body = { data_execucao, turno, celula, num_op, serie_inicial, serie_final,
+                   cod_decio, cod_intelbras, descricao, categoria, meta, realizado,
+                   hora_reportada_total, observacoes };
+    if (apontEditId) {
+      await api('/prod-apontamentos-detalhados/' + apontEditId, { method:'PUT', body });
+      toast('✅ Apontamento atualizado — plano da OP ' + num_op + ' recalculado');
+    } else {
+      await api('/prod-apontamentos-detalhados', { method:'POST', body });
+      toast('✅ Apontamento salvo e somado ao plano da OP ' + num_op + '!');
+    }
     limparApontamento();
     loadAll();
   } catch(e) {
@@ -748,6 +753,10 @@ async function salvarApontamentoDetalhado() {
 }
 
 function limparApontamento() {
+  apontEditId = null;
+  document.getElementById('apont-titulo').textContent = '✏️ Novo Apontamento Detalhado';
+  document.getElementById('apont-edit-aviso').style.display = 'none';
+  document.getElementById('btn-salvar-apont').textContent = '💾 Salvar Apontamento';
   ['a-data','a-turno','a-celula','a-num-op','a-serie-ini','a-serie-fim',
    'a-cod-decio','a-cod-intelbras','a-descricao','a-categoria',
    'a-meta','a-realizado','a-hora-total','a-obs'].forEach(id => {
@@ -760,6 +769,28 @@ function limparApontamento() {
   document.getElementById('hint-sini').textContent = 'Digite 13 caracteres (letras/números)';
   document.getElementById('hint-sfim').textContent = 'Digite 13 caracteres (letras/números)';
   ['hint-op','hint-sini','hint-sfim'].forEach(id => document.getElementById(id).classList.remove('error'));
+}
+
+function editarApontamentoDet(id) {
+  const a = apontamentosDet.find(x => x.id === id);
+  if (!a) return;
+  apontEditId = id;
+  const set = (i, v) => { const el = document.getElementById(i); if (el) el.value = v == null ? '' : v; };
+  set('a-data', String(a.data_execucao || '').substring(0, 10));
+  set('a-turno', a.turno); set('a-celula', a.celula); set('a-num-op', a.num_op);
+  set('a-serie-ini', a.serie_inicial); set('a-serie-fim', a.serie_final);
+  set('a-cod-decio', a.cod_decio); set('a-cod-intelbras', a.cod_intelbras); set('a-descricao', a.descricao);
+  set('a-categoria', a.categoria); set('a-meta', a.meta); set('a-realizado', a.realizado); set('a-obs', a.observacoes);
+  // hora reportada por peça: do produto cadastrado, senão a proporção do próprio apontamento
+  const p = produtos.find(x => x.cod_decio === a.cod_decio);
+  const horaRep = p ? (p.hora_reportado || 0) : (parseFloat(a.realizado) ? (parseFloat(a.hora_reportada_total) || 0) / parseFloat(a.realizado) : 0);
+  document.getElementById('a-cod-decio').dataset.horaRep = horaRep;
+  calcularHoraTotal();
+  document.getElementById('apont-titulo').textContent = '✏️ Editar Apontamento';
+  document.getElementById('apont-edit-aviso').style.display = 'block';
+  document.getElementById('apont-edit-id').textContent = '#' + id + ' (OP ' + (a.num_op || '-') + ', ' + fmtData(a.data_execucao) + ')';
+  document.getElementById('btn-salvar-apont').textContent = '💾 Atualizar Apontamento';
+  window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
 async function excluirApontamentoDet(id) {
@@ -799,7 +830,7 @@ function renderApontamentosDet() {
     <td>${fmtNum(a.realizado)}</td>
     <td>${fmtNum(a.hora_reportada_total)} h</td>
     <td title="${a.observacoes||''}">${(a.observacoes||'-').substring(0,20)}${(a.observacoes||'').length>20?'...':''}</td>
-    <td><button class="btn-sm btn-red" onclick="excluirApontamentoDet(${a.id})" style="padding:4px 8px;font-size:11px">🗑️</button></td>
+    <td style="white-space:nowrap"><button class="btn-sm btn-ghost" onclick="editarApontamentoDet(${a.id})" style="padding:4px 8px;font-size:11px" title="Editar">✏️</button> <button class="btn-sm btn-red" onclick="excluirApontamentoDet(${a.id})" style="padding:4px 8px;font-size:11px">🗑️</button></td>
   </tr>`).join('');
 }
 
