@@ -90,7 +90,7 @@ a{color:var(--accent)}
     <input type="date" id="fl-de" onchange="aplicarFiltro()" style="display:none" title="De"><input type="date" id="fl-ate" onchange="aplicarFiltro()" style="display:none" title="Até">
     <label>Colaborador</label><select id="fl-colab" onchange="aplicarFiltro()" style="min-width:200px"><option value="">Todos</option></select>
     <label>Turno</label><select id="fl-turno" onchange="aplicarFiltro()"><option value="">Todos</option></select>
-    <label>Tipo</label><select id="fl-tipo" onchange="aplicarFiltro()"><option value="">Todos</option><option value="Crédito">Crédito</option><option value="Débito">Débito</option><option value="Compensação">Compensação</option><option value="Justificado">Justificado</option></select>
+    <label>Tipo</label><select id="fl-tipo" onchange="aplicarFiltro()"><option value="">Todos</option><option value="Crédito">Crédito</option><option value="Débito">Débito</option><option value="Desconto">Desconto</option><option value="Justificado">Justificado</option></select>
     <button class="btn-sm btn-ghost" onclick="limparFiltro()">Limpar</button>
     <span class="ativo" id="fl-desc"></span>
   </div>
@@ -99,8 +99,8 @@ a{color:var(--accent)}
     <div class="kpi"><div class="num" id="k-lancamentos" style="color:var(--accent)">0</div><div class="lbl">Lançamentos</div></div>
     <div class="kpi"><div class="num" id="k-positivo" style="color:var(--green)">0h</div><div class="lbl">Saldo Positivo</div></div>
     <div class="kpi"><div class="num" id="k-negativo" style="color:var(--red)">0h</div><div class="lbl">Saldo Negativo</div></div>
-    <div class="kpi"><div class="num" id="k-compensado" style="color:var(--orange,#E88C4A)">0h</div><div class="lbl">Compensado (desconto)</div></div>
-    <div class="kpi"><div class="num" id="k-saldo" style="color:var(--accent)">0h</div><div class="lbl">Saldo (créd − déb − comp)</div></div>
+    <div class="kpi"><div class="num" id="k-desconto" style="color:var(--orange,#E88C4A)">0h</div><div class="lbl">Desconto (não entra no saldo)</div></div>
+    <div class="kpi"><div class="num" id="k-saldo" style="color:var(--accent)">0h</div><div class="lbl">Saldo (créd − déb)</div></div>
     <div class="kpi"><div class="num" id="k-justificado" style="color:var(--accent2)">0h</div><div class="lbl">Justificado (não desconta)</div></div>
     <div class="kpi"><div class="num" id="k-colabs" style="color:var(--accent2)">0</div><div class="lbl">Colaboradores</div></div>
   </div>
@@ -127,7 +127,7 @@ a{color:var(--accent)}
     <h3>Novo Lançamento</h3>
     <div class="form-grid" style="margin-top:14px">
       <div class="form-group"><label>Colaborador *</label><select id="n-colab"></select></div>
-      <div class="form-group"><label>Tipo *</label><select id="n-tipo" onchange="dicaTipo('n')"><option value="Crédito">Crédito (+)</option><option value="Débito">Débito (-) — falta / atraso</option><option value="Compensação">Compensação (-) — descontar horas do banco (folga, saída antecipada)</option><option value="Justificado">Justificado — atestado/declaração (não desconta)</option></select><small id="n-tipo-dica" style="display:none;color:var(--text2);margin-top:4px"></small></div>
+      <div class="form-group"><label>Tipo *</label><select id="n-tipo" onchange="dicaTipo('n')"><option value="Crédito">Crédito (+)</option><option value="Débito">Débito (-) — falta / atraso</option><option value="Desconto">Desconto — horas descontadas (não entra no saldo)</option><option value="Justificado">Justificado — atestado/declaração (não desconta)</option></select><small id="n-tipo-dica" style="display:none;color:var(--text2);margin-top:4px"></small></div>
       <div class="form-group"><label>Minutos *</label><input id="n-min" type="number" min="1"></div>
       <div class="form-group"><label>Data *</label><input id="n-data" type="date"></div>
       <div class="form-group"><label>Motivo</label><input id="n-motivo"></div>
@@ -157,7 +157,7 @@ a{color:var(--accent)}
   <div class="section" id="sec-saldo">
     <h3>💰 Saldo por Colaborador</h3>
     <p style="font-size:.8rem;color:var(--text2);margin-top:6px">Clique no nome do colaborador para ver o histórico mensal</p>
-    <div class="tbl-wrap" style="margin-top:14px"><table><thead><tr><th>Colaborador</th><th>Turno</th><th>Créditos</th><th>Débitos</th><th>Compensação</th><th>Justificado</th><th>Saldo</th></tr></thead><tbody id="tb-saldo"></tbody></table></div>
+    <div class="tbl-wrap" style="margin-top:14px"><table><thead><tr><th>Colaborador</th><th>Turno</th><th>Créditos</th><th>Débitos</th><th>Desconto</th><th>Justificado</th><th>Saldo</th></tr></thead><tbody id="tb-saldo"></tbody></table></div>
   </div>
 
 </div></div>
@@ -171,7 +171,7 @@ a{color:var(--accent)}
   <input type="hidden" id="aj-id">
   <div class="form-grid" style="grid-template-columns:1fr 1fr;gap:12px;margin-top:8px">
     <div class="form-group"><label>Colaborador *</label><select id="aj-colab"></select></div>
-    <div class="form-group"><label>Tipo *</label><select id="aj-tipo"><option value="Crédito">Crédito (+)</option><option value="Débito">Débito (-)</option><option value="Compensação">Compensação (-) desconta do banco</option><option value="Justificado">Justificado (não desconta)</option></select></div>
+    <div class="form-group"><label>Tipo *</label><select id="aj-tipo"><option value="Crédito">Crédito (+)</option><option value="Débito">Débito (-)</option><option value="Desconto">Desconto (não entra no saldo)</option><option value="Justificado">Justificado (não desconta)</option></select></div>
     <div class="form-group"><label>Minutos *</label><input id="aj-min" type="number" min="1"></div>
     <div class="form-group"><label>Data *</label><input id="aj-data" type="date"></div>
     <div class="form-group" style="grid-column:1/-1"><label>Motivo</label><input id="aj-motivo"></div>
@@ -259,11 +259,11 @@ function opcoesEdicao(idAtual){
   if(idAtual&&!lista.some(c=>c.id===idAtual)){const d=colabsTodos.find(c=>c.id===idAtual);if(d)lista.push(Object.assign({},d,{nome:d.nome+' (desligado)'}))}
   return lista.map(c=>`<option value="${c.id}">${c.nome}</option>`).join('');
 }
-/* Crédito soma. Débito (falta/atraso) e Compensação (folga usando o banco) descontam. Justificado vale 0. */
-function valorSaldo(l){return l.tipo==='Crédito'?l.minutos:(l.tipo==='Débito'||l.tipo==='Compensação')?-l.minutos:0}
-function badgeTipo(t){return t==='Crédito'?'badge-green':t==='Débito'?'badge-red':t==='Compensação'?'badge-orange':'badge-purple'}
-function somar(list){const s={cred:0,deb:0,comp:0,just:0};list.forEach(l=>{if(l.tipo==='Crédito')s.cred+=l.minutos;else if(l.tipo==='Débito')s.deb+=l.minutos;else if(l.tipo==='Compensação')s.comp+=l.minutos;else s.just+=l.minutos});return s}
-const DICAS_TIPO={'Compensação':'Desconta do saldo positivo: o colaborador usou horas do banco (folga, saída mais cedo).','Justificado':'Ausência justificada: fica registrada, mas não entra no saldo.','Débito':'Falta ou atraso: desconta do saldo.'};
+/* Saldo = Crédito − Débito. Desconto e Justificado ficam registrados, mas não entram no saldo. */
+function valorSaldo(l){return l.tipo==='Crédito'?l.minutos:l.tipo==='Débito'?-l.minutos:0}
+function badgeTipo(t){return t==='Crédito'?'badge-green':t==='Débito'?'badge-red':t==='Desconto'?'badge-orange':'badge-purple'}
+function somar(list){const s={cred:0,deb:0,comp:0,just:0};list.forEach(l=>{if(l.tipo==='Crédito')s.cred+=l.minutos;else if(l.tipo==='Débito')s.deb+=l.minutos;else if(l.tipo==='Desconto')s.comp+=l.minutos;else s.just+=l.minutos});return s}
+const DICAS_TIPO={'Desconto':'Horas descontadas: ficam registradas, mas não entram no saldo do banco.','Justificado':'Ausência justificada: fica registrada, mas não entra no saldo.','Débito':'Falta ou atraso: desconta do saldo.'};
 function dicaTipo(p){const d=document.getElementById(p+'-tipo-dica');if(!d)return;const t=document.getElementById(p+'-tipo').value;d.textContent=DICAS_TIPO[t]||'';d.style.display=DICAS_TIPO[t]?'block':'none'}
 
 /* ===== FILTRO GLOBAL (topo) ===== */
@@ -359,8 +359,8 @@ function updateKPIs(){
   const s=somar(list);
   document.getElementById('k-positivo').textContent=minToH(s.cred);
   document.getElementById('k-negativo').textContent=minToH(s.deb);
-  document.getElementById('k-compensado').textContent=minToH(s.comp);
-  const saldo=s.cred-s.deb-s.comp;const ks=document.getElementById('k-saldo');ks.textContent=(saldo>0?'+':'')+minToH(saldo);ks.style.color=saldo<0?'var(--red)':saldo>0?'var(--green)':'var(--accent)';
+  document.getElementById('k-desconto').textContent=minToH(s.comp);
+  const saldo=s.cred-s.deb;const ks=document.getElementById('k-saldo');ks.textContent=(saldo>0?'+':'')+minToH(saldo);ks.style.color=saldo<0?'var(--red)':saldo>0?'var(--green)':'var(--accent)';
   document.getElementById('k-justificado').textContent=minToH(s.just);
   document.getElementById('k-colabs').textContent=colabs.length;
 }
@@ -376,10 +376,10 @@ function renderLanc(){
   const fColab=document.getElementById('fl-colab').value;
   if(document.getElementById('fl-desc').textContent||q){
     const {cred,deb,comp,just}=somar(list);
-    const saldo=cred-deb-comp;
+    const saldo=cred-deb;
     const nome=fColab?(colabsTodos.find(c=>String(c.id)===fColab)||{}).nome:'';
     resumo.style.display='block';
-    resumo.innerHTML=(nome?`<strong style="color:var(--text)">${nome}</strong> — `:'')+`${list.length} lançamento(s) · <span class="badge badge-green">+${minToH(cred)}</span> <span class="badge badge-red">−${minToH(deb)}</span>`+(comp?` <span class="badge badge-orange">−${minToH(comp)} compensado</span>`:'')+(just?` <span class="badge badge-purple">${minToH(just)} justificado</span>`:'')+` saldo <strong style="color:${saldo>=0?'var(--green)':'var(--red)'}">${saldo>=0?'+':''}${minToH(saldo)}</strong>`;
+    resumo.innerHTML=(nome?`<strong style="color:var(--text)">${nome}</strong> — `:'')+`${list.length} lançamento(s) · <span class="badge badge-green">+${minToH(cred)}</span> <span class="badge badge-red">−${minToH(deb)}</span>`+(comp?` <span class="badge badge-orange">−${minToH(comp)} desconto</span>`:'')+(just?` <span class="badge badge-purple">${minToH(just)} justificado</span>`:'')+` saldo <strong style="color:${saldo>=0?'var(--green)':'var(--red)'}">${saldo>=0?'+':''}${minToH(saldo)}</strong>`;
   }else resumo.style.display='none';
 
   const tb=document.getElementById('tb-lanc');
@@ -555,11 +555,11 @@ function renderSaldo(){
   const map={};
   const fc=document.getElementById('fl-colab').value,ft=document.getElementById('fl-turno').value;
   colabs.filter(c=>(!fc||String(c.id)===fc)&&(!ft||(c.turno||'')===ft)).forEach(c=>map[c.id]={id:c.id,nome:c.nome,turno:c.turno||'-',cred:0,deb:0,comp:0,just:0});   // só ativos: desligados não entram no saldo
-  lancFiltrados().forEach(l=>{const m=map[l.colaborador_id];if(!m)return;if(l.tipo==='Crédito')m.cred+=l.minutos;else if(l.tipo==='Débito')m.deb+=l.minutos;else if(l.tipo==='Compensação')m.comp+=l.minutos;else m.just+=l.minutos});
+  lancFiltrados().forEach(l=>{const m=map[l.colaborador_id];if(!m)return;if(l.tipo==='Crédito')m.cred+=l.minutos;else if(l.tipo==='Débito')m.deb+=l.minutos;else if(l.tipo==='Desconto')m.comp+=l.minutos;else m.just+=l.minutos});
   const rows=Object.values(map).sort((a,b)=>a.nome.localeCompare(b.nome));
   if(!rows.length){tb.innerHTML='<tr><td colspan="7" style="text-align:center;color:var(--text2)">Sem dados</td></tr>';return}
   tb.innerHTML=rows.map(r=>{
-    const saldo=r.cred-r.deb-r.comp;
+    const saldo=r.cred-r.deb;
     const badge=saldo>0?'badge-green':saldo<0?'badge-red':'badge-blue';
     return `<tr>
       <td><span class="link-name" onclick="abrirHistorico(${r.id},'${r.nome.replace(/'/g,"\\'")}')">${r.nome}</span></td>
@@ -619,14 +619,14 @@ function renderHistMes(){
   const list=enriched.filter(l=>isoMes(l.data)===mes);
 
   const {cred,deb,comp,just}=somar(list);
-  const saldoMes=cred-deb-comp;
+  const saldoMes=cred-deb;
   const saldoTotal=enriched.length?enriched[enriched.length-1].acumulado:0;
 
   document.getElementById('hist-summary').innerHTML=`
     <div class="hs-item"><div class="hs-num" style="color:var(--accent)">${list.length}</div><div class="hs-lbl">Lançamentos no mês</div></div>
     <div class="hs-item"><div class="hs-num" style="color:var(--green)">${minToH(cred)}</div><div class="hs-lbl">Créditos do mês</div></div>
     <div class="hs-item"><div class="hs-num" style="color:var(--red)">${minToH(deb)}</div><div class="hs-lbl">Débitos do mês</div></div>
-    <div class="hs-item"><div class="hs-num" style="color:var(--orange,#E88C4A)">${minToH(comp)}</div><div class="hs-lbl">Compensado (desconto)</div></div>
+    <div class="hs-item"><div class="hs-num" style="color:var(--orange,#E88C4A)">${minToH(comp)}</div><div class="hs-lbl">Desconto (não entra no saldo)</div></div>
     <div class="hs-item"><div class="hs-num" style="color:var(--accent2)">${minToH(just)}</div><div class="hs-lbl">Justificado (não desconta)</div></div>
     <div class="hs-item"><div class="hs-num" style="color:${saldoMes>=0?'var(--green)':'var(--red)'}">${minToH(saldoMes)}</div><div class="hs-lbl">Saldo do mês</div></div>
     <div class="hs-item"><div class="hs-num" style="color:${saldoTotal>=0?'var(--green)':'var(--red)'}">${minToH(saldoTotal)}</div><div class="hs-lbl">Saldo acumulado</div></div>

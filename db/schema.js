@@ -656,6 +656,9 @@ ALTER TABLE manutencoes       ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DE
 ALTER TABLE epis ADD COLUMN IF NOT EXISTS descartavel BOOLEAN;
 UPDATE epis SET descartavel = (nome ILIKE '%descart%') WHERE descartavel IS NULL;
 
+/* Banco de horas: o tipo "Compensação" virou "Desconto" */
+UPDATE bh_lancamentos SET tipo = 'Desconto' WHERE tipo = 'Compensação';
+
 /* Desligamento de colaborador: status 'Desligado' + data. Fica no cadastro, some das listas de seleção. */
 ALTER TABLE colaboradores ADD COLUMN IF NOT EXISTS dt_desligamento DATE;
 

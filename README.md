@@ -37,7 +37,7 @@ Os sistemas eram independentes e guardavam dados em lugares diferentes. Agora co
 - Layout retematizado com a identidade da Décio.
 
 **Banco de horas: compensação e filtro global · Produção: editar apontamento (28/09/2026)**
-- Banco de Horas tem o tipo **Compensação (−)**: desconta horas do banco quando o colaborador usa o saldo (folga, saída antecipada). Débito continua para falta/atraso; Justificado (atestado/declaração) não desconta. KPIs "Compensado" e "Saldo (créd − déb − comp)".
+- Banco de Horas tem o tipo **Desconto**: horas descontadas ficam registradas, mas **não entram no saldo** — assim como Justificado (atestado/declaração). Saldo = Crédito − Débito. KPIs "Desconto" e "Saldo (créd − déb)". (Lançamentos antigos gravados como "Compensação" são convertidos para "Desconto" no boot.)
 - Filtro no topo da página (período: hoje, esta semana, este mês, mês, semana, intervalo; colaborador; turno; tipo) que vale para os KPIs, a tabela de lançamentos e o saldo. Abre em "este mês".
 - Produção → Apontamento Diário: botão ✏️ na lista carrega o apontamento no formulário para edição. `PUT /api/prod-apontamentos-detalhados/:id` recalcula o realizado do plano (tira da OP antiga, soma na nova).
 
