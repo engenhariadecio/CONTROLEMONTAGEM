@@ -36,6 +36,11 @@ Os sistemas eram independentes e guardavam dados em lugares diferentes. Agora co
 - As consultas de aniversariantes usavam `HAVING` sem `GROUP BY`, o que o Postgres rejeita. Reescritas com subquery.
 - Layout retematizado com a identidade da Décio.
 
+**Observações do status do plano (02/10/2026)**
+- Em Produção › Plano Mensal e Histórico, ao lado do status de cada plano há um balão 💬 (com a contagem). Abre uma janela com o histórico de observações: quem escreveu, quando e qual era o status na hora.
+- Administrador e Operação registram novas observações; o PCP só visualiza (o servidor devolve 403 em qualquer gravação). Excluir: só o administrador ou o autor.
+- Tabela `prod_plano_obs`; rotas `GET/POST /api/prod-planos/:id/observacoes` e `DELETE /api/prod-plano-obs/:id`.
+
 **Perfil PCP (02/10/2026)**
 - Novo perfil de usuário **PCP** (Administração → Usuários → Perfil): só visualiza ProGestão › Produção. Entra direto em `/progestao/producao`; a tela esconde os formulários, botões de editar/excluir, a aba de apontamento e o menu dos outros módulos.
 - A restrição é no servidor (`middleware/auth.js › restringirPcp`): qualquer outra página redireciona para Produção e qualquer API fora de leitura de Produção responde 403, mesmo chamando direto.

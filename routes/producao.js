@@ -53,16 +53,63 @@ async function atualizarStatusPlano(planoId, client) {
 router.get('/prod-planos', requireAuth, async (req, res) => {
   try {
     const { mes } = req.query;
-    let q = 'SELECT * FROM prod_planos';
+    // obs_qtd / ultima_obs: a tabela mostra o balão sem precisar de outra chamada
+    let q = `SELECT p.*,
+               (SELECT COUNT(*)::int FROM prod_plano_obs o WHERE o.plano_id = p.id) AS obs_qtd,
+               (SELECT o.texto FROM prod_plano_obs o WHERE o.plano_id = p.id ORDER BY o.created_at DESC, o.id DESC LIMIT 1) AS ultima_obs
+             FROM prod_planos p`;
     const params = [];
-    if (mes) { params.push(mes); q += ' WHERE mes=$1'; }
-    q += ' ORDER BY data_limite ASC NULLS LAST, id DESC';
+    if (mes) { params.push(mes); q += ' WHERE p.mes=$1'; }
+    q += ' ORDER BY p.data_limite ASC NULLS LAST, p.id DESC';
     const r = await pool.query(q, params);
     res.json(r.rows);
   } catch (err) {
     console.error('GET /prod-planos', err);
     res.status(500).json({ error: 'Erro ao listar planos' });
   }
+});
+
+/* ───── Observações do status do plano ───── */
+router.get('/prod-planos/:id/observacoes', requireAuth, async (req, res) => {
+  try {
+    const r = await pool.query(
+      `SELECT id, plano_id, texto, status_na_hora, autor_id, autor_nome, created_at
+         FROM prod_plano_obs WHERE plano_id=$1 ORDER BY created_at DESC, id DESC`,
+      [req.params.id]
+    );
+    res.json(r.rows);
+  } catch (err) { res.status(500).json({ error: 'Erro ao listar observações' }); }
+});
+
+router.post('/prod-planos/:id/observacoes', requireAuth, async (req, res) => {
+  try {
+    const texto = (req.body.texto || '').trim();
+    if (!texto) return res.status(400).json({ error: 'Escreva a observação' });
+    await atualizarStatusPlano(req.params.id);   // o status gravado só muda em apontamentos; recalcula para registrar o atual
+    const plano = await pool.query('SELECT status FROM prod_planos WHERE id=$1', [req.params.id]);
+    if (!plano.rows.length) return res.status(404).json({ error: 'Plano não encontrado' });
+    const u = await pool.query('SELECT nome, username FROM users WHERE id=$1', [req.session.userId]);
+    const autor = u.rows[0] ? (u.rows[0].nome || u.rows[0].username) : null;
+    const r = await pool.query(
+      `INSERT INTO prod_plano_obs (plano_id, texto, status_na_hora, autor_id, autor_nome)
+       VALUES ($1,$2,$3,$4,$5) RETURNING *`,
+      [req.params.id, texto, plano.rows[0].status, req.session.userId || null, autor]
+    );
+    res.json(r.rows[0]);
+  } catch (err) { res.status(500).json({ error: 'Erro ao salvar observação' }); }
+});
+
+/* Só o admin ou quem escreveu pode apagar */
+router.delete('/prod-plano-obs/:id', requireAuth, async (req, res) => {
+  try {
+    const o = await pool.query('SELECT autor_id FROM prod_plano_obs WHERE id=$1', [req.params.id]);
+    if (!o.rows.length) return res.status(404).json({ error: 'Não encontrada' });
+    if (req.session.role !== 'admin' && o.rows[0].autor_id !== req.session.userId) {
+      return res.status(403).json({ error: 'Só o administrador ou o autor pode excluir' });
+    }
+    await pool.query('DELETE FROM prod_plano_obs WHERE id=$1', [req.params.id]);
+    res.json({ ok: true });
+  } catch (err) { res.status(500).json({ error: 'Erro ao excluir observação' }); }
 });
 
 router.get('/prod-planos/:id', requireAuth, async (req, res) => {

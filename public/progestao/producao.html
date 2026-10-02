@@ -80,6 +80,19 @@ table tr:hover{background:var(--panel2)}
 .autocomplete-item strong{color:var(--accent)}
 @media(max-width:768px){.sidebar{width:60px}.sidebar a{padding:10px;text-align:center;font-size:10px}}
 
+/* ===== Observações do status ===== */
+.obs-btn{display:inline-flex;align-items:center;gap:4px;margin-left:6px;padding:3px 8px;border-radius:10px;border:1px solid var(--border);background:var(--card2,#1A3347);color:var(--text2);font-size:11px;font-weight:700;cursor:pointer;vertical-align:middle}
+.obs-btn.tem{border-color:var(--orange,#E88C4A);color:var(--orange,#E88C4A);background:rgba(232,140,74,.12)}
+.obs-btn:hover{border-color:var(--accent);color:var(--accent)}
+.modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.62);z-index:999;align-items:center;justify-content:center}.modal-overlay.show{display:flex}
+.modal{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:22px;max-width:640px;width:94%;max-height:88vh;overflow-y:auto}
+.modal h3{margin-bottom:4px;font-size:1rem}.modal .sub{font-size:.8rem;color:var(--text2);margin-bottom:14px}
+.obs-item{border:1px solid var(--border);border-radius:10px;padding:10px 12px;margin-bottom:8px;background:var(--card2,#1A3347)}
+.obs-item .cab{display:flex;justify-content:space-between;align-items:center;gap:8px;font-size:.75rem;color:var(--text2);margin-bottom:6px;flex-wrap:wrap}
+.obs-item .txt{white-space:pre-wrap;font-size:.9rem;line-height:1.5}
+.obs-nova textarea{width:100%;min-height:80px;padding:10px;border-radius:8px;border:1px solid var(--border);background:var(--card2,#1A3347);color:var(--text);font-family:inherit;font-size:.9rem;resize:vertical}
+.modal .btns{display:flex;gap:8px;justify-content:flex-end;margin-top:14px}
+
 /* ===== Perfil PCP: somente visualização ===== */
 body.pcp .so-edicao, body.pcp .tab[onclick*="'apontar'"], body.pcp #sec-apontar,
 body.pcp .btn-red, body.pcp button[onclick^="editar"], body.pcp button[onclick^="excluir"], body.pcp button[onclick^="salvar"],
@@ -420,8 +433,25 @@ a{color:var(--accent)}
 <div id="toast"></div>
 
 <script src="/js/fotos.js"></script>
+<!-- MODAL OBSERVAÇÕES DO STATUS -->
+<div class="modal-overlay" id="modal-obs" onclick="if(event.target===this)fecharObs()">
+  <div class="modal">
+    <h3 id="obs-titulo">💬 Observações do status</h3>
+    <div class="sub" id="obs-sub"></div>
+    <div id="obs-lista"></div>
+    <div class="obs-nova so-edicao" style="margin-top:14px">
+      <label style="font-size:.78rem;color:var(--text2);display:block;margin-bottom:6px">Nova observação (motivo do status, o que foi combinado...)</label>
+      <textarea id="obs-texto" placeholder="Ex: Atrasado por falta de componente X — previsão de chegada 05/10."></textarea>
+      <div class="btns"><button class="btn-sm btn-accent" onclick="salvarObs()">💾 Registrar</button></div>
+    </div>
+    <div class="btns"><button class="btn-sm btn-ghost" onclick="fecharObs()">Fechar</button></div>
+  </div>
+</div>
+
 <script>
 // =================== GLOBAIS ===================
+let usuarioAtual = null;
+let obsPlanoId = null;
 let planos = [], apontamentos = [], apontamentosDet = [], produtos = [];
 let fotosProd = {};
 let apontEditId = null;   // id do apontamento em edição (null = novo)
@@ -461,6 +491,7 @@ updateClock();
 async function loadUser() {
   try {
     const u = await api('/me');
+    usuarioAtual = u;
     document.getElementById('user-name').textContent = u.nome || u.username || 'Usuário';
     if (u.role === 'pcp') document.body.classList.add('pcp');   // somente visualização (o servidor também bloqueia)
   } catch(e) {
@@ -489,6 +520,52 @@ function fmtData(d) {
   return `${dia}/${mes}/${ano}`;
 }
 function fmtNum(n) { return Number(n||0).toLocaleString('pt-BR', { maximumFractionDigits:2 }); }
+/* ===== OBSERVAÇÕES DO STATUS ===== */
+function escO(s){return String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
+function obsBtn(p){
+  const n = p.obs_qtd || 0;
+  const titulo = n ? escO((p.ultima_obs||'').slice(0,120)) : 'Registrar o motivo do status';
+  return `<button class="obs-btn ${n?'tem':''}" onclick="verObsPlano(${p.id})" title="${titulo}">💬${n?' '+n:''}</button>`;
+}
+async function verObsPlano(id){
+  const p = planos.find(x => x.id === id); if (!p) return;
+  obsPlanoId = id;
+  document.getElementById('obs-titulo').innerHTML = '💬 Observações do status — ' + badgeStatus(calcStatus(p));
+  document.getElementById('obs-sub').textContent = (p.num_op ? 'OP ' + p.num_op + ' · ' : '') + (p.cod_decio || '') + ' — ' + (p.descricao || p.produto || '') + (p.data_limite ? ' · limite ' + fmtData(p.data_limite) : '');
+  document.getElementById('obs-texto').value = '';
+  document.getElementById('obs-lista').innerHTML = '<div style="color:var(--text2);font-size:.85rem">Carregando…</div>';
+  document.getElementById('modal-obs').classList.add('show');
+  await carregarObs();
+}
+async function carregarObs(){
+  let lista = [];
+  try { lista = await api('/prod-planos/' + obsPlanoId + '/observacoes'); } catch(e) { lista = []; }
+  const el = document.getElementById('obs-lista');
+  if (!lista.length) { el.innerHTML = '<div style="color:var(--text2);font-size:.85rem;padding:8px 0">Nenhuma observação registrada para este plano.</div>'; return; }
+  const podeApagar = o => usuarioAtual && (usuarioAtual.role === 'admin' || usuarioAtual.userId === o.autor_id || usuarioAtual.id === o.autor_id);
+  el.innerHTML = lista.map(o => `<div class="obs-item">
+      <div class="cab"><span><strong style="color:var(--text)">${escO(o.autor_nome||'—')}</strong> · ${new Date(o.created_at).toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'})} · status na hora: ${badgeStatus(o.status_na_hora)}</span>
+      ${podeApagar(o) ? `<button class="btn-sm btn-red so-edicao" onclick="apagarObs(${o.id})" style="padding:2px 8px;font-size:11px">🗑️</button>` : ''}</div>
+      <div class="txt">${escO(o.texto)}</div></div>`).join('');
+}
+async function salvarObs(){
+  const texto = document.getElementById('obs-texto').value.trim();
+  if (!texto) return toast('Escreva a observação', 'error');
+  try {
+    await api('/prod-planos/' + obsPlanoId + '/observacoes', { method:'POST', body:{ texto } });
+    toast('Observação registrada');
+    document.getElementById('obs-texto').value = '';
+    await carregarObs();
+    planos = await api('/prod-planos').catch(()=>planos); renderPlanos(); renderHistorico();
+  } catch(e) { toast('Erro: ' + e.message, 'error'); }
+}
+async function apagarObs(id){
+  if (!confirm('Excluir esta observação?')) return;
+  try { await api('/prod-plano-obs/' + id, { method:'DELETE' }); await carregarObs(); planos = await api('/prod-planos').catch(()=>planos); renderPlanos(); renderHistorico(); }
+  catch(e) { toast('Erro: ' + e.message, 'error'); }
+}
+function fecharObs(){ document.getElementById('modal-obs').classList.remove('show'); }
+
 function badgeStatus(s) {
   if (s === 'concluido') return '<span class="badge green">✅ Concluído</span>';
   if (s === 'atrasado') return '<span class="badge red">⚠️ Atrasado</span>';
@@ -701,7 +778,7 @@ function renderPlanos() {
       <td>${fmtNum(meta)}</td>
       <td>${fmtNum(real)}</td>
       <td>${pct.toFixed(1)}%</td>
-      <td>${badgeStatus(status)}</td>
+      <td style="white-space:nowrap">${badgeStatus(status)}${obsBtn(p)}</td>
       <td>
         <button class="btn-sm btn-blue" onclick="editarPlano(${p.id})" style="padding:4px 8px;font-size:11px">✏️</button>
         <button class="btn-sm btn-red" onclick="excluirPlano(${p.id})" style="padding:4px 8px;font-size:11px">🗑️</button>
@@ -878,7 +955,7 @@ function renderHistorico() {
       <td>${fmtNum(meta)}</td>
       <td>${fmtNum(real)}</td>
       <td>${pct.toFixed(1)}%</td>
-      <td>${badgeStatus(status)}</td>
+      <td style="white-space:nowrap">${badgeStatus(status)}${obsBtn(p)}</td>
     </tr>`;
   }).join('');
 }

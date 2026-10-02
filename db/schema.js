@@ -484,6 +484,20 @@ CREATE TABLE IF NOT EXISTS prod_planos (
 );
 CREATE INDEX IF NOT EXISTS idx_prod_planos_num_op ON prod_planos(num_op);
 
+/* Observações sobre o status de um plano (por que está atrasado, o que foi
+   combinado...). Quem registra é admin/operação; o PCP só lê. Guarda o status
+   que o plano tinha na hora, para o histórico fazer sentido depois. */
+CREATE TABLE IF NOT EXISTS prod_plano_obs (
+  id             SERIAL PRIMARY KEY,
+  plano_id       INTEGER NOT NULL REFERENCES prod_planos(id) ON DELETE CASCADE,
+  texto          TEXT NOT NULL,
+  status_na_hora VARCHAR(50),
+  autor_id       INTEGER REFERENCES users(id) ON DELETE SET NULL,
+  autor_nome     VARCHAR(200),
+  created_at     TIMESTAMPTZ DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_prod_plano_obs ON prod_plano_obs(plano_id, created_at DESC);
+
 CREATE TABLE IF NOT EXISTS prod_apontamentos (
   id           SERIAL PRIMARY KEY,
   plano_id     INTEGER REFERENCES prod_planos(id) ON DELETE CASCADE,
