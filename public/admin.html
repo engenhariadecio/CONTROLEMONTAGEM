@@ -151,7 +151,7 @@
 
   <!-- ══════════ USUÁRIOS ══════════ -->
   <section class="painel" id="p-usuarios" role="tabpanel" hidden>
-    <p class="sub">Quem acessa o sistema. <strong>Administrador</strong> configura tudo nesta página; <strong>Operação</strong> usa os três sistemas mas não altera cadastros estruturais.</p>
+    <p class="sub">Quem acessa o sistema. <strong>Administrador</strong> configura tudo nesta página; <strong>Operação</strong> usa os três sistemas mas não altera cadastros estruturais; <strong>PCP</strong> só visualiza ProGestão › Produção, sem editar nada.</p>
     <div class="barra-acoes">
       <button class="btn btn-primario btn-sm" onclick="abrirUsuario()">Novo usuário</button>
     </div>
@@ -700,7 +700,7 @@ async function carregarUsuarios() {
     <tr>
       <td class="destaque">${escapar(u.username)}</td>
       <td>${escapar(u.nome || '—')}</td>
-      <td><span class="selo ${u.role === 'admin' ? 'selo-marca' : 'selo-neutro'}">${u.role === 'admin' ? 'Administrador' : 'Operação'}</span></td>
+      <td><span class="selo ${u.role === 'admin' ? 'selo-marca' : u.role === 'pcp' ? 'selo-alerta' : 'selo-neutro'}">${u.role === 'admin' ? 'Administrador' : u.role === 'pcp' ? 'PCP (só Produção)' : 'Operação'}</span></td>
       <td><span class="selo ${u.ativo !== false ? 'selo-ok' : 'selo-neutro'}">${u.ativo !== false ? 'Ativo' : 'Desativado'}</span></td>
       <td><button class="btn btn-fantasma btn-xs" onclick="abrirUsuario(${u.id})">Editar</button>
           <button class="btn btn-fantasma btn-xs" onclick="trocarSenha(${u.id})">Trocar senha</button>
@@ -722,8 +722,9 @@ function abrirUsuario(id) {
         <p class="ajuda">Mínimo de 6 caracteres.</p></div>` : ''}
       <div class="campo"><label class="rotulo" for="uPapel">Perfil</label>
         <select class="controle" id="uPapel">
-          <option value="user" ${u.role !== 'admin' ? 'selected' : ''}>Operação</option>
+          <option value="user" ${!u.role || u.role === 'user' ? 'selected' : ''}>Operação</option>
           <option value="admin" ${u.role === 'admin' ? 'selected' : ''}>Administrador</option>
+          <option value="pcp" ${u.role === 'pcp' ? 'selected' : ''}>PCP — só visualiza Produção</option>
         </select></div>
       ${novo ? '' : `<div class="campo campo-full"><label class="chave"><input type="checkbox" id="uAtivo" ${u.ativo !== false ? 'checked' : ''}>
         <span class="chave-tri"></span><span class="chave-txt">Usuário ativo</span></label></div>`}

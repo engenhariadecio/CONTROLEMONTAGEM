@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 const bcrypt = require('bcryptjs');
 const { pool } = require('../db');
-const { requireAuth, requireAdmin } = require('../middleware/auth');
+const { requireAuth, requireAdmin, PAPEIS } = require('../middleware/auth');
 
 /* POST /api/login */
 router.post('/login', async (req, res) => {
@@ -84,7 +84,7 @@ router.post('/users', requireAdmin, async (req, res) => {
     const r = await pool.query(
       `INSERT INTO users (username,password,nome,role) VALUES ($1,$2,$3,$4)
        RETURNING id, username, nome, role, ativo, created_at`,
-      [username.trim(), hash, nome || username.trim(), role === 'admin' ? 'admin' : 'user']
+      [username.trim(), hash, nome || username.trim(), PAPEIS.includes(role) ? role : 'user']
     );
     res.json(r.rows[0]);
   } catch (e) { res.status(500).json({ error: e.message }); }
@@ -103,7 +103,7 @@ router.put('/users/:id', requireAdmin, async (req, res) => {
     const r = await pool.query(
       `UPDATE users SET nome=COALESCE($1,nome), role=COALESCE($2,role), ativo=COALESCE($3,ativo)
        WHERE id=$4 RETURNING id, username, nome, role, ativo, created_at`,
-      [nome || null, role || null, typeof ativo === 'boolean' ? ativo : null, id]
+      [nome || null, PAPEIS.includes(role) ? role : null, typeof ativo === 'boolean' ? ativo : null, id]
     );
     if (!r.rows.length) return res.status(404).json({ error: 'Usuário não encontrado' });
     res.json(r.rows[0]);

@@ -57,6 +57,7 @@ app.get('/api/health', async (_req, res) => {
   }
 });
 
+app.use(require('./middleware/auth').restringirPcp);
 app.use('/api', require('./routes/auth'));
 app.use('/api/config', require('./routes/config'));
 app.use('/api/colaboradores', require('./routes/colaboradores'));

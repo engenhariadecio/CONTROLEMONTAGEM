@@ -36,6 +36,10 @@ Os sistemas eram independentes e guardavam dados em lugares diferentes. Agora co
 - As consultas de aniversariantes usavam `HAVING` sem `GROUP BY`, o que o Postgres rejeita. Reescritas com subquery.
 - Layout retematizado com a identidade da Décio.
 
+**Perfil PCP (02/10/2026)**
+- Novo perfil de usuário **PCP** (Administração → Usuários → Perfil): só visualiza ProGestão › Produção. Entra direto em `/progestao/producao`; a tela esconde os formulários, botões de editar/excluir, a aba de apontamento e o menu dos outros módulos.
+- A restrição é no servidor (`middleware/auth.js › restringirPcp`): qualquer outra página redireciona para Produção e qualquer API fora de leitura de Produção responde 403, mesmo chamando direto.
+
 **Banco de horas: compensação e filtro global · Produção: editar apontamento (28/09/2026)**
 - Banco de Horas tem o tipo **Desconto**: horas descontadas ficam registradas, mas **não entram no saldo** — assim como Justificado (atestado/declaração). Saldo = Crédito − Débito. KPIs "Desconto" e "Saldo (créd − déb)". (Lançamentos antigos gravados como "Compensação" são convertidos para "Desconto" no boot.)
 - Filtro no topo da página (período: hoje, esta semana, este mês, mês, semana, intervalo; colaborador; turno; tipo) que vale para os KPIs, a tabela de lançamentos e o saldo. Abre em "este mês".

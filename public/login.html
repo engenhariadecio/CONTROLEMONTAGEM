@@ -105,7 +105,7 @@ form.addEventListener('submit', async (e) => {
     const dados = await r.json();
 
     if (r.ok && dados.success) {
-      window.location.href = '/';
+      window.location.href = dados.role === 'pcp' ? '/progestao/producao' : '/';
       return;
     }
     mostrarErro(dados.error || 'Não foi possível entrar.');

@@ -79,6 +79,14 @@ table tr:hover{background:var(--panel2)}
 .autocomplete-item:last-child{border-bottom:none}
 .autocomplete-item strong{color:var(--accent)}
 @media(max-width:768px){.sidebar{width:60px}.sidebar a{padding:10px;text-align:center;font-size:10px}}
+
+/* ===== Perfil PCP: somente visualização ===== */
+body.pcp .so-edicao, body.pcp .tab[onclick*="'apontar'"], body.pcp #sec-apontar,
+body.pcp .btn-red, body.pcp button[onclick^="editar"], body.pcp button[onclick^="excluir"], body.pcp button[onclick^="salvar"],
+body.pcp .sidebar a:not([href="/progestao/producao"]), body.pcp .voltar-portal{display:none!important}
+body.pcp .logo a{pointer-events:none}
+.pcp-aviso{display:none;background:rgba(232,140,74,.12);border:1px solid var(--orange,#E88C4A);border-radius:8px;padding:8px 14px;margin-bottom:14px;font-size:.85rem}
+body.pcp .pcp-aviso{display:block}
 </style>
 <link rel="icon" href="/assets/logo-decio.png">
 
@@ -151,6 +159,7 @@ a{color:var(--accent)}
       <input type="month" id="filtro-mes" onchange="loadAll()" style="background:var(--panel2);border:1px solid var(--border);color:var(--text);padding:6px 10px;border-radius:6px;font-size:13px">
     </div>
 
+    <div class="pcp-aviso">👁 Perfil <strong>PCP</strong>: acesso somente para visualização da Produção.</div>
     <div class="tabs">
       <button class="tab active" onclick="showTab('dashboard',event)">📊 Dashboard</button>
       <button class="tab" onclick="showTab('planos',event)">📋 Plano Mensal</button>
@@ -173,7 +182,7 @@ a{color:var(--accent)}
 
     <!-- ============ PLANO MENSAL ============ -->
     <div class="section" id="sec-planos">
-      <div class="card">
+      <div class="card so-edicao">
         <div class="card-title">➕ Novo Plano Mensal</div>
         <input type="hidden" id="plano-edit-id">
         <div class="form-row">
@@ -371,7 +380,7 @@ a{color:var(--accent)}
 
     <!-- ============ PRODUTOS ============ -->
     <div class="section" id="sec-produtos">
-      <div class="card">
+      <div class="card so-edicao">
         <div class="card-title">🗂️ Cadastro de Produtos</div>
         <input type="hidden" id="prod-edit-id">
         <div class="form-row">
@@ -453,6 +462,7 @@ async function loadUser() {
   try {
     const u = await api('/me');
     document.getElementById('user-name').textContent = u.nome || u.username || 'Usuário';
+    if (u.role === 'pcp') document.body.classList.add('pcp');   // somente visualização (o servidor também bloqueia)
   } catch(e) {
     document.getElementById('user-name').textContent = 'Usuário';
   }
