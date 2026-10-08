@@ -69,6 +69,82 @@ router.get('/prod-planos', requireAuth, async (req, res) => {
   }
 });
 
+/* ───── Células (cadastro dentro do módulo Produção) ─────
+   Mesma tabela `celulas` da administração. Aqui qualquer usuário de operação
+   edita; o PCP só lê (bloqueado pelo middleware). Horas disponíveis por dia
+   = operadores × horas_operador (padrão 7 h). */
+router.get('/prod-celulas', requireAuth, async (_req, res) => {
+  try {
+    const r = await pool.query(
+      `SELECT c.*, (c.operadores * c.horas_operador) AS horas_dia,
+              (SELECT COUNT(*)::int FROM prod_apontamentos_detalhados a WHERE a.celula = c.nome) AS apontamentos
+         FROM celulas c ORDER BY c.nome`);
+    res.json(r.rows);
+  } catch (err) { res.status(500).json({ error: 'Erro ao listar células' }); }
+});
+
+function camposCelula(b) {
+  return {
+    nome: (b.nome || '').trim(),
+    categoria: (b.categoria || '').trim() || null,
+    descricao: (b.descricao || '').trim() || null,
+    operadores: Math.max(0, parseInt(b.operadores) || 0),
+    horas_operador: parseFloat(b.horas_operador) > 0 ? parseFloat(b.horas_operador) : 7,
+    ativa: b.ativa !== false
+  };
+}
+
+router.post('/prod-celulas', requireAuth, async (req, res) => {
+  try {
+    const c = camposCelula(req.body);
+    if (!c.nome) return res.status(400).json({ error: 'Nome da célula obrigatório' });
+    const r = await pool.query(
+      `INSERT INTO celulas (nome, categoria, descricao, operadores, horas_operador, ativa)
+       VALUES ($1,$2,$3,$4,$5,$6) RETURNING *`,
+      [c.nome, c.categoria, c.descricao, c.operadores, c.horas_operador, c.ativa]);
+    res.json(r.rows[0]);
+  } catch (err) {
+    if (err.code === '23505') return res.status(409).json({ error: 'Já existe uma célula com esse nome' });
+    res.status(500).json({ error: 'Erro ao criar célula' });
+  }
+});
+
+router.put('/prod-celulas/:id', requireAuth, async (req, res) => {
+  const client = await pool.connect();
+  try {
+    const c = camposCelula(req.body);
+    if (!c.nome) return res.status(400).json({ error: 'Nome da célula obrigatório' });
+    await client.query('BEGIN');
+    const antiga = await client.query('SELECT nome FROM celulas WHERE id=$1', [req.params.id]);
+    if (!antiga.rows.length) { await client.query('ROLLBACK'); return res.status(404).json({ error: 'Célula não encontrada' }); }
+    const r = await client.query(
+      `UPDATE celulas SET nome=$1, categoria=$2, descricao=$3, operadores=$4, horas_operador=$5, ativa=$6
+       WHERE id=$7 RETURNING *`,
+      [c.nome, c.categoria, c.descricao, c.operadores, c.horas_operador, c.ativa, req.params.id]);
+    // os apontamentos guardam o nome da célula: renomear acompanha
+    if (antiga.rows[0].nome !== c.nome) {
+      await client.query('UPDATE prod_apontamentos_detalhados SET celula=$1 WHERE celula=$2', [c.nome, antiga.rows[0].nome]);
+    }
+    await client.query('COMMIT');
+    res.json(r.rows[0]);
+  } catch (err) {
+    await client.query('ROLLBACK').catch(() => {});
+    if (err.code === '23505') return res.status(409).json({ error: 'Já existe uma célula com esse nome' });
+    res.status(500).json({ error: 'Erro ao atualizar célula' });
+  } finally { client.release(); }
+});
+
+router.delete('/prod-celulas/:id', requireAuth, async (req, res) => {
+  try {
+    const c = await pool.query('SELECT nome FROM celulas WHERE id=$1', [req.params.id]);
+    if (!c.rows.length) return res.status(404).json({ error: 'Célula não encontrada' });
+    const n = await pool.query('SELECT COUNT(*)::int AS n FROM prod_apontamentos_detalhados WHERE celula=$1', [c.rows[0].nome]);
+    if (n.rows[0].n > 0) return res.status(400).json({ error: `Esta célula tem ${n.rows[0].n} apontamento(s). Marque como inativa em vez de excluir.` });
+    await pool.query('DELETE FROM celulas WHERE id=$1', [req.params.id]);
+    res.json({ success: true });
+  } catch (err) { res.status(500).json({ error: 'Erro ao excluir célula' }); }
+});
+
 /* ───── Observações do status do plano ───── */
 router.get('/prod-planos/:id/observacoes', requireAuth, async (req, res) => {
   try {

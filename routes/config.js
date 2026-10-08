@@ -142,11 +142,11 @@ router.get('/celulas', requireAuth, async (_req, res) => {
 
 router.post('/celulas', requireAdmin, async (req, res) => {
   try {
-    const { nome, descricao } = req.body;
+    const { nome, descricao, categoria, operadores, horas_operador } = req.body;
     if (!nome) return res.status(400).json({ error: 'Nome é obrigatório' });
     const r = await pool.query(
-      'INSERT INTO celulas (nome,descricao) VALUES ($1,$2) RETURNING *',
-      [nome.trim(), descricao || null]
+      'INSERT INTO celulas (nome,descricao,categoria,operadores,horas_operador) VALUES ($1,$2,$3,$4,$5) RETURNING *',
+      [nome.trim(), descricao || null, categoria || null, Math.max(0, parseInt(operadores) || 0), parseFloat(horas_operador) > 0 ? parseFloat(horas_operador) : 7]
     );
     res.json(r.rows[0]);
   } catch (e) {
@@ -157,11 +157,14 @@ router.post('/celulas', requireAdmin, async (req, res) => {
 
 router.put('/celulas/:id', requireAdmin, async (req, res) => {
   try {
-    const { nome, descricao, ativa } = req.body;
+    const { nome, descricao, ativa, categoria, operadores, horas_operador } = req.body;
     const r = await pool.query(
       `UPDATE celulas SET nome=COALESCE($1,nome), descricao=COALESCE($2,descricao),
-       ativa=COALESCE($3,ativa) WHERE id=$4 RETURNING *`,
-      [nome || null, descricao ?? null, typeof ativa === 'boolean' ? ativa : null, req.params.id]
+       ativa=COALESCE($3,ativa), categoria=COALESCE($4,categoria), operadores=COALESCE($5,operadores),
+       horas_operador=COALESCE($6,horas_operador) WHERE id=$7 RETURNING *`,
+      [nome || null, descricao ?? null, typeof ativa === 'boolean' ? ativa : null, categoria ?? null,
+       operadores === undefined ? null : Math.max(0, parseInt(operadores) || 0),
+       parseFloat(horas_operador) > 0 ? parseFloat(horas_operador) : null, req.params.id]
     );
     if (!r.rows.length) return res.status(404).json({ error: 'Célula não encontrada' });
     res.json(r.rows[0]);

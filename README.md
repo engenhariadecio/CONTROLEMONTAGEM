@@ -36,6 +36,14 @@ Os sistemas eram independentes e guardavam dados em lugares diferentes. Agora co
 - As consultas de aniversariantes usavam `HAVING` sem `GROUP BY`, o que o Postgres rejeita. Reescritas com subquery.
 - Layout retematizado com a identidade da Décio.
 
+**Dashboards de Produção, células com operadores, mostrar senha (08/10/2026)**
+- Login: ícone de olho para mostrar/ocultar a senha.
+- Produção › Dashboard refeito. Seletor de dashboard + filtros de período (este mês, mês passado, 30/90 dias, ano, mês, intervalo), material, categoria, OP, célula e turno — independentes do filtro de mês do topo.
+  - **Meta × Realizado** (base: plano mensal): linha do plano (meta distribuída pelos dias úteis) × linha do atendimento (realizado acumulado dos apontamentos); meta × realizado por material; % de atendimento por OP; situação dos planos; produção por dia × meta diária.
+  - **Horas produzidas × Horas disponíveis** (base: apontamento diário, por célula): horas disponíveis = operadores × horas por operador (padrão 7 h) × dias úteis do período; produzidas = horas reportadas nos apontamentos. Gráfico por célula, por dia, eficiência, participação e tabela-resumo.
+- Nova aba **Células** em Produção: nome, categoria, operadores, horas por operador, descrição, ativa/inativa. O select de célula do apontamento vem desse cadastro (as opções fixas foram removidas). Mesma tabela `celulas` da administração (colunas novas `categoria`, `operadores`, `horas_operador`). Rotas `/api/prod-celulas`.
+- Chart.js passou a ser servido localmente (`public/js/chart.umd.js`), sem depender de CDN.
+
 **Observações do status do plano (02/10/2026)**
 - Em Produção › Plano Mensal e Histórico, ao lado do status de cada plano há um balão 💬 (com a contagem). Abre uma janela com o histórico de observações: quem escreveu, quando e qual era o status na hora.
 - Administrador e Operação registram novas observações; o PCP só visualiza (o servidor devolve 403 em qualquer gravação). Excluir: só o administrador ou o autor.

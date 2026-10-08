@@ -673,6 +673,11 @@ UPDATE epis SET descartavel = (nome ILIKE '%descart%') WHERE descartavel IS NULL
 /* Banco de horas: o tipo "Compensação" virou "Desconto" */
 UPDATE bh_lancamentos SET tipo = 'Desconto' WHERE tipo = 'Compensação';
 
+/* Células: categoria e nº de operadores (horas disponíveis = operadores × 7 h/dia) */
+ALTER TABLE celulas ADD COLUMN IF NOT EXISTS categoria VARCHAR(80);
+ALTER TABLE celulas ADD COLUMN IF NOT EXISTS operadores INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE celulas ADD COLUMN IF NOT EXISTS horas_operador NUMERIC(5,2) NOT NULL DEFAULT 7;
+
 /* Desligamento de colaborador: status 'Desligado' + data. Fica no cadastro, some das listas de seleção. */
 ALTER TABLE colaboradores ADD COLUMN IF NOT EXISTS dt_desligamento DATE;
 
