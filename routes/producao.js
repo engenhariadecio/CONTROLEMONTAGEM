@@ -28,8 +28,20 @@ function validarAlfanumerico(valor, qtd) {
   return re.test(s);
 }
 
+/* O realizado de um plano é SEMPRE a soma dos apontamentos diários ligados a
+   ele — nunca um valor somado/subtraído aos poucos (que acabava divergindo
+   depois de edições e exclusões). */
+const SQL_RECALC = `UPDATE prod_planos p SET realizado = COALESCE((
+    SELECT SUM(a.realizado) FROM prod_apontamentos_detalhados a WHERE a.plano_id = p.id), 0)`;
+async function recalcRealizado(planoId, client) {
+  const db = client || pool;
+  if (planoId) await db.query(SQL_RECALC + ' WHERE p.id = $1', [planoId]);
+  else await db.query(SQL_RECALC);
+}
+
 async function atualizarStatusPlano(planoId, client) {
   const db = client || pool;
+  await recalcRealizado(planoId, db);
   const r = await db.query('SELECT meta, realizado, data_limite FROM prod_planos WHERE id=$1', [planoId]);
   if (!r.rows.length) return;
   const p = r.rows[0];
@@ -53,6 +65,7 @@ async function atualizarStatusPlano(planoId, client) {
 router.get('/prod-planos', requireAuth, async (req, res) => {
   try {
     const { mes } = req.query;
+    await recalcRealizado();   // garante que a lista reflete exatamente os apontamentos
     // obs_qtd / ultima_obs: a tabela mostra o balão sem precisar de outra chamada
     let q = `SELECT p.*,
                (SELECT COUNT(*)::int FROM prod_plano_obs o WHERE o.plano_id = p.id) AS obs_qtd,
@@ -428,12 +441,7 @@ router.post('/prod-apontamentos-detalhados', requireAuth, async (req, res) => {
       ]
     );
 
-    // Soma o realizado no plano vinculado pela OP
-    await client.query(
-      'UPDATE prod_planos SET realizado = COALESCE(realizado,0) + $1 WHERE id=$2',
-      [parseFloat(realizado) || 0, planoId]
-    );
-    await atualizarStatusPlano(planoId, client);
+    await atualizarStatusPlano(planoId, client);   // recalcula o realizado pela soma dos apontamentos
 
     await client.query('COMMIT');
     res.json({ ...r.rows[0], plano_encontrado: true });
@@ -481,12 +489,6 @@ router.put('/prod-apontamentos-detalhados/:id', requireAuth, async (req, res) =>
     }
     const antigo = ap.rows[0];
 
-    if (antigo.plano_id) {
-      await client.query(
-        'UPDATE prod_planos SET realizado = GREATEST(COALESCE(realizado,0) - $1, 0) WHERE id=$2',
-        [parseFloat(antigo.realizado) || 0, antigo.plano_id]
-      );
-    }
     const r = await client.query(
       `UPDATE prod_apontamentos_detalhados SET
          data_execucao=$1, turno=$2, celula=$3, num_op=$4, serie_inicial=$5, serie_final=$6,
@@ -496,10 +498,6 @@ router.put('/prod-apontamentos-detalhados/:id', requireAuth, async (req, res) =>
       [data_execucao, turno, celula, num_op, serie_inicial, serie_final,
        cod_decio, cod_intelbras || null, descricao || null, categoria || null,
        meta || 0, realizado || 0, hora_reportada_total || 0, observacoes || null, novoPlano, req.params.id]
-    );
-    await client.query(
-      'UPDATE prod_planos SET realizado = COALESCE(realizado,0) + $1 WHERE id=$2',
-      [parseFloat(realizado) || 0, novoPlano]
     );
     await atualizarStatusPlano(novoPlano, client);
     if (antigo.plano_id && antigo.plano_id !== novoPlano) await atualizarStatusPlano(antigo.plano_id, client);
@@ -525,14 +523,8 @@ router.delete('/prod-apontamentos-detalhados/:id', requireAuth, async (req, res)
       return res.status(404).json({ error: 'Apontamento não encontrado' });
     }
     const a = ap.rows[0];
-    if (a.plano_id) {
-      await client.query(
-        'UPDATE prod_planos SET realizado = GREATEST(COALESCE(realizado,0) - $1, 0) WHERE id=$2',
-        [parseFloat(a.realizado) || 0, a.plano_id]
-      );
-      await atualizarStatusPlano(a.plano_id, client);
-    }
     await client.query('DELETE FROM prod_apontamentos_detalhados WHERE id=$1', [req.params.id]);
+    if (a.plano_id) await atualizarStatusPlano(a.plano_id, client);
     await client.query('COMMIT');
     res.json({ ok: true });
   } catch (err) {

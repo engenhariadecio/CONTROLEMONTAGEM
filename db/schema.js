@@ -670,6 +670,12 @@ ALTER TABLE manutencoes       ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DE
 ALTER TABLE epis ADD COLUMN IF NOT EXISTS descartavel BOOLEAN;
 UPDATE epis SET descartavel = (nome ILIKE '%descart%') WHERE descartavel IS NULL;
 
+/* Apontamentos antigos sem vínculo: liga ao plano pela OP. O realizado do plano
+   é recalculado pela soma dos apontamentos a cada listagem (routes/producao.js). */
+UPDATE prod_apontamentos_detalhados a SET plano_id = p.id
+  FROM prod_planos p WHERE a.plano_id IS NULL AND p.num_op = a.num_op;
+UPDATE prod_planos p SET realizado = COALESCE((SELECT SUM(a.realizado) FROM prod_apontamentos_detalhados a WHERE a.plano_id = p.id), 0);
+
 /* Banco de horas: o tipo "Compensação" virou "Desconto" */
 UPDATE bh_lancamentos SET tipo = 'Desconto' WHERE tipo = 'Compensação';
 
