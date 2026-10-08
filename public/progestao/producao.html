@@ -1273,12 +1273,12 @@ function renderDashMeta(f) {
       const d = clamp(pl.data_limite ? String(pl.data_limite).slice(0,10) : f.ate);
       planoDia[d] = (planoDia[d] || 0) + meta;
     });
-    /* Linha do atendimento: o realizado desses mesmos planos, acumulado pelo dia
-       de cada apontamento — assim fecha com a coluna Realizado do Plano Mensal. */
-    const idsPlanos = new Set(f.planos.map(pl => pl.id)), opsPlanos = new Set(f.planos.map(pl => pl.num_op).filter(Boolean));
+    /* Linha do atendimento: exatamente os apontamentos do Apontamento Diário,
+       dia a dia, dentro do período (e com os mesmos filtros de material, OP,
+       célula e turno). Apontamento fora do período não entra em dia nenhum. */
     const realDia = {};
-    dashApont.filter(a => (a.plano_id && idsPlanos.has(a.plano_id)) || (!a.plano_id && opsPlanos.has(a.num_op))).forEach(a => {
-      const d = clamp(String(a.data_execucao).slice(0,10));
+    f.apont.forEach(a => {
+      const d = String(a.data_execucao).slice(0,10);
       realDia[d] = (realDia[d] || 0) + (parseFloat(a.realizado) || 0);
     });
     let accP = 0, accR = 0;
