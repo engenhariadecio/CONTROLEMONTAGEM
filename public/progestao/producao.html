@@ -247,7 +247,7 @@ a{color:var(--accent)}
           <div class="card"><div class="card-title">📈 Horas produzidas por dia × disponível/dia</div><div class="chart-box"><canvas id="ch-horas-dia"></canvas></div></div>
           <div class="card"><div class="card-title">⚡ Eficiência por célula (produzidas ÷ disponíveis)</div><div class="chart-box"><canvas id="ch-horas-efic"></canvas></div></div>
           <div class="card"><div class="card-title">🥧 Participação de cada célula nas horas produzidas</div><div class="chart-box"><canvas id="ch-horas-share"></canvas></div></div>
-          <div class="card"><div class="card-title">📋 Resumo por célula</div><div style="overflow:auto"><table><thead><tr><th>Célula</th><th>Categoria</th><th>Oper.</th><th>Dias úteis</th><th>Disponível (h)</th><th>Produzido (h)</th><th>Efic.</th><th>Qtd.</th></tr></thead><tbody id="tb-horas-celula"></tbody></table></div></div>
+          <div class="card"><div class="card-title">📋 Resumo por célula</div><div style="overflow:auto"><table><thead><tr><th>Célula</th><th>Categoria</th><th>Turno</th><th>Oper.</th><th>Dias úteis</th><th>Disponível (h)</th><th>Produzido (h)</th><th>Efic.</th><th>Qtd.</th></tr></thead><tbody id="tb-horas-celula"></tbody></table></div></div>
         </div>
       </div>
     </div>
@@ -260,6 +260,7 @@ a{color:var(--accent)}
         <div class="form-row">
           <div class="form-group"><label>Nome da célula *</label><input type="text" id="cel-nome" placeholder="Ex: Célula 01"></div>
           <div class="form-group"><label>Categoria</label><input type="text" id="cel-cat" list="cel-cat-lista" placeholder="Ex: Parede, Piso, Acessórios"><datalist id="cel-cat-lista"></datalist></div>
+          <div class="form-group"><label>Turno</label><select id="cel-turno"><option value="">Todos os turnos</option><option value="1">1º Turno</option><option value="2">2º Turno</option><option value="3">3º Turno</option></select></div>
           <div class="form-group"><label>Operadores</label><input type="number" id="cel-oper" min="0" step="1" value="0" oninput="celPrevia()"></div>
           <div class="form-group"><label>Horas por operador/dia</label><input type="number" id="cel-horas" min="0.5" step="0.5" value="7" oninput="celPrevia()"></div>
           <div class="form-group"><label>Horas disponíveis/dia</label><input type="text" id="cel-previa" value="0 h" readonly style="opacity:.75"></div>
@@ -273,7 +274,7 @@ a{color:var(--accent)}
       </div>
       <div class="card">
         <div class="card-title">🏭 Células cadastradas <span style="margin-left:auto;font-size:11px;color:var(--text2)">As horas disponíveis alimentam o dashboard de horas</span></div>
-        <div style="overflow:auto"><table><thead><tr><th>Célula</th><th>Categoria</th><th>Operadores</th><th>h/operador</th><th>Horas disp./dia</th><th>Apontamentos</th><th>Situação</th><th>Ações</th></tr></thead><tbody id="tb-celulas"></tbody></table></div>
+        <div style="overflow:auto"><table><thead><tr><th>Célula</th><th>Categoria</th><th>Turno</th><th>Operadores</th><th>h/operador</th><th>Horas disp./dia</th><th>Apontamentos</th><th>Situação</th><th>Ações</th></tr></thead><tbody id="tb-celulas"></tbody></table></div>
       </div>
     </div>
 
@@ -343,6 +344,7 @@ a{color:var(--accent)}
               <option value="">Selecione...</option>
               <option value="1">1º Turno</option>
               <option value="2">2º Turno</option>
+              <option value="3">3º Turno</option>
             </select>
           </div>
           <div class="form-group">
@@ -1306,14 +1308,14 @@ function renderDashHoras(f) {
   const hoje = isoHoje();
   const dias = diasEntre(f.de, f.ate > hoje ? hoje : f.ate);
   const uteis = dias.filter(ehDiaUtil);
-  const nomes = f.celula ? [f.celula] : [...new Set([...celulas.filter(c => c.ativa !== false).map(c => c.nome), ...f.apont.map(a => a.celula)])].filter(Boolean).sort();
+  const nomes = f.celula ? [f.celula] : [...new Set([...celulas.filter(c => c.ativa !== false && (!f.turno || !c.turno || c.turno === f.turno)).map(c => c.nome), ...f.apont.map(a => a.celula)])].filter(Boolean).sort();
   const linhas = nomes.map(nome => {
     const c = celulas.find(x => x.nome === nome) || {};
     const ap = f.apont.filter(a => a.celula === nome);
     const disponivel = (parseFloat(c.operadores) || 0) * (parseFloat(c.horas_operador) || 7) * uteis.length;
     const produzido = ap.reduce((s, a) => s + (parseFloat(a.hora_reportada_total) || 0), 0);
     const qtd = ap.reduce((s, a) => s + (parseFloat(a.realizado) || 0), 0);
-    return { nome, categoria: c.categoria || '-', oper: parseFloat(c.operadores) || 0, hOper: parseFloat(c.horas_operador) || 7, disponivel, produzido, qtd, efic: disponivel > 0 ? produzido / disponivel * 100 : null, cadastrada: !!c.id };
+    return { nome, categoria: c.categoria || '-', turno: c.turno || '', oper: parseFloat(c.operadores) || 0, hOper: parseFloat(c.horas_operador) || 7, disponivel, produzido, qtd, efic: disponivel > 0 ? produzido / disponivel * 100 : null, cadastrada: !!c.id };
   }).filter(l => l.disponivel > 0 || l.produzido > 0);
   const totDisp = linhas.reduce((s, l) => s + l.disponivel, 0), totProd = linhas.reduce((s, l) => s + l.produzido, 0);
   const efic = totDisp > 0 ? totProd / totDisp * 100 : 0;
@@ -1327,7 +1329,7 @@ function renderDashHoras(f) {
     { lbl:'Células', val: linhas.length, cor:'blue', sub: semCad.length ? '⚠ sem cadastro: ' + semCad.join(', ') : '' }
   ]);
 
-  if (!linhas.length) { ['ch-horas-celula','ch-horas-dia','ch-horas-efic','ch-horas-share'].forEach(id => semDados(id, 'Cadastre as células (aba Células) e registre apontamentos')); document.getElementById('tb-horas-celula').innerHTML = '<tr><td colspan="8" style="text-align:center;color:var(--text2)">Sem dados</td></tr>'; return; }
+  if (!linhas.length) { ['ch-horas-celula','ch-horas-dia','ch-horas-efic','ch-horas-share'].forEach(id => semDados(id, 'Cadastre as células (aba Células) e registre apontamentos')); document.getElementById('tb-horas-celula').innerHTML = '<tr><td colspan="9" style="text-align:center;color:var(--text2)">Sem dados</td></tr>'; return; }
 
   comDados('ch-horas-celula');
   grafico('ch-horas-celula', { type:'bar', data:{ labels: linhas.map(l => l.nome), datasets:[
@@ -1356,19 +1358,26 @@ function renderDashHoras(f) {
     grafico('ch-horas-share', { type:'doughnut', data:{ labels: comProd.map(l => l.nome), datasets:[{ data: comProd.map(l => Math.round(l.produzido * 10) / 10), backgroundColor: comProd.map((_, i) => PALETA[i % PALETA.length]), borderColor:'#14293A', borderWidth:2 }] }, options:{ cutout:'55%', plugins:{ legend:{ position:'right', labels:{ color:'#EAF4F1' } } } } }); }
 
   document.getElementById('tb-horas-celula').innerHTML = linhas.map(l => `<tr>
-    <td><strong>${l.nome}</strong>${l.cadastrada ? '' : ' <span class="badge red" title="Cadastre na aba Células">sem cadastro</span>'}</td><td>${l.categoria}</td><td>${l.oper}</td><td>${uteis.length}</td>
+    <td><strong>${l.nome}</strong>${l.cadastrada ? '' : ' <span class="badge red" title="Cadastre na aba Células">sem cadastro</span>'}</td><td>${l.categoria}</td><td>${l.turno ? l.turno + 'º' : '-'}</td><td>${l.oper}</td><td>${uteis.length}</td>
     <td>${fmtH(l.disponivel)}</td><td>${fmtH(l.produzido)}</td>
     <td>${l.efic === null ? '-' : `<span class="badge ${l.efic >= 90 ? 'green' : l.efic >= 70 ? 'yellow' : 'red'}">${l.efic.toFixed(1)}%</span>`}</td><td>${fmtNum(l.qtd)}</td></tr>`).join('') +
-    `<tr style="font-weight:700"><td>Total</td><td></td><td>${linhas.reduce((s,l)=>s+l.oper,0)}</td><td>${uteis.length}</td><td>${fmtH(totDisp)}</td><td>${fmtH(totProd)}</td><td>${efic.toFixed(1)}%</td><td>${fmtNum(linhas.reduce((s,l)=>s+l.qtd,0))}</td></tr>`;
+    `<tr style="font-weight:700"><td>Total</td><td></td><td></td><td>${linhas.reduce((s,l)=>s+l.oper,0)}</td><td>${uteis.length}</td><td>${fmtH(totDisp)}</td><td>${fmtH(totProd)}</td><td>${efic.toFixed(1)}%</td><td>${fmtNum(linhas.reduce((s,l)=>s+l.qtd,0))}</td></tr>`;
 }
 
 // =================== CÉLULAS ===================
+document.addEventListener('DOMContentLoaded', () => {
+  document.getElementById('a-celula').addEventListener('change', function () {
+    const t = this.selectedOptions[0] && this.selectedOptions[0].dataset.turno;
+    if (t && !apontEditId) document.getElementById('a-turno').value = t;
+  });
+});
+function turnoTxt(t) { return t ? t + 'º Turno' : '<span style="color:var(--text2)">Todos</span>'; }
 function celPrevia() { const o = parseFloat(document.getElementById('cel-oper').value) || 0, h = parseFloat(document.getElementById('cel-horas').value) || 0; document.getElementById('cel-previa').value = fmtH(o * h); }
 async function carregarCelulas() {
   celulas = await api('/prod-celulas').catch(() => []);
   // select do apontamento: células ativas + a já escolhida (edição de apontamento antigo)
   const sel = document.getElementById('a-celula'); const atual = sel.value;
-  sel.innerHTML = '<option value="">Selecione...</option>' + celulas.filter(c => c.ativa !== false).map(c => `<option value="${c.nome}">${c.nome}${c.categoria ? ' — ' + c.categoria : ''}</option>`).join('');
+  sel.innerHTML = '<option value="">Selecione...</option>' + celulas.filter(c => c.ativa !== false).map(c => `<option value="${c.nome}" data-turno="${c.turno || ''}">${c.nome}${c.categoria ? ' — ' + c.categoria : ''}${c.turno ? ' (' + c.turno + 'º turno)' : ''}</option>`).join('');
   if (atual && ![...sel.options].some(o => o.value === atual)) sel.innerHTML += `<option value="${atual}">${atual}</option>`;
   sel.value = atual;
   document.getElementById('cel-cat-lista').innerHTML = [...new Set(celulas.map(c => c.categoria).filter(Boolean))].map(c => `<option value="${c}">`).join('');
@@ -1376,9 +1385,9 @@ async function carregarCelulas() {
 }
 function renderCelulas() {
   const tb = document.getElementById('tb-celulas');
-  if (!celulas.length) { tb.innerHTML = '<tr><td colspan="8" style="text-align:center;color:var(--text2);padding:24px">Nenhuma célula cadastrada.</td></tr>'; return; }
+  if (!celulas.length) { tb.innerHTML = '<tr><td colspan="9" style="text-align:center;color:var(--text2);padding:24px">Nenhuma célula cadastrada.</td></tr>'; return; }
   tb.innerHTML = celulas.map(c => `<tr style="${c.ativa === false ? 'opacity:.55' : ''}">
-    <td><strong>${c.nome}</strong>${c.descricao ? `<div style="font-size:11px;color:var(--text2)">${c.descricao}</div>` : ''}</td><td>${c.categoria || '-'}</td><td>${c.operadores || 0}</td><td>${parseFloat(c.horas_operador) || 7} h</td>
+    <td><strong>${c.nome}</strong>${c.descricao ? `<div style="font-size:11px;color:var(--text2)">${c.descricao}</div>` : ''}</td><td>${c.categoria || '-'}</td><td>${turnoTxt(c.turno)}</td><td>${c.operadores || 0}</td><td>${parseFloat(c.horas_operador) || 7} h</td>
     <td><strong>${fmtH((parseFloat(c.operadores) || 0) * (parseFloat(c.horas_operador) || 7))}</strong></td><td>${c.apontamentos || 0}</td>
     <td>${c.ativa === false ? '<span class="badge red">Inativa</span>' : '<span class="badge green">Ativa</span>'}</td>
     <td style="white-space:nowrap"><button class="btn-sm btn-blue" onclick="editarCelula(${c.id})" style="padding:4px 8px;font-size:11px">✏️</button> <button class="btn-sm btn-red" onclick="excluirCelula(${c.id})" style="padding:4px 8px;font-size:11px">🗑️</button></td></tr>`).join('');
@@ -1387,18 +1396,18 @@ function editarCelula(id) {
   const c = celulas.find(x => x.id === id); if (!c) return;
   document.getElementById('cel-edit-id').value = id; document.getElementById('cel-titulo').textContent = '✏️ Editar Célula';
   document.getElementById('cel-nome').value = c.nome; document.getElementById('cel-cat').value = c.categoria || ''; document.getElementById('cel-oper').value = c.operadores || 0;
-  document.getElementById('cel-horas').value = parseFloat(c.horas_operador) || 7; document.getElementById('cel-desc').value = c.descricao || '';
+  document.getElementById('cel-horas').value = parseFloat(c.horas_operador) || 7; document.getElementById('cel-desc').value = c.descricao || ''; document.getElementById('cel-turno').value = c.turno || '';
   document.getElementById('cel-ativa-wrap').style.display = ''; document.getElementById('cel-ativa').value = String(c.ativa !== false);
   celPrevia(); window.scrollTo({ top:0, behavior:'smooth' });
 }
 function limparCelula() {
   document.getElementById('cel-edit-id').value = ''; document.getElementById('cel-titulo').textContent = '🏷️ Nova Célula';
-  ['cel-nome','cel-cat','cel-desc'].forEach(id => document.getElementById(id).value = ''); document.getElementById('cel-oper').value = 0; document.getElementById('cel-horas').value = 7;
+  ['cel-nome','cel-cat','cel-desc','cel-turno'].forEach(id => document.getElementById(id).value = ''); document.getElementById('cel-oper').value = 0; document.getElementById('cel-horas').value = 7;
   document.getElementById('cel-ativa-wrap').style.display = 'none'; document.getElementById('cel-ativa').value = 'true'; celPrevia();
 }
 async function salvarCelula() {
   const id = document.getElementById('cel-edit-id').value;
-  const body = { nome: document.getElementById('cel-nome').value.trim(), categoria: document.getElementById('cel-cat').value, operadores: parseInt(document.getElementById('cel-oper').value) || 0, horas_operador: parseFloat(document.getElementById('cel-horas').value) || 7, descricao: document.getElementById('cel-desc').value, ativa: document.getElementById('cel-ativa').value === 'true' };
+  const body = { nome: document.getElementById('cel-nome').value.trim(), categoria: document.getElementById('cel-cat').value, operadores: parseInt(document.getElementById('cel-oper').value) || 0, horas_operador: parseFloat(document.getElementById('cel-horas').value) || 7, descricao: document.getElementById('cel-desc').value, turno: document.getElementById('cel-turno').value || null, ativa: document.getElementById('cel-ativa').value === 'true' };
   if (!body.nome) return toast('Informe o nome da célula', 'error');
   try {
     if (id) await api('/prod-celulas/' + id, { method:'PUT', body }); else await api('/prod-celulas', { method:'POST', body });

@@ -90,6 +90,7 @@ function camposCelula(b) {
     descricao: (b.descricao || '').trim() || null,
     operadores: Math.max(0, parseInt(b.operadores) || 0),
     horas_operador: parseFloat(b.horas_operador) > 0 ? parseFloat(b.horas_operador) : 7,
+    turno: ['1', '2', '3'].includes(String(b.turno)) ? String(b.turno) : null,
     ativa: b.ativa !== false
   };
 }
@@ -99,9 +100,9 @@ router.post('/prod-celulas', requireAuth, async (req, res) => {
     const c = camposCelula(req.body);
     if (!c.nome) return res.status(400).json({ error: 'Nome da célula obrigatório' });
     const r = await pool.query(
-      `INSERT INTO celulas (nome, categoria, descricao, operadores, horas_operador, ativa)
-       VALUES ($1,$2,$3,$4,$5,$6) RETURNING *`,
-      [c.nome, c.categoria, c.descricao, c.operadores, c.horas_operador, c.ativa]);
+      `INSERT INTO celulas (nome, categoria, descricao, operadores, horas_operador, turno, ativa)
+       VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING *`,
+      [c.nome, c.categoria, c.descricao, c.operadores, c.horas_operador, c.turno, c.ativa]);
     res.json(r.rows[0]);
   } catch (err) {
     if (err.code === '23505') return res.status(409).json({ error: 'Já existe uma célula com esse nome' });
@@ -118,9 +119,9 @@ router.put('/prod-celulas/:id', requireAuth, async (req, res) => {
     const antiga = await client.query('SELECT nome FROM celulas WHERE id=$1', [req.params.id]);
     if (!antiga.rows.length) { await client.query('ROLLBACK'); return res.status(404).json({ error: 'Célula não encontrada' }); }
     const r = await client.query(
-      `UPDATE celulas SET nome=$1, categoria=$2, descricao=$3, operadores=$4, horas_operador=$5, ativa=$6
-       WHERE id=$7 RETURNING *`,
-      [c.nome, c.categoria, c.descricao, c.operadores, c.horas_operador, c.ativa, req.params.id]);
+      `UPDATE celulas SET nome=$1, categoria=$2, descricao=$3, operadores=$4, horas_operador=$5, turno=$6, ativa=$7
+       WHERE id=$8 RETURNING *`,
+      [c.nome, c.categoria, c.descricao, c.operadores, c.horas_operador, c.turno, c.ativa, req.params.id]);
     // os apontamentos guardam o nome da célula: renomear acompanha
     if (antiga.rows[0].nome !== c.nome) {
       await client.query('UPDATE prod_apontamentos_detalhados SET celula=$1 WHERE celula=$2', [c.nome, antiga.rows[0].nome]);

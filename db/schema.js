@@ -677,6 +677,7 @@ UPDATE bh_lancamentos SET tipo = 'Desconto' WHERE tipo = 'Compensação';
 ALTER TABLE celulas ADD COLUMN IF NOT EXISTS categoria VARCHAR(80);
 ALTER TABLE celulas ADD COLUMN IF NOT EXISTS operadores INTEGER NOT NULL DEFAULT 0;
 ALTER TABLE celulas ADD COLUMN IF NOT EXISTS horas_operador NUMERIC(5,2) NOT NULL DEFAULT 7;
+ALTER TABLE celulas ADD COLUMN IF NOT EXISTS turno VARCHAR(20);   -- '1', '2', '3' ou NULL = todos os turnos
 
 /* Desligamento de colaborador: status 'Desligado' + data. Fica no cadastro, some das listas de seleção. */
 ALTER TABLE colaboradores ADD COLUMN IF NOT EXISTS dt_desligamento DATE;
