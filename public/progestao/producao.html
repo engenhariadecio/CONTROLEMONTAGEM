@@ -226,7 +226,7 @@ a{color:var(--accent)}
         <div class="card">
           <div class="card-title">📈 Acompanhamento do plano — linha do plano × linha do atendimento (acumulado em quantidade)</div>
           <div class="chart-box tall"><canvas id="ch-meta-linha"></canvas></div>
-          <div class="chart-nota">Linha do plano: meta total do período distribuída pelos dias úteis (seg–sex). Linha do atendimento: quantidade realizada acumulada pelos apontamentos diários.</div>
+          <div class="chart-nota">Linha do plano: cada plano do Plano Mensal tem a meta distribuída pelos dias úteis (seg–sex) até a sua <b>data limite</b>; a linha é a soma dos planos e fecha no total da meta. Linha do atendimento: quantidade realizada acumulada pelos apontamentos diários.</div>
         </div>
         <div class="dash-grid">
           <div class="card"><div class="card-title">📊 Meta × Realizado por material</div><div class="chart-box"><canvas id="ch-meta-material"></canvas></div></div>
@@ -1263,9 +1263,31 @@ function renderDashMeta(f) {
   if (!dias.length || (!metaTotal && !f.apont.length)) semDados('ch-meta-linha'); else {
     comDados('ch-meta-linha');
     const porDia = {}; f.apont.forEach(a => { const d = String(a.data_execucao).slice(0,10); porDia[d] = (porDia[d] || 0) + (parseFloat(a.realizado) || 0); });
-    let accP = 0, accR = 0; const passo = uteis.length ? metaTotal / uteis.length : 0;
+    /* Linha do plano: cada plano do Plano Mensal entrega a sua meta até a própria
+       data limite — a meta é distribuída pelos dias úteis entre o início (do
+       período ou do mês do plano, o que for depois) e a data limite. Somando os
+       planos, a linha sobe no ritmo que o plano mensal exige e fecha no total
+       da meta exatamente nas datas limite. */
+    const planoDia = {};
+    f.planos.forEach(pl => {
+      const meta = parseFloat(pl.meta) || 0; if (!meta) return;
+      const mesIni = (pl.mes || String(pl.data_limite || '').slice(0,7) || f.de.slice(0,7)) + '-01';
+      let ini = mesIni > f.de ? mesIni : f.de;
+      let fim = pl.data_limite ? String(pl.data_limite).slice(0,10) : f.ate;
+      if (fim > f.ate) fim = f.ate;
+      if (fim < ini) ini = fim;                                   // limite já passou: entrega toda no dia do limite
+      const ds = diasEntre(ini, fim).filter(ehDiaUtil);
+      if (!ds.length) { planoDia[fim] = (planoDia[fim] || 0) + meta; return; }
+      ds.forEach(d => { planoDia[d] = (planoDia[d] || 0) + meta / ds.length; });
+    });
+    let accP = 0, accR = 0;
     const plano = [], atend = [];
-    dias.forEach(d => { if (ehDiaUtil(d)) accP += passo; plano.push(Math.round(accP * 100) / 100); if (d <= hoje) { accR += porDia[d] || 0; atend.push(Math.round(accR * 100) / 100); } else atend.push(null); });
+    dias.forEach(d => { accP += planoDia[d] || 0; plano.push(Math.round(accP * 100) / 100); if (d <= hoje) { accR += porDia[d] || 0; atend.push(Math.round(accR * 100) / 100); } else atend.push(null); });
+    // "esperado até hoje" segue a mesma linha
+    const idxHoje = dias.filter(d => d <= hoje).length - 1;
+    const esperadoLinha = idxHoje >= 0 ? plano[idxHoje] : 0;
+    const kpiEsp = document.querySelector('#d-kpis .kpi:nth-child(5)');
+    if (kpiEsp) { kpiEsp.querySelector('.val').textContent = fmtNum(esperadoLinha); const dv = realApont - esperadoLinha; kpiEsp.querySelector('.kpi-sub').textContent = (dv >= 0 ? '+' : '') + fmtNum(dv) + ' em relação ao plano'; }
     grafico('ch-meta-linha', { type:'line', data:{ labels: dias.map(fmtDiaCurto), datasets:[
       { label:'Plano (meta acumulada)', data: plano, borderColor: COR.azul, backgroundColor: hex2rgba(COR.azul, .08), borderDash:[6,4], pointRadius:0, tension:0, fill:true },
       { label:'Atendimento (realizado acumulado)', data: atend, borderColor: COR.verde, backgroundColor: hex2rgba(COR.verde, .15), pointRadius: dias.length > 45 ? 0 : 3, tension:.25, fill:true }
