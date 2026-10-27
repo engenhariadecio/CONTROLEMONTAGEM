@@ -1,0 +1,622 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ProGestão – Linha de Produção</title>
+<style>
+:root{--bg:#0A1620;--card:#14293A;--card2:#1A3347;--accent:#26B247;--accent2:#1C4984;--green:#34D399;--yellow:#F0B429;--red:#F26D6D;--orange:#E88C4A;--blue:#56B6E0;--purple:#1D6574;--text:#EAF4F1;--text2:#A2BCC3;--border:#1E3D52;--radius:12px;--panel:#14293A;--panel2:#1A3347;--fade:linear-gradient(135deg,#26B247 0%,#1D6574 55%,#1C4984 100%)}
+*{margin:0;padding:0;box-sizing:border-box;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif}
+body{background:var(--bg);color:var(--text);min-height:100vh}
+.topbar{background:var(--panel);border-bottom:1px solid var(--border);padding:12px 24px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100}
+.topbar .logo{font-size:18px;font-weight:700;color:var(--accent)}
+.topbar .user-info{display:flex;align-items:center;gap:16px;font-size:13px}
+.topbar .clock{color:var(--text2)}
+.topbar .btn-logout{background:var(--red);color:#fff;border:none;padding:6px 14px;border-radius:6px;cursor:pointer;font-size:12px;font-weight:600}
+.layout{display:flex;min-height:calc(100vh - 56px)}
+.sidebar{width:220px;background:var(--panel);border-right:1px solid var(--border);padding:20px 0;flex-shrink:0}
+.sidebar a{display:block;padding:10px 24px;color:var(--text2);text-decoration:none;font-size:14px;border-left:3px solid transparent;transition:all .2s}
+.sidebar a:hover{background:var(--panel2);color:var(--text)}
+.sidebar a.active{background:var(--panel2);color:var(--accent);border-left-color:var(--accent)}
+.main{flex:1;padding:24px;overflow-x:auto}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:14px;margin-bottom:20px}
+.kpi{background:var(--panel);border:1px solid var(--border);border-radius:8px;padding:14px}
+.kpi .lbl{font-size:11px;color:var(--text2);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px}
+.kpi .val{font-size:24px;font-weight:700;color:var(--text)}
+.kpi.green .val{color:var(--accent)}
+.kpi.blue .val{color:var(--blue)}
+.kpi.orange .val{color:var(--orange)}
+.kpi.red .val{color:var(--red)}
+.kpi.yellow .val{color:var(--yellow)}
+.tabs{display:flex;gap:4px;margin-bottom:16px;border-bottom:1px solid var(--border);flex-wrap:wrap}
+.tab{background:transparent;border:none;color:var(--text2);padding:10px 16px;cursor:pointer;font-size:13px;font-weight:600;border-bottom:2px solid transparent;transition:all .2s}
+.tab:hover{color:var(--text)}
+.tab.active{color:var(--accent);border-bottom-color:var(--accent)}
+.section{display:none}
+.section.show{display:block}
+.card{background:var(--panel);border:1px solid var(--border);border-radius:8px;padding:18px;margin-bottom:16px}
+.card-title{font-size:14px;font-weight:700;color:var(--text);margin-bottom:14px;display:flex;align-items:center;gap:8px}
+.form-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;margin-bottom:12px}
+.form-group{display:flex;flex-direction:column;gap:5px}
+.form-group label{font-size:11px;color:var(--text2);font-weight:600;text-transform:uppercase;letter-spacing:.3px}
+.form-group input,.form-group select,.form-group textarea{background:var(--panel2);border:1px solid var(--border);color:var(--text);padding:8px 10px;border-radius:6px;font-size:13px;outline:none;transition:border-color .2s}
+.form-group input:focus,.form-group select:focus,.form-group textarea:focus{border-color:var(--accent)}
+.form-group input.invalid{border-color:var(--red)}
+.form-group input.valid{border-color:var(--accent)}
+.form-group input[readonly]{background:#0d1419;color:var(--text2);cursor:not-allowed}
+.form-group textarea{min-height:60px;resize:vertical;font-family:inherit}
+.form-group small.hint{font-size:10px;color:var(--text2)}
+.form-group small.hint.error{color:var(--red)}
+.btn-sm{padding:8px 14px;border:none;border-radius:6px;cursor:pointer;font-size:12px;font-weight:600;transition:opacity .2s}
+.btn-sm:hover{opacity:.85}
+.btn-sm:disabled{opacity:.4;cursor:not-allowed}
+.btn-accent{background:var(--accent);color:#fff}
+.btn-blue{background:var(--blue);color:#fff}
+.btn-orange{background:var(--orange);color:#fff}
+.btn-red{background:var(--red);color:#fff}
+.btn-ghost{background:transparent;color:var(--text2);border:1px solid var(--border)}
+table{width:100%;border-collapse:collapse;font-size:12px}
+table th{background:var(--panel2);color:var(--text2);text-align:left;padding:10px 8px;font-weight:600;text-transform:uppercase;letter-spacing:.3px;font-size:11px;border-bottom:1px solid var(--border)}
+table td{padding:9px 8px;border-bottom:1px solid var(--border);color:var(--text)}
+table tr:hover{background:var(--panel2)}
+.badge{display:inline-block;padding:3px 8px;border-radius:10px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.3px}
+.badge.green{background:rgba(63,185,80,.15);color:var(--accent)}
+.badge.blue{background:rgba(88,166,255,.15);color:var(--blue)}
+.badge.orange{background:rgba(240,136,62,.15);color:var(--orange)}
+.badge.red{background:rgba(248,81,73,.15);color:var(--red)}
+.badge.yellow{background:rgba(210,153,34,.15);color:var(--yellow)}
+.badge.purple{background:rgba(163,113,247,.15);color:var(--purple)}
+#toast{position:fixed;bottom:20px;right:20px;background:var(--panel);border:1px solid var(--border);border-left:4px solid var(--accent);padding:12px 18px;border-radius:6px;color:var(--text);font-size:13px;z-index:1000;opacity:0;transform:translateY(20px);transition:all .3s;box-shadow:0 4px 12px rgba(0,0,0,.3);max-width:360px}
+#toast.show{opacity:1;transform:translateY(0)}
+#toast.error{border-left-color:var(--red)}
+#toast.warn{border-left-color:var(--yellow)}
+.autocomplete{position:relative}
+.autocomplete-list{position:absolute;top:100%;left:0;right:0;background:var(--panel);border:1px solid var(--border);border-top:none;border-radius:0 0 6px 6px;max-height:240px;overflow-y:auto;z-index:50;display:none}
+.autocomplete-list.show{display:block}
+.autocomplete-item{padding:8px 10px;cursor:pointer;font-size:12px;border-bottom:1px solid var(--border)}
+.autocomplete-item:hover{background:var(--panel2)}
+.autocomplete-item:last-child{border-bottom:none}
+.autocomplete-item strong{color:var(--accent)}
+@media(max-width:768px){.sidebar{width:60px}.sidebar a{padding:10px;text-align:center;font-size:10px}}
+
+/* ===== Dashboard ===== */
+.dash-filtros{display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end;background:var(--panel);border:1px solid var(--border);border-radius:8px;padding:12px 14px;margin-bottom:10px}
+.dash-filtros .form-group{min-width:130px}
+.dash-filtros select,.dash-filtros input{background:var(--panel2);border:1px solid var(--border);color:var(--text);padding:7px 10px;border-radius:6px;font-size:13px}
+.dash-resumo{font-size:12px;color:var(--text2);margin-bottom:14px}
+.dash-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(380px,1fr));gap:16px}
+.chart-box{position:relative;height:260px}.chart-box.tall{height:340px}
+.chart-box[data-vazio]::after{content:attr(data-vazio);position:absolute;inset:0;display:grid;place-items:center;color:var(--text2);font-size:13px;text-align:center;padding:20px}
+.chart-nota{font-size:11px;color:var(--text2);margin-top:10px;line-height:1.5}
+.kpi-sub{font-size:10px;color:var(--text2);margin-top:4px}
+@media(max-width:768px){.dash-grid{grid-template-columns:1fr}.chart-box{height:230px}.chart-box.tall{height:280px}}
+
+/* ===== Observações do status ===== */
+.obs-btn{display:inline-flex;align-items:center;gap:4px;margin-left:6px;padding:3px 8px;border-radius:10px;border:1px solid var(--border);background:var(--card2,#1A3347);color:var(--text2);font-size:11px;font-weight:700;cursor:pointer;vertical-align:middle}
+.obs-btn.tem{border-color:var(--orange,#E88C4A);color:var(--orange,#E88C4A);background:rgba(232,140,74,.12)}
+.obs-btn:hover{border-color:var(--accent);color:var(--accent)}
+.modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.62);z-index:999;align-items:center;justify-content:center}.modal-overlay.show{display:flex}
+.modal{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:22px;max-width:640px;width:94%;max-height:88vh;overflow-y:auto}
+.modal h3{margin-bottom:4px;font-size:1rem}.modal .sub{font-size:.8rem;color:var(--text2);margin-bottom:14px}
+.obs-item{border:1px solid var(--border);border-radius:10px;padding:10px 12px;margin-bottom:8px;background:var(--card2,#1A3347)}
+.obs-item .cab{display:flex;justify-content:space-between;align-items:center;gap:8px;font-size:.75rem;color:var(--text2);margin-bottom:6px;flex-wrap:wrap}
+.obs-item .txt{white-space:pre-wrap;font-size:.9rem;line-height:1.5}
+.obs-nova textarea{width:100%;min-height:80px;padding:10px;border-radius:8px;border:1px solid var(--border);background:var(--card2,#1A3347);color:var(--text);font-family:inherit;font-size:.9rem;resize:vertical}
+.modal .btns{display:flex;gap:8px;justify-content:flex-end;margin-top:14px}
+
+/* ===== Perfil PCP: somente visualização ===== */
+body.pcp .so-edicao, body.pcp .tab[onclick*="'apontar'"], body.pcp #sec-apontar,
+body.pcp .btn-red, body.pcp button[onclick^="editar"], body.pcp button[onclick^="excluir"], body.pcp button[onclick^="salvar"],
+body.pcp .sidebar a:not([href="/progestao/producao"]):not([href="/progestao/linha-producao"]):not([href="/progestao/produtos"]), body.pcp .voltar-portal{display:none!important}
+body.pcp .logo a{pointer-events:none}
+.pcp-aviso{display:none;background:rgba(232,140,74,.12);border:1px solid var(--orange,#E88C4A);border-radius:8px;padding:8px 14px;margin-bottom:14px;font-size:.85rem}
+body.pcp .pcp-aviso{display:block}
+</style>
+<link rel="icon" href="/assets/logo-decio.png">
+
+<style>
+/* ===== Tema Décio — sobreposição sobre o CSS original do módulo ===== */
+@import url('https://fonts.googleapis.com/css2?family=Manrope:wght@600;700;800&family=Inter:wght@400;500;600;700&display=swap');
+body{font-family:'Inter','Segoe UI',system-ui,sans-serif}
+h1,h2,h3,.logo{font-family:'Manrope','Segoe UI',system-ui,sans-serif;letter-spacing:-.02em}
+
+.fita-marca{position:fixed;top:0;left:0;right:0;height:3px;background:var(--fade);z-index:9999}
+
+.btn-primary,.btn-accent{
+  background:var(--fade)!important;color:#fff!important;border:none!important;
+  box-shadow:0 2px 12px rgba(38,178,71,.22)}
+.btn-primary:hover,.btn-accent:hover{filter:brightness(1.06);transform:translateY(-1px)}
+.btn-green{background:var(--green)!important;color:#062B1E!important}
+.btn-warning{background:var(--yellow)!important;color:#2B1E00!important}
+
+a{color:var(--accent)}
+.topbar{border-bottom:1px solid var(--border)}
+.logo-decio{height:26px;width:26px;border-radius:7px;vertical-align:-7px;margin-right:8px}
+.voltar-portal{
+  display:inline-flex;align-items:center;gap:6px;padding:6px 12px;margin-right:6px;
+  border:1px solid var(--border);border-radius:8px;background:var(--card2);
+  color:var(--text2)!important;font-size:12px;font-weight:600;text-decoration:none}
+.voltar-portal:hover{background:var(--panel2);color:var(--text)!important}
+
+::-webkit-scrollbar{width:8px;height:8px}
+::-webkit-scrollbar-track{background:var(--bg)}
+::-webkit-scrollbar-thumb{background:#2C5570;border-radius:99px}
+:focus-visible{outline:2px solid #35C95C;outline-offset:2px}
+@media(prefers-reduced-motion:reduce){*{animation-duration:.01ms!important;transition-duration:.01ms!important}}
+</style>
+<style>
+/* ===== Linha de Produção ===== */
+.dia-barra{display:flex;flex-wrap:wrap;gap:10px;align-items:center;background:var(--panel);border:1px solid var(--border);border-radius:8px;padding:12px 14px;margin-bottom:14px}
+.dia-barra input[type=date]{background:var(--panel2);border:1px solid var(--border);color:var(--text);padding:7px 10px;border-radius:6px;font-size:14px;font-weight:600}
+.dia-barra .dia-nome{font-size:15px;font-weight:700;margin-right:auto}
+.dia-barra .dia-nome small{display:block;font-size:11px;font-weight:500;color:var(--text2)}
+.dia-aviso{background:rgba(86,182,224,.1);border:1px solid var(--blue);border-radius:8px;padding:10px 14px;margin-bottom:14px;font-size:13px;display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.dia-aviso.salvo{background:rgba(52,211,153,.08);border-color:rgba(52,211,153,.5)}
+.dia-aviso.sujo{background:rgba(240,180,41,.1);border-color:var(--yellow)}
+.cel-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(330px,1fr));gap:14px}
+.cel-card{background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:14px;display:flex;flex-direction:column;gap:10px;transition:border-color .2s,opacity .2s}
+.cel-card.on{border-color:rgba(38,178,71,.6);box-shadow:inset 3px 0 0 var(--accent)}
+.cel-card.off{opacity:.62}
+.cel-cab{display:flex;align-items:flex-start;gap:10px}
+.cel-cab .nm{flex:1;min-width:0}
+.cel-cab .nm strong{font-size:15px;display:block}
+.cel-cab .nm span{font-size:11px;color:var(--text2)}
+.chave{position:relative;display:inline-flex;align-items:center;gap:8px;cursor:pointer;font-size:12px;font-weight:700;color:var(--text2);user-select:none;white-space:nowrap}
+.chave input{position:absolute;opacity:0;width:0;height:0}
+.chave .trilho{width:40px;height:22px;border-radius:99px;background:var(--panel2);border:1px solid var(--border);position:relative;transition:.2s}
+.chave .trilho::after{content:'';position:absolute;top:2px;left:2px;width:16px;height:16px;border-radius:50%;background:var(--text2);transition:.2s}
+.chave input:checked + .trilho{background:var(--accent);border-color:var(--accent)}
+.chave input:checked + .trilho::after{left:20px;background:#fff}
+.chave input:checked ~ .rot{color:var(--accent)}
+.chave input:focus-visible + .trilho{outline:2px solid #35C95C;outline-offset:2px}
+.cel-campos{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.cel-campos .full{grid-column:1/-1}
+.cel-campos .form-group{min-width:0}
+.cel-campos .form-group input,.cel-campos .form-group select{width:100%;min-width:0}
+.cel-campos .form-group input,.cel-campos .form-group select{padding:7px 9px;font-size:13px}
+.cel-desc{font-size:12px;color:var(--text2);min-height:16px;margin-top:-2px}
+.cel-desc.erro{color:var(--yellow)}
+.cel-info{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
+.cel-info div{background:var(--panel2);border-radius:6px;padding:6px 8px;font-size:10px;color:var(--text2);text-transform:uppercase;letter-spacing:.3px}
+.cel-info b{display:block;font-size:14px;color:var(--text);text-transform:none;letter-spacing:0;margin-top:2px}
+.cel-off-msg{font-size:12px;color:var(--text2);padding:4px 0}
+.barra-salvar{position:sticky;bottom:0;background:linear-gradient(180deg,transparent,var(--bg) 30%);padding:18px 0 6px;margin-top:14px;display:flex;gap:8px;flex-wrap:wrap;align-items:center;z-index:5}
+.barra-salvar .resumo{font-size:12px;color:var(--text2);margin-left:auto}
+.hist-filtros{display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end;margin-bottom:12px}
+.hist-filtros .form-group{min-width:140px}
+.hist-filtros input,.hist-filtros select{background:var(--panel2);border:1px solid var(--border);color:var(--text);padding:7px 10px;border-radius:6px;font-size:13px}
+.quadro{overflow:auto}
+.quadro td,.quadro th{white-space:nowrap}
+.quadro td.q{font-size:11px;min-width:110px}
+.quadro td.q b{display:block;font-size:12px}
+.quadro td.q.vazio{color:var(--text2);opacity:.5}
+.quadro td.q.on{background:rgba(38,178,71,.08)}
+body.pcp .cel-card input,body.pcp .cel-card select,body.pcp .chave{pointer-events:none}
+@media(max-width:768px){.cel-grid{grid-template-columns:1fr}.cel-info{grid-template-columns:1fr 1fr}.kpis{grid-template-columns:1fr 1fr}.kpi .val{font-size:19px}}
+</style>
+</head>
+<body>
+<div class="fita-marca"></div>
+
+<div class="topbar">
+  <div class="logo"><img src="/assets/logo-decio.png" class="logo-decio" alt=""><a href="/progestao">ProGestão</a> / Linha de Produção</div>
+  <div class="user-info">
+    <a href="/" class="voltar-portal">← Portal</a><span class="clock" id="clock">--:--</span>
+    <span id="user-name">Carregando...</span>
+    <button class="btn-logout" onclick="logout()">Sair</button>
+  </div>
+</div>
+
+<div class="layout">
+  <nav class="sidebar">
+    <a href="/progestao">🏠 Início</a>
+    <a href="/progestao/ferramentas">🔧 Ferramentas</a>
+    <a href="/progestao/epis">🦺 EPIs</a>
+    <a href="/progestao/banco-horas">⏰ Banco Horas</a>
+    <a href="/progestao/treinamentos">📚 Treinamentos</a>
+    <a href="/progestao/diario-bordo">📓 Diário Bordo</a>
+    <a href="/progestao/checklist">✅ Checklist</a>
+    <a href="/progestao/producao">🏭 Plano de Produção</a><a href="/progestao/linha-producao" class="active">🏗️ Linha de Produção</a><a href="/progestao/produtos">📦 Produtos</a><a href="/progestao/limpeza">🧹 Limpeza</a>
+  </nav>
+
+  <div class="main">
+    <div class="pcp-aviso">👁 Perfil <strong>PCP</strong>: acesso somente para visualização da Linha de Produção.</div>
+
+    <div class="tabs">
+      <button class="tab active" onclick="showTab('dia',event)">📅 Programação do dia</button>
+      <button class="tab" onclick="showTab('historico',event)">📜 Histórico</button>
+    </div>
+
+    <!-- ============ PROGRAMAÇÃO DO DIA ============ -->
+    <div class="section show" id="sec-dia">
+      <div class="dia-barra">
+        <div class="dia-nome" id="dia-nome">—</div>
+        <button class="btn-sm btn-ghost" onclick="mudarDia(-1)" title="Dia anterior">◀</button>
+        <input type="date" id="dia" onchange="trocarDia()">
+        <button class="btn-sm btn-ghost" onclick="mudarDia(1)" title="Próximo dia">▶</button>
+        <button class="btn-sm btn-ghost" onclick="irHoje()">Hoje</button>
+      </div>
+
+      <div class="kpis" id="dia-kpis"></div>
+      <div class="dia-aviso" id="dia-aviso"></div>
+
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px" class="so-edicao">
+        <button class="btn-sm btn-ghost" onclick="marcarTodas(true)">✓ Todas funcionando</button>
+        <button class="btn-sm btn-ghost" onclick="marcarTodas(false)">✕ Nenhuma</button>
+        <button class="btn-sm btn-ghost" onclick="copiarUltimoDia()">⧉ Copiar do último dia programado</button>
+      </div>
+
+      <div class="cel-grid" id="cel-grid"></div>
+
+      <div class="barra-salvar so-edicao">
+        <button class="btn-sm btn-accent" id="btn-salvar" onclick="salvarDia()">💾 Salvar programação do dia</button>
+        <button class="btn-sm btn-ghost" onclick="carregarDia()">↺ Descartar alterações</button>
+        <button class="btn-sm btn-red" onclick="apagarDia()">🗑️ Apagar programação do dia</button>
+        <span class="resumo" id="resumo-salvar"></span>
+      </div>
+    </div>
+
+    <!-- ============ HISTÓRICO ============ -->
+    <div class="section" id="sec-historico">
+      <div class="card">
+        <div class="hist-filtros">
+          <div class="form-group"><label>De</label><input type="date" id="h-de" onchange="carregarHistorico()"></div>
+          <div class="form-group"><label>Até</label><input type="date" id="h-ate" onchange="carregarHistorico()"></div>
+          <div class="form-group"><label>Célula</label><select id="h-celula" onchange="renderHistorico()"><option value="">Todas</option></select></div>
+          <div class="form-group"><label>Produto</label><select id="h-produto" onchange="renderHistorico()"><option value="">Todos</option></select></div>
+          <div class="form-group"><label>Visualização</label><select id="h-vis" onchange="renderHistorico()"><option value="quadro">Quadro (dia × célula)</option><option value="lista">Lista</option></select></div>
+          <div class="form-group"><label>&nbsp;</label><button class="btn-sm btn-blue" onclick="exportarCSV()">📥 Exportar CSV</button></div>
+        </div>
+        <div class="kpis" id="h-kpis"></div>
+        <div id="h-corpo" class="quadro"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<datalist id="dl-produtos"></datalist>
+<div id="toast"></div>
+
+<script>
+let usuarioAtual = null, celulas = [], produtos = [], planos = [];
+let programado = [];     // linhas salvas do dia
+let estado = {};         // { nomeCelula: { funcionando, cod_decio, num_op, turno, operadores, horas_operador, meta, obs } }
+let apontDia = [];       // apontamentos do dia (Plano de Produção)
+let sujo = false;
+let historico = [];
+
+/* ---------- utilidades ---------- */
+async function api(url, opts = {}) {
+  opts.headers = { 'Content-Type': 'application/json', ...(opts.headers||{}) };
+  if (opts.body && typeof opts.body !== 'string') opts.body = JSON.stringify(opts.body);
+  const r = await fetch('/api' + url, opts);
+  if (r.status === 401) { location.href = '/login'; throw new Error('Sessão expirada'); }
+  if (!r.ok) { let msg = 'Erro na requisição'; try { const j = await r.json(); msg = j.error || msg; } catch(e){} throw new Error(msg); }
+  return r.json();
+}
+function toast(msg, type = 'ok') {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = type === 'error' ? 'show error' : type === 'warn' ? 'show warn' : 'show';
+  setTimeout(() => t.className = '', 4500);
+}
+const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const fmtNum = n => Number(n||0).toLocaleString('pt-BR', { maximumFractionDigits:2 });
+const fmtH = h => (Math.round((h||0) * 10) / 10).toLocaleString('pt-BR', { minimumFractionDigits:1, maximumFractionDigits:1 }) + ' h';
+const isoDe = d => d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+const isoHoje = () => isoDe(new Date());
+const addDias = (iso, n) => { const p = iso.split('-').map(Number); return isoDe(new Date(p[0], p[1]-1, p[2]+n)); };
+const fmtData = iso => iso ? iso.slice(8,10) + '/' + iso.slice(5,7) + '/' + iso.slice(0,4) : '-';
+const DIAS_SEM = ['Domingo','Segunda-feira','Terça-feira','Quarta-feira','Quinta-feira','Sexta-feira','Sábado'];
+const diaSemana = iso => { const p = iso.split('-').map(Number); return DIAS_SEM[new Date(p[0], p[1]-1, p[2]).getDay()]; };
+const ehPcp = () => usuarioAtual && usuarioAtual.role === 'pcp';
+
+function updateClock() { document.getElementById('clock').textContent = new Date().toLocaleTimeString('pt-BR', { hour:'2-digit', minute:'2-digit' }); }
+setInterval(updateClock, 30000); updateClock();
+
+async function loadUser() {
+  try {
+    usuarioAtual = await api('/me');
+    document.getElementById('user-name').textContent = usuarioAtual.nome || usuarioAtual.username || 'Usuário';
+    if (ehPcp()) document.body.classList.add('pcp');
+  } catch(e) { document.getElementById('user-name').textContent = 'Usuário'; }
+}
+async function logout() { await fetch('/api/logout', { method:'POST' }); location.href = '/login'; }
+
+function showTab(name, ev) {
+  document.querySelectorAll('.section').forEach(s => s.classList.remove('show'));
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.getElementById('sec-' + name).classList.add('show');
+  if (ev) ev.target.classList.add('active');
+  if (name === 'historico') carregarHistorico();
+}
+
+/* ---------- cadastros ---------- */
+async function carregarCadastros() {
+  [celulas, produtos, planos] = await Promise.all([
+    api('/prod-celulas').catch(() => []),
+    api('/prod-produtos').catch(() => []),
+    api('/prod-planos').catch(() => [])
+  ]);
+  document.getElementById('dl-produtos').innerHTML = produtos.map(p => `<option value="${esc(p.cod_decio)}">${esc(p.descricao || '')}${p.cod_intelbras ? ' · ' + esc(p.cod_intelbras) : ''}</option>`).join('');
+}
+const produtoDe = cod => produtos.find(p => p.cod_decio === cod);
+const celulaDe = nome => celulas.find(c => c.nome === nome);
+
+/* ---------- programação do dia ---------- */
+function diaAtual() { return document.getElementById('dia').value; }
+function mudarDia(n) { if (!confirmarSair()) return; document.getElementById('dia').value = addDias(diaAtual() || isoHoje(), n); carregarDia(true); }
+function irHoje() { if (!confirmarSair()) return; document.getElementById('dia').value = isoHoje(); carregarDia(true); }
+let diaCarregado = '';
+function trocarDia() { if (!confirmarSair()) { document.getElementById('dia').value = diaCarregado; return; } carregarDia(); }
+function confirmarSair() { return !sujo || confirm('Há alterações não salvas neste dia. Descartar?'); }
+window.addEventListener('beforeunload', e => { if (sujo) { e.preventDefault(); e.returnValue = ''; } });
+
+/* células que aparecem no dia: ativas + as que já têm programação salva nesse dia */
+function celulasDoDia() {
+  const nomes = celulas.filter(c => c.ativa !== false).map(c => c.nome);
+  programado.forEach(l => { if (!nomes.includes(l.celula_nome)) nomes.push(l.celula_nome); });
+  return nomes.sort((a, b) => a.localeCompare(b, 'pt-BR', { numeric:true }));
+}
+
+function estadoPadrao(nome) {
+  const c = celulaDe(nome) || {};
+  return { funcionando:false, cod_decio:'', num_op:'', turno: c.turno || '', operadores: c.operadores ?? 0, horas_operador: parseFloat(c.horas_operador) || 7, meta:'', obs:'' };
+}
+function estadoDeLinha(l) {
+  const c = celulaDe(l.celula_nome) || {};
+  return { funcionando: !!l.funcionando, cod_decio: l.cod_decio || '', num_op: l.num_op || '', turno: l.turno || '',
+           operadores: l.operadores ?? c.operadores ?? 0, horas_operador: parseFloat(l.horas_operador) || parseFloat(c.horas_operador) || 7,
+           meta: l.meta != null ? Number(l.meta) : '', obs: l.obs || '' };
+}
+
+async function carregarDia() {
+  const dia = diaAtual(); if (!dia) return;
+  diaCarregado = dia;
+  document.getElementById('dia-nome').innerHTML = `${diaSemana(dia)}, ${fmtData(dia)}<small>${dia === isoHoje() ? 'hoje' : dia < isoHoje() ? 'dia passado' : 'programação futura'}</small>`;
+  try {
+    [programado, apontDia] = await Promise.all([
+      api('/linha-producao?data=' + dia),
+      api(`/prod-apontamentos-detalhados?data_ini=${dia}&data_fim=${dia}`).catch(() => [])
+    ]);
+  } catch (e) { toast('Erro ao carregar o dia: ' + e.message, 'error'); programado = []; apontDia = []; }
+  estado = {};
+  celulasDoDia().forEach(nome => {
+    const l = programado.find(x => x.celula_nome === nome);
+    estado[nome] = l ? estadoDeLinha(l) : estadoPadrao(nome);
+  });
+  sujo = false;
+  renderDia();
+}
+
+function apontadoDe(nome) {
+  const ap = apontDia.filter(a => a.celula === nome);
+  return { qtd: ap.reduce((s, a) => s + (parseFloat(a.realizado) || 0), 0), horas: ap.reduce((s, a) => s + (parseFloat(a.hora_reportada_total) || 0), 0), n: ap.length,
+           produtos: [...new Set(ap.map(a => a.cod_decio).filter(Boolean))] };
+}
+
+function opsDoProduto(cod) {
+  return [...new Set(planos.filter(p => p.cod_decio === cod && p.num_op).map(p => p.num_op))];
+}
+
+function cardHTML(nome) {
+  const e = estado[nome], c = celulaDe(nome) || {};
+  const id = 'c' + btoa(unescape(encodeURIComponent(nome))).replace(/[^a-zA-Z0-9]/g, '');
+  const p = produtoDe(e.cod_decio);
+  const horasDisp = (parseFloat(e.operadores) || 0) * (parseFloat(e.horas_operador) || 0);
+  const capacidade = p && Number(p.hora_reportado) > 0 ? horasDisp / Number(p.hora_reportado) : null;
+  const ap = apontadoDe(nome);
+  const ops = e.cod_decio ? opsDoProduto(e.cod_decio) : [];
+  const turnoTxt = e.turno ? e.turno + 'º turno' : 'todos os turnos';
+  const info = `<div class="cel-info">
+      <div>Horas disp.<b>${fmtH(horasDisp)}</b></div>
+      <div title="Horas disponíveis ÷ hora reportada do produto">Capacidade<b>${capacidade === null ? '—' : fmtNum(Math.floor(capacidade)) + ' pç'}</b></div>
+      <div title="Apontado no Plano de Produção para esta célula neste dia">Apontado<b>${ap.n ? fmtNum(ap.qtd) + ' pç' : '—'}</b></div>
+    </div>`;
+  return `<div class="cel-card ${e.funcionando ? 'on' : 'off'}" data-nome="${esc(nome)}">
+    <div class="cel-cab">
+      <div class="nm"><strong>${esc(nome)}</strong><span>${esc(c.categoria || 'sem categoria')} · ${turnoTxt}${c.id ? '' : ' · <span style="color:var(--yellow)">célula não cadastrada</span>'}${c.ativa === false ? ' · inativa' : ''}</span></div>
+      <label class="chave"><input type="checkbox" ${e.funcionando ? 'checked' : ''} onchange="alterar(this,'funcionando',this.checked)"><span class="trilho"></span><span class="rot">${e.funcionando ? 'Funcionando' : 'Parada'}</span></label>
+    </div>
+    ${e.funcionando ? `
+    <div class="cel-campos">
+      <div class="form-group full"><label>Produto rodando (Cód. Décio)</label>
+        <input list="dl-produtos" value="${esc(e.cod_decio)}" placeholder="Digite o código ou escolha…" onchange="alterar(this,'cod_decio',this.value.trim(),true)" autocomplete="off"></div>
+      <div class="cel-desc full ${e.cod_decio && !p ? 'erro' : ''}">${e.cod_decio ? (p ? esc(p.descricao || '') + (p.cod_intelbras ? ' · Intelbras ' + esc(p.cod_intelbras) : '') + (p.categoria ? ' · ' + esc(p.categoria) : '') : '⚠ Código não encontrado no cadastro de Produtos') : 'Nenhum produto escolhido'}</div>
+      <div class="form-group"><label>N° OP (opcional)</label>
+        <input value="${esc(e.num_op)}" maxlength="8" inputmode="numeric" list="dl-op-${id}" placeholder="8 dígitos" oninput="this.value=this.value.replace(/\\D/g,'')" onchange="alterar(this,'num_op',this.value)">
+        <datalist id="dl-op-${id}">${ops.map(o => `<option value="${esc(o)}">`).join('')}</datalist></div>
+      <div class="form-group"><label>Turno</label>
+        <select onchange="alterar(this,'turno',this.value,true)"><option value="">Todos</option>${['1','2','3'].map(t => `<option value="${t}" ${e.turno === t ? 'selected' : ''}>${t}º Turno</option>`).join('')}</select></div>
+      <div class="form-group"><label>Operadores no dia</label><input type="number" min="0" step="1" value="${esc(e.operadores)}" onchange="alterar(this,'operadores',this.value,true)"></div>
+      <div class="form-group"><label>Meta do dia (pç)</label><input type="number" min="0" step="1" value="${esc(e.meta)}" placeholder="${capacidade ? 'cap. ' + Math.floor(capacidade) : 'opcional'}" onchange="alterar(this,'meta',this.value)"></div>
+      <div class="form-group full"><label>Observação</label><input value="${esc(e.obs)}" placeholder="Ex: aguardando material, setup às 9h…" onchange="alterar(this,'obs',this.value)"></div>
+    </div>
+    ${info}` : `
+    <div class="cel-off-msg">Célula parada neste dia.${ap.n ? ' <span style="color:var(--yellow)">Mas há ' + ap.n + ' apontamento(s) nela (' + fmtNum(ap.qtd) + ' pç).</span>' : ''}</div>
+    <div class="cel-campos"><div class="form-group full"><label>Motivo / observação</label><input value="${esc(e.obs)}" placeholder="Ex: sem demanda, manutenção, falta de pessoal…" onchange="alterar(this,'obs',this.value)"></div></div>`}
+  </div>`;
+}
+
+function alterar(el, campo, valor, rerender) {
+  const nome = el.closest('.cel-card').dataset.nome;
+  estado[nome][campo] = valor;
+  sujo = true;
+  if (campo === 'funcionando' || rerender) renderDia(); else renderResumo();
+}
+
+function marcarTodas(on) {
+  Object.values(estado).forEach(e => { e.funcionando = on; });
+  sujo = true; renderDia();
+}
+
+function renderDia() {
+  const nomes = Object.keys(estado);
+  const grid = document.getElementById('cel-grid');
+  if (!nomes.length) {
+    grid.innerHTML = '<div class="card" style="grid-column:1/-1;color:var(--text2)">Nenhuma célula ativa cadastrada. Cadastre as células em <a href="/progestao/producao">Plano de Produção › Células</a>.</div>';
+  } else grid.innerHTML = nomes.map(cardHTML).join('');
+  if (ehPcp()) grid.querySelectorAll('input,select').forEach(i => i.disabled = true);
+  renderResumo();
+}
+
+function renderResumo() {
+  const lista = Object.entries(estado);
+  const on = lista.filter(([, e]) => e.funcionando);
+  const oper = on.reduce((s, [, e]) => s + (parseInt(e.operadores) || 0), 0);
+  const horas = on.reduce((s, [, e]) => s + (parseFloat(e.operadores) || 0) * (parseFloat(e.horas_operador) || 0), 0);
+  const prods = new Set(on.map(([, e]) => e.cod_decio).filter(Boolean));
+  const meta = on.reduce((s, [, e]) => s + (parseFloat(e.meta) || 0), 0);
+  const apont = apontDia.reduce((s, a) => s + (parseFloat(a.realizado) || 0), 0);
+  const semProduto = on.filter(([, e]) => !e.cod_decio).length;
+  document.getElementById('dia-kpis').innerHTML = [
+    { lbl:'Células funcionando', val: `${on.length} / ${lista.length}`, cor:'green' },
+    { lbl:'Operadores', val: oper, cor:'blue' },
+    { lbl:'Horas disponíveis', val: fmtH(horas), cor:'blue' },
+    { lbl:'Produtos rodando', val: prods.size, cor:'orange', sub: semProduto ? `⚠ ${semProduto} célula(s) sem produto` : '', alerta:true },
+    { lbl:'Meta do dia', val: meta ? fmtNum(meta) : '—', cor:'yellow' },
+    { lbl:'Apontado no dia', val: fmtNum(apont), cor:'green', sub: apontDia.length + ' apontamento(s)' }
+  ].map(k => `<div class="kpi ${k.cor}"><div class="lbl">${k.lbl}</div><div class="val">${k.val}</div>${k.sub ? `<div style="font-size:10px;color:${k.alerta ? 'var(--yellow)' : 'var(--text2)'};margin-top:4px">${k.sub}</div>` : ''}</div>`).join('');
+
+  const aviso = document.getElementById('dia-aviso');
+  if (sujo) { aviso.className = 'dia-aviso sujo'; aviso.innerHTML = '✏️ Alterações ainda não salvas.'; }
+  else if (programado.length) {
+    const ult = programado.reduce((a, b) => (a.updated_at || '') > (b.updated_at || '') ? a : b);
+    aviso.className = 'dia-aviso salvo';
+    aviso.innerHTML = `✓ Dia programado${ult.registrado_por_nome ? ' por <strong>' + esc(ult.registrado_por_nome) + '</strong>' : ''}${ult.updated_at ? ' em ' + new Date(ult.updated_at).toLocaleString('pt-BR', { day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit' }) : ''}.`;
+  } else {
+    aviso.className = 'dia-aviso';
+    aviso.innerHTML = ehPcp() ? 'Este dia ainda não foi programado.' : '📅 Este dia ainda não foi programado. Ligue as células que vão funcionar e escolha o produto de cada uma — ou copie do último dia programado.';
+  }
+  document.getElementById('resumo-salvar').textContent = `${on.length} célula(s) funcionando · ${prods.size} produto(s)`;
+}
+
+async function salvarDia() {
+  const dia = diaAtual(); if (!dia) return toast('Escolha o dia', 'error');
+  const lista = Object.entries(estado).map(([nome, e]) => ({ celula_nome: nome, ...e }));
+  for (const l of lista) {
+    if (l.num_op && !/^\d{8}$/.test(l.num_op)) return toast(`${l.celula_nome}: N° OP deve ter 8 dígitos (ou ficar em branco)`, 'error');
+  }
+  const semProd = lista.filter(l => l.funcionando && !l.cod_decio).map(l => l.celula_nome);
+  if (semProd.length && !confirm(`Sem produto escolhido em: ${semProd.join(', ')}.\nSalvar assim mesmo?`)) return;
+  const btn = document.getElementById('btn-salvar'); btn.disabled = true; btn.textContent = 'Salvando…';
+  try {
+    await api('/linha-producao/dia/' + dia, { method:'PUT', body:{ celulas: lista } });
+    toast('✅ Programação de ' + fmtData(dia) + ' salva');
+    sujo = false;
+    await carregarDia();
+  } catch (e) { toast('Erro: ' + e.message, 'error'); }
+  finally { btn.disabled = false; btn.textContent = '💾 Salvar programação do dia'; }
+}
+
+async function apagarDia() {
+  const dia = diaAtual();
+  if (!programado.length) { if (sujo) return carregarDia(); return toast('Este dia não tem programação salva', 'warn'); }
+  if (!confirm('Apagar toda a programação de ' + fmtData(dia) + '?')) return;
+  try { await api('/linha-producao/dia/' + dia, { method:'DELETE' }); toast('Programação apagada'); sujo = false; await carregarDia(); }
+  catch (e) { toast('Erro: ' + e.message, 'error'); }
+}
+
+/* traz a programação do último dia salvo antes deste (até 60 dias para trás) */
+async function copiarUltimoDia() {
+  const dia = diaAtual();
+  try {
+    const dias = await api(`/linha-producao/dias?de=${addDias(dia, -60)}&ate=${addDias(dia, -1)}`);
+    if (!dias.length) return toast('Nenhum dia programado nos últimos 60 dias', 'warn');
+    const origem = dias[dias.length - 1].data;
+    const linhas = await api('/linha-producao?data=' + origem);
+    linhas.forEach(l => {
+      if (!estado[l.celula_nome] && !celulaDe(l.celula_nome)) return;   // célula que não existe mais
+      if (!estado[l.celula_nome]) return;                                  // célula inativa hoje: não traz
+      estado[l.celula_nome] = { ...estadoDeLinha(l) };
+    });
+    sujo = true; renderDia();
+    toast('Copiado de ' + diaSemana(origem).toLowerCase() + ', ' + fmtData(origem) + ' — confira e salve');
+  } catch (e) { toast('Erro: ' + e.message, 'error'); }
+}
+
+/* ---------- histórico ---------- */
+async function carregarHistorico() {
+  const de = document.getElementById('h-de').value, ate = document.getElementById('h-ate').value;
+  if (!de || !ate) return;
+  try { historico = await api(`/linha-producao?de=${de}&ate=${ate}`); }
+  catch (e) { toast('Erro: ' + e.message, 'error'); historico = []; }
+  const keep = (id, opts) => { const s = document.getElementById(id), v = s.value; s.innerHTML = opts; s.value = v; };
+  keep('h-celula', '<option value="">Todas</option>' + [...new Set(historico.map(l => l.celula_nome))].sort((a, b) => a.localeCompare(b, 'pt-BR', { numeric:true })).map(c => `<option>${esc(c)}</option>`).join(''));
+  const prods = new Map(); historico.forEach(l => { if (l.cod_decio) prods.set(l.cod_decio, l.descricao || ''); });
+  keep('h-produto', '<option value="">Todos</option>' + [...prods].sort().map(([c, d]) => `<option value="${esc(c)}">${esc(c)}${d ? ' — ' + esc(d.slice(0, 35)) : ''}</option>`).join(''));
+  renderHistorico();
+}
+
+function histFiltrado() {
+  const cel = document.getElementById('h-celula').value, prod = document.getElementById('h-produto').value;
+  return historico.filter(l => (!cel || l.celula_nome === cel) && (!prod || l.cod_decio === prod));
+}
+
+function renderHistorico() {
+  const lista = histFiltrado();
+  const on = lista.filter(l => l.funcionando);
+  const dias = [...new Set(lista.map(l => l.data))].sort().reverse();
+  const meta = on.reduce((s, l) => s + (parseFloat(l.meta) || 0), 0);
+  const real = on.reduce((s, l) => s + (parseFloat(l.realizado_dia) || 0), 0);
+  document.getElementById('h-kpis').innerHTML = [
+    { lbl:'Dias programados', val: dias.length, cor:'blue' },
+    { lbl:'Células-dia funcionando', val: on.length, cor:'green' },
+    { lbl:'Células-dia paradas', val: lista.length - on.length, cor:'red' },
+    { lbl:'Meta programada', val: fmtNum(meta), cor:'yellow' },
+    { lbl:'Apontado', val: fmtNum(real), cor:'orange', sub: meta ? (real / meta * 100).toFixed(1) + '% da meta' : '' }
+  ].map(k => `<div class="kpi ${k.cor}"><div class="lbl">${k.lbl}</div><div class="val">${k.val}</div>${k.sub ? `<div style="font-size:10px;color:var(--text2);margin-top:4px">${k.sub}</div>` : ''}</div>`).join('');
+
+  const corpo = document.getElementById('h-corpo');
+  if (!lista.length) { corpo.innerHTML = '<p style="color:var(--text2);padding:20px;text-align:center">Nenhuma programação no período.</p>'; return; }
+
+  if (document.getElementById('h-vis').value === 'lista') {
+    corpo.innerHTML = `<table><thead><tr><th>Data</th><th>Célula</th><th>Situação</th><th>Turno</th><th>Cód. Décio</th><th>Descrição</th><th>OP</th><th>Oper.</th><th>Meta</th><th>Apontado</th><th>Obs.</th></tr></thead><tbody>${
+      lista.map(l => `<tr style="${l.funcionando ? '' : 'opacity:.6'}">
+        <td>${fmtData(l.data)}</td><td><strong>${esc(l.celula_nome)}</strong></td>
+        <td>${l.funcionando ? '<span class="badge green">Funcionando</span>' : '<span class="badge red">Parada</span>'}</td>
+        <td>${l.turno ? l.turno + 'º' : '-'}</td><td><strong>${esc(l.cod_decio || '-')}</strong></td><td>${esc((l.descricao || '-').slice(0, 40))}</td>
+        <td>${esc(l.num_op || '-')}</td><td>${l.operadores ?? '-'}</td><td>${l.meta != null ? fmtNum(l.meta) : '-'}</td>
+        <td>${Number(l.apontamentos_dia) ? fmtNum(l.realizado_dia) : '-'}</td><td title="${esc(l.obs || '')}">${esc((l.obs || '-').slice(0, 30))}</td></tr>`).join('')
+    }</tbody></table>`;
+    return;
+  }
+  // quadro: linhas = dias, colunas = células
+  const cels = [...new Set(lista.map(l => l.celula_nome))].sort((a, b) => a.localeCompare(b, 'pt-BR', { numeric:true }));
+  corpo.innerHTML = `<table><thead><tr><th>Data</th>${cels.map(c => `<th>${esc(c)}</th>`).join('')}</tr></thead><tbody>${
+    dias.map(d => `<tr><td><strong>${fmtData(d)}</strong><div style="font-size:10px;color:var(--text2)">${diaSemana(d).split('-')[0]}</div></td>${
+      cels.map(c => {
+        const l = lista.find(x => x.data === d && x.celula_nome === c);
+        if (!l) return '<td class="q vazio">—</td>';
+        if (!l.funcionando) return `<td class="q vazio" title="${esc(l.obs || '')}">parada</td>`;
+        return `<td class="q on" title="${esc((l.descricao || '') + (l.obs ? ' · ' + l.obs : ''))}"><b>${esc(l.cod_decio || 'sem produto')}</b>${esc((l.descricao || '').slice(0, 22))}${l.num_op ? '<br>OP ' + esc(l.num_op) : ''}${Number(l.apontamentos_dia) ? '<br><span style="color:var(--accent)">' + fmtNum(l.realizado_dia) + ' pç</span>' : ''}</td>`;
+      }).join('')}</tr>`).join('')
+  }</tbody></table>`;
+}
+
+function exportarCSV() {
+  const lista = histFiltrado();
+  if (!lista.length) return toast('Nada para exportar', 'warn');
+  const cab = ['Data','Célula','Situação','Turno','Cód. Décio','Cód. Intelbras','Descrição','N° OP','Operadores','Horas/operador','Meta','Apontado','Observação'];
+  const linhas = lista.map(l => [fmtData(l.data), l.celula_nome, l.funcionando ? 'Funcionando' : 'Parada', l.turno ? l.turno + 'º' : '', l.cod_decio || '', l.cod_intelbras || '', l.descricao || '',
+    l.num_op || '', l.operadores ?? '', l.horas_operador ?? '', l.meta ?? '', Number(l.apontamentos_dia) ? l.realizado_dia : '', (l.obs || '').replace(/[\r\n]/g, ' ')]);
+  const csv = [cab, ...linhas].map(r => r.map(c => `"${String(c).replace(/"/g,'""')}"`).join(';')).join('\n');
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob(['﻿' + csv], { type:'text/csv;charset=utf-8' }));
+  a.download = `linha_producao_${document.getElementById('h-de').value}_a_${document.getElementById('h-ate').value}.csv`; a.click();
+  toast('CSV exportado!');
+}
+
+/* ---------- início ---------- */
+(async () => {
+  const hoje = isoHoje();
+  document.getElementById('dia').value = hoje;
+  document.getElementById('h-de').value = addDias(hoje, -13);
+  document.getElementById('h-ate').value = addDias(hoje, 7);
+  await loadUser();
+  await carregarCadastros();
+  await carregarDia();
+})();
+</script>
+</body>
+</html>

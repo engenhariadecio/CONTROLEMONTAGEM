@@ -138,6 +138,7 @@ router.put('/prod-celulas/:id', requireAuth, async (req, res) => {
     // os apontamentos guardam o nome da célula: renomear acompanha
     if (antiga.rows[0].nome !== c.nome) {
       await client.query('UPDATE prod_apontamentos_detalhados SET celula=$1 WHERE celula=$2', [c.nome, antiga.rows[0].nome]);
+      await client.query('UPDATE linha_producao SET celula_nome=$1 WHERE celula_nome=$2', [c.nome, antiga.rows[0].nome]);
     }
     await client.query('COMMIT');
     res.json(r.rows[0]);

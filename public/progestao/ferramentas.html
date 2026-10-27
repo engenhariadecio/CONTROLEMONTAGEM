@@ -163,7 +163,7 @@ a{color:var(--accent)}
   <a href="/progestao/treinamentos">📚 Treinamentos</a>
   <a href="/progestao/diario-bordo">📋 Diário Bordo</a>
   <a href="/progestao/checklist">✅ Checklist</a>
-  <a href="/progestao/producao">🏭 Produção</a><a href="/progestao/limpeza">🧹 Limpeza</a>
+  <a href="/progestao/producao">🏭 Plano de Produção</a><a href="/progestao/linha-producao">🏗️ Linha de Produção</a><a href="/progestao/produtos">📦 Produtos</a><a href="/progestao/limpeza">🧹 Limpeza</a>
 </nav>
 
 <!-- MAIN -->
@@ -185,6 +185,7 @@ a{color:var(--accent)}
     <div class="tab" onclick="showTab('cadastro')">➕ Cadastrar</div>
     <div class="tab" onclick="showTab('emprestimos')">🤝 Empréstimos</div>
     <div class="tab" onclick="showTab('manutencoes')">🔩 Manutenções</div>
+    <div class="tab" onclick="showTab('insumos')">🧴 Insumos</div>
     <div class="tab" onclick="showTab('checklist')">☑ Checklist</div>
     <div class="tab" onclick="showTab('alertas')">🔔 Alertas</div>
     <div class="tab" onclick="showTab('colaboradores')">👷 Colaboradores</div>
@@ -268,6 +269,41 @@ a{color:var(--accent)}
     </div>
   </div>
 
+  <!-- INSUMOS -->
+  <div class="section" id="sec-insumos">
+    <h3 id="ins-titulo">Registrar Insumo</h3>
+    <p style="color:var(--text2);font-size:.85rem;margin-top:4px">Informe a quantidade e a data de saída e/ou de entrada. Um registro com saída e sem entrada fica como <strong>pendente de entrada</strong> até você registrar a entrada.</p>
+    <input type="hidden" id="ins-id">
+    <div class="form-grid" style="margin-top:14px;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));max-width:1000px">
+      <div class="form-group" style="grid-column:span 2"><label>Insumo *</label><input id="ins-nome" list="ins-nomes" placeholder="Ex: Rebite pop 4,0 x 10" autocomplete="off"><datalist id="ins-nomes"></datalist></div>
+      <div class="form-group"><label>Quantidade *</label><input type="number" id="ins-qtd" min="0" step="any" placeholder="0"></div>
+      <div class="form-group"><label>Unidade</label><input id="ins-un" list="ins-unidades" value="un"><datalist id="ins-unidades"><option value="un"><option value="cx"><option value="pct"><option value="kg"><option value="g"><option value="m"><option value="L"><option value="ml"><option value="rolo"><option value="par"></datalist></div>
+      <div class="form-group"><label>Data de saída</label><input type="date" id="ins-saida"></div>
+      <div class="form-group"><label>Data de entrada</label><input type="date" id="ins-entrada"></div>
+      <div class="form-group"><label>Colaborador</label><select id="ins-colab"></select></div>
+      <div class="form-group"><label>Local / célula</label><input id="ins-local" placeholder="Ex: Célula 02"></div>
+      <div class="form-group" style="grid-column:1/-1"><label>Observação</label><input id="ins-obs" placeholder="Ex: lote, fornecedor, motivo…"></div>
+    </div>
+    <div style="margin-top:14px;display:flex;gap:10px;flex-wrap:wrap">
+      <button class="btn-sm btn-green" id="ins-btn" onclick="salvarInsumo()">Registrar</button>
+      <button class="btn-sm btn-ghost" onclick="limparInsumo()">Limpar</button>
+    </div>
+
+    <div class="kpis" id="ins-kpis" style="margin-top:24px;margin-bottom:12px"></div>
+
+    <h3 style="margin-top:8px">Registros de Insumos</h3>
+    <div class="search-bar" style="margin-top:10px">
+      <input id="ins-busca" placeholder="Buscar insumo, local ou observação..." oninput="renderInsumos()">
+      <select id="ins-f-st" onchange="renderInsumos()"><option value="">Todas as situações</option><option value="pendente">Pendente de entrada</option><option value="concluido">Saída e entrada</option><option value="so_entrada">Só entrada</option></select>
+      <input type="month" id="ins-f-mes" onchange="renderInsumos()" title="Mês da saída ou da entrada" style="flex:0 0 auto;min-width:0">
+      <button class="btn-sm btn-primary" onclick="exportCSV('insumos')">⬇ CSV</button>
+    </div>
+    <div class="tbl-wrap">
+      <table><thead><tr><th>Insumo</th><th>Qtd.</th><th>Data saída</th><th>Data entrada</th><th>Dias fora</th><th>Colaborador</th><th>Local</th><th>Situação</th><th>Obs</th><th>Ações</th></tr></thead>
+      <tbody id="ins-body"></tbody></table>
+    </div>
+  </div>
+
   <!-- CHECKLIST -->
   <div class="section" id="sec-checklist">
     <h3>☑ Conferência do Ferramental</h3>
@@ -335,6 +371,7 @@ a{color:var(--accent)}
       <div class="report-card" onclick="exportCSV('ferramentas')"><div class="rc-icon">📦</div><div class="rc-title">Inventário Geral</div><div class="rc-desc">Todas as ferramentas</div><button class="btn-sm btn-primary">⬇ CSV</button></div>
       <div class="report-card" onclick="exportCSV('emprestimos')"><div class="rc-icon">🤝</div><div class="rc-title">Empréstimos</div><div class="rc-desc">Histórico completo</div><button class="btn-sm btn-primary">⬇ CSV</button></div>
       <div class="report-card" onclick="exportCSV('manutencoes')"><div class="rc-icon">🔩</div><div class="rc-title">Manutenções</div><div class="rc-desc">Histórico de manutenções</div><button class="btn-sm btn-primary">⬇ CSV</button></div>
+      <div class="report-card" onclick="exportCSV('insumos')"><div class="rc-icon">🧴</div><div class="rc-title">Insumos</div><div class="rc-desc">Quantidades, saídas e entradas</div><button class="btn-sm btn-primary">⬇ CSV</button></div>
       <div class="report-card" onclick="exportExcelChecklists()"><div class="rc-icon">☑</div><div class="rc-title">Conferências</div><div class="rc-desc">Histórico do checklist, ferramenta por ferramenta</div><button class="btn-sm btn-green">⬇ Excel</button></div>
       <div class="report-card" onclick="exportExcel()"><div class="rc-icon">📊</div><div class="rc-title">Excel Completo</div><div class="rc-desc">Exportar via servidor</div><button class="btn-sm btn-green">⬇ Excel</button></div>
     </div>
@@ -377,6 +414,19 @@ a{color:var(--accent)}
   </div>
 </div>
 
+<!-- MODAL ENTRADA INSUMO -->
+<div class="modal-overlay" id="modal-ins">
+  <div class="modal">
+    <h3>Registrar Entrada</h3>
+    <p id="modal-ins-txt" style="color:var(--text2);font-size:.85rem"></p>
+    <div class="form-group" style="margin-top:10px"><label>Data de entrada</label><input type="date" id="ins-ent-dt" style="padding:10px;border-radius:8px;border:1px solid var(--border);background:var(--card2);color:var(--text);font-size:.9rem;width:100%"></div>
+    <div class="btns">
+      <button class="btn-sm btn-ghost" onclick="document.getElementById('modal-ins').classList.remove('show')">Cancelar</button>
+      <button class="btn-sm btn-green" id="modal-ins-btn">Confirmar Entrada</button>
+    </div>
+  </div>
+</div>
+
 <!-- MODAL RETORNO MANUTENCAO -->
 <div class="modal-overlay" id="modal-ret">
   <div class="modal">
@@ -392,7 +442,7 @@ a{color:var(--accent)}
 <script src="/js/fotos.js"></script>
 <script>
 /* ============ GLOBALS ============ */
-let ferramentas=[],emprestimos=[],manutencoes=[],colabs=[],colabsTodos=[],clData={};   // colabs = sem desligados
+let ferramentas=[],emprestimos=[],manutencoes=[],insumos=[],colabs=[],colabsTodos=[],clData={};   // colabs = sem desligados
 let editId=null;
 let fotosFerr={};   // { id_ferramenta: [ids das fotos] }
 const galFerr=Fotos.galeria('#fotos-ferr',{entidade:'ferramenta',titulo:'Fotos da ferramenta'});
@@ -432,6 +482,7 @@ function showTab(t){
   if(event&&event.target)event.target.classList.add('active');
   if(t==='emprestimos')populateEmpSelects();
   if(t==='manutencoes')populateManSelects();
+  if(t==='insumos')abrirInsumos();
   if(t==='checklist')abrirChecklist();
   if(t==='alertas')renderAlertas();
   if(t==='colaboradores')renderColabs();
@@ -446,8 +497,9 @@ async function loadAll(){
     api.get('/api/colaboradores'),
     Fotos.mapa('ferramenta')
   ]);
+  insumos=await api.get('/api/ferramentas/insumos');if(!Array.isArray(insumos))insumos=[];
   colabsTodos=colabs;colabs=colabs.filter(c=>c.status!=='Desligado');
-  updateKPIs();renderLista();renderEmp();renderMan();populateCatFilter();
+  updateKPIs();renderLista();renderEmp();renderMan();renderInsumos();populateCatFilter();
 }
 
 /* ============ KPIs ============ */
@@ -812,6 +864,117 @@ function renderColabs(){
   grid.innerHTML=list.map(c=>`<div class="colab-card"><div class="colab-av">${initials(c.nome)}</div><div class="colab-info"><div class="cn">${c.nome}</div><div class="cm">${c.cargo||'-'}</div><div class="cc">${c.turno||'-'}</div></div></div>`).join('');
 }
 
+/* ============ INSUMOS ============ */
+const INS_SIT={pendente:{txt:'Pendente de entrada',cls:'badge-orange'},concluido:{txt:'Saída e entrada',cls:'badge-green'},so_entrada:{txt:'Só entrada',cls:'badge-blue'}};
+function insSit(i){return i.data_saida&&!i.data_entrada?'pendente':i.data_saida?'concluido':'so_entrada'}
+function fmtISO(d){return d?d.slice(8,10)+'/'+d.slice(5,7)+'/'+d.slice(0,4):'-'}
+function hojeISO(){const d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')}
+function diasEntreISO(a,b){const p=s=>{const x=s.split('-').map(Number);return Date.UTC(x[0],x[1]-1,x[2])};return Math.round((p(b)-p(a))/864e5)}
+function escI(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
+function fmtQtd(q){return Number(q||0).toLocaleString('pt-BR',{maximumFractionDigits:3})}
+
+function abrirInsumos(idSel){
+  const sel=document.getElementById('ins-colab'),v=idSel!=null?String(idSel):sel.value;
+  const idAtual=parseInt(v)||null;
+  // desligados ficam fora da lista, exceto o já vinculado ao registro em edição
+  const lista=colabs.slice();
+  if(idAtual&&!lista.some(c=>c.id===idAtual)){const d=colabsTodos.find(c=>c.id===idAtual);if(d)lista.push({...d,nome:d.nome+' (desligado)'})}
+  sel.innerHTML='<option value="">—</option>'+lista.map(c=>`<option value="${c.id}">${escI(c.nome)}</option>`).join('');
+  sel.value=v;
+  if(!document.getElementById('ins-id').value&&!document.getElementById('ins-saida').value&&!document.getElementById('ins-entrada').value)document.getElementById('ins-saida').value=hojeISO();
+  renderInsumos();
+}
+
+function insumosFiltrados(){
+  const q=(document.getElementById('ins-busca').value||'').toLowerCase();
+  const st=document.getElementById('ins-f-st').value,mes=document.getElementById('ins-f-mes').value;
+  return insumos.filter(i=>(!q||[i.insumo,i.local,i.obs,i.colab_nome].some(x=>(x||'').toLowerCase().includes(q)))
+    &&(!st||insSit(i)===st)
+    &&(!mes||(i.data_saida||'').startsWith(mes)||(i.data_entrada||'').startsWith(mes)));
+}
+
+function renderInsumos(){
+  document.getElementById('ins-nomes').innerHTML=[...new Set(insumos.map(i=>i.insumo))].sort().map(n=>`<option value="${escI(n)}">`).join('');
+  const lista=insumosFiltrados(),hoje=hojeISO();
+  const pend=insumos.filter(i=>insSit(i)==='pendente');
+  const mes=hoje.slice(0,7);
+  const k=[
+    {v:insumos.length,l:'Registros',c:'var(--accent)'},
+    {v:pend.length,l:'Pendentes de entrada',c:'var(--orange)'},
+    {v:insumos.filter(i=>(i.data_saida||'').startsWith(mes)).length,l:'Saídas no mês',c:'var(--yellow)'},
+    {v:insumos.filter(i=>(i.data_entrada||'').startsWith(mes)).length,l:'Entradas no mês',c:'var(--green)'}
+  ];
+  document.getElementById('ins-kpis').innerHTML=k.map(x=>`<div class="kpi"><div class="num" style="color:${x.c}">${x.v}</div><div class="lbl">${x.l}</div></div>`).join('');
+  const tb=document.getElementById('ins-body');
+  if(!lista.length){tb.innerHTML='<tr><td colspan="10" style="text-align:center;color:var(--text2);padding:20px">Nenhum registro de insumo.</td></tr>';return}
+  tb.innerHTML=lista.map(i=>{
+    const sit=insSit(i),s=INS_SIT[sit];
+    const fora=i.data_saida?diasEntreISO(i.data_saida,i.data_entrada||hoje):null;
+    return `<tr>
+      <td><strong>${escI(i.insumo)}</strong></td>
+      <td style="white-space:nowrap">${fmtQtd(i.quantidade)} ${escI(i.unidade||'')}</td>
+      <td>${fmtISO(i.data_saida)}</td>
+      <td>${fmtISO(i.data_entrada)}</td>
+      <td style="white-space:nowrap">${fora===null?'-':fora+' dia(s)'}</td>
+      <td>${escI(i.colab_nome||'-')}</td>
+      <td>${escI(i.local||'-')}</td>
+      <td style="white-space:nowrap"><span class="badge ${s.cls}">${s.txt}</span></td>
+      <td title="${escI(i.obs||'')}">${escI((i.obs||'-').slice(0,30))}</td>
+      <td style="white-space:nowrap">${sit==='pendente'?`<button class="btn-sm btn-green" onclick="abrirEntradaIns(${i.id})" title="Registrar entrada">⤵ Entrada</button> `:''}<button class="btn-sm btn-ghost" onclick="editarInsumo(${i.id})" title="Editar">✏️</button> <button class="btn-sm btn-danger" onclick="delInsumo(${i.id})" title="Excluir">🗑</button></td>
+    </tr>`}).join('');
+}
+
+async function salvarInsumo(){
+  const id=document.getElementById('ins-id').value;
+  const body={insumo:document.getElementById('ins-nome').value.trim(),quantidade:document.getElementById('ins-qtd').value,
+    unidade:document.getElementById('ins-un').value.trim(),data_saida:document.getElementById('ins-saida').value,
+    data_entrada:document.getElementById('ins-entrada').value,colaborador_id:document.getElementById('ins-colab').value||null,
+    local:document.getElementById('ins-local').value,obs:document.getElementById('ins-obs').value};
+  if(!body.insumo)return toast('Informe o insumo','error');
+  if(!(parseFloat(body.quantidade)>0))return toast('Informe a quantidade','error');
+  if(!body.data_saida&&!body.data_entrada)return toast('Informe a data de saída e/ou de entrada','error');
+  if(body.data_saida&&body.data_entrada&&body.data_entrada<body.data_saida&&!confirm('A data de entrada é anterior à data de saída. Salvar assim mesmo?'))return;
+  const r=id?await api.put('/api/ferramentas/insumos/'+id,body):await api.post('/api/ferramentas/insumos',body);
+  if(!r||r.error)return toast(r&&r.error?r.error:'Erro ao salvar','error');
+  toast(id?'Insumo atualizado!':'Insumo registrado!');
+  limparInsumo();
+  insumos=await api.get('/api/ferramentas/insumos');if(!Array.isArray(insumos))insumos=[];
+  renderInsumos();
+}
+function limparInsumo(){
+  ['ins-id','ins-nome','ins-qtd','ins-entrada','ins-colab','ins-local','ins-obs'].forEach(x=>document.getElementById(x).value='');
+  document.getElementById('ins-un').value='un';document.getElementById('ins-saida').value=hojeISO();
+  document.getElementById('ins-titulo').textContent='Registrar Insumo';document.getElementById('ins-btn').textContent='Registrar';
+}
+function editarInsumo(id){
+  const i=insumos.find(x=>x.id===id);if(!i)return;
+  document.getElementById('ins-id').value=i.id;
+  document.getElementById('ins-nome').value=i.insumo||'';document.getElementById('ins-qtd').value=Number(i.quantidade);
+  document.getElementById('ins-un').value=i.unidade||'un';document.getElementById('ins-saida').value=i.data_saida||'';
+  document.getElementById('ins-entrada').value=i.data_entrada||'';document.getElementById('ins-local').value=i.local||'';
+  document.getElementById('ins-obs').value=i.obs||'';
+  abrirInsumos(i.colaborador_id||'');
+  document.getElementById('ins-titulo').textContent='Editar Insumo';document.getElementById('ins-btn').textContent='Salvar alterações';
+  document.getElementById('sec-insumos').scrollIntoView({behavior:'smooth'});
+}
+function abrirEntradaIns(id){
+  const i=insumos.find(x=>x.id===id);if(!i)return;
+  document.getElementById('modal-ins-txt').textContent=`${fmtQtd(i.quantidade)} ${i.unidade||''} de ${i.insumo} — saída em ${fmtISO(i.data_saida)}`;
+  document.getElementById('ins-ent-dt').value=hojeISO();
+  document.getElementById('modal-ins').classList.add('show');
+  document.getElementById('modal-ins-btn').onclick=async()=>{
+    const r=await api.put('/api/ferramentas/insumos/'+id+'/entrada',{data_entrada:document.getElementById('ins-ent-dt').value});
+    if(!r||r.error)return toast(r&&r.error?r.error:'Erro','error');
+    toast('Entrada registrada!');document.getElementById('modal-ins').classList.remove('show');
+    insumos=await api.get('/api/ferramentas/insumos');if(!Array.isArray(insumos))insumos=[];renderInsumos();
+  };
+}
+async function delInsumo(id){
+  if(!confirm('Excluir este registro de insumo?'))return;
+  await api.del('/api/ferramentas/insumos/'+id);toast('Excluído!');
+  insumos=await api.get('/api/ferramentas/insumos');if(!Array.isArray(insumos))insumos=[];renderInsumos();
+}
+
 /* ============ RELATORIOS ============ */
 function exportCSV(tipo){
   let csv='';
@@ -821,11 +984,15 @@ function exportCSV(tipo){
   }else if(tipo==='emprestimos'){
     csv='Ferramenta;Colaborador;Retirada;Devolução;Obs\n';
     emprestimos.forEach(e=>{const f=ferramentas.find(x=>x.id===e.ferramenta_id);csv+=`${f?f.nome:'?'};${e.colab_nome||''};${fmtDT(e.retirado_em)};${fmtDT(e.devolvido_em)};${e.obs||''}\n`});
+  }else if(tipo==='insumos'){
+    const sc=v=>String(v??'').replace(/[;\r\n]/g,' ');
+    csv='Insumo;Quantidade;Unidade;Data saída;Data entrada;Colaborador;Local;Situação;Observação\n';
+    insumosFiltrados().forEach(i=>csv+=`${sc(i.insumo)};${String(Number(i.quantidade)).replace('.',',')};${sc(i.unidade)};${fmtISO(i.data_saida)};${fmtISO(i.data_entrada)};${sc(i.colab_nome)};${sc(i.local)};${INS_SIT[insSit(i)].txt};${sc(i.obs)}\n`);
   }else{
     csv='Ferramenta;Tipo;Responsável;Envio;Retorno;Descrição\n';
     manutencoes.forEach(m=>{const f=ferramentas.find(x=>x.id===m.ferramenta_id);csv+=`${f?f.nome:'?'};${m.tipo||''};${m.colab_nome||''};${fmt(m.dt_envio)};${fmt(m.dt_retorno)};${(m.descricao||'').replace(/;/g,',')}\n`});
   }
-  const blob=new Blob([csv],{type:'text/csv;charset=utf-8;'});
+  const blob=new Blob(['\uFEFF'+csv],{type:'text/csv;charset=utf-8;'});
   const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=tipo+'_relatorio.csv';a.click();
   toast('CSV exportado!');
 }

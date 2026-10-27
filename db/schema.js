@@ -590,6 +590,56 @@ CREATE TABLE IF NOT EXISTS lp_agenda (
 CREATE INDEX IF NOT EXISTS idx_lp_agenda_item ON lp_agenda(item_id, status, data);
 CREATE INDEX IF NOT EXISTS idx_lp_agenda_data ON lp_agenda(data, status);
 
+/* ══════════════ LINHA DE PRODUÇÃO (células funcionando por dia) ══════════════ */
+
+/* Uma linha por célula por dia: se ela funciona e qual produto está rodando.
+   Guarda cópia do nome da célula e dos códigos do produto, para o histórico
+   continuar legível se o cadastro mudar. Os apontamentos também ligam pela
+   célula (nome), então renomear a célula acompanha (routes/producao.js). */
+CREATE TABLE IF NOT EXISTS linha_producao (
+  id              SERIAL PRIMARY KEY,
+  data            DATE NOT NULL,
+  celula_id       INTEGER REFERENCES celulas(id) ON DELETE SET NULL,
+  celula_nome     VARCHAR(80) NOT NULL,
+  funcionando     BOOLEAN NOT NULL DEFAULT TRUE,
+  produto_id      INTEGER REFERENCES prod_produtos(id) ON DELETE SET NULL,
+  cod_decio       VARCHAR(50),
+  cod_intelbras   VARCHAR(50),
+  descricao       VARCHAR(300),
+  num_op          VARCHAR(8),
+  turno           VARCHAR(20),
+  operadores      INTEGER,
+  horas_operador  NUMERIC(5,2),
+  meta            NUMERIC(12,2),
+  obs             TEXT,
+  registrado_por  INTEGER REFERENCES users(id) ON DELETE SET NULL,
+  created_at      TIMESTAMPTZ DEFAULT NOW(),
+  updated_at      TIMESTAMPTZ DEFAULT NOW(),
+  CONSTRAINT uq_linha_data_celula UNIQUE (data, celula_nome)
+);
+CREATE INDEX IF NOT EXISTS idx_linha_data ON linha_producao(data);
+
+/* ══════════════ INSUMOS (módulo Ferramentas) ══════════════ */
+
+/* Movimento de insumo: o que saiu/entrou, quanto e quando. Guarda cópia do
+   nome do colaborador para o registro sobreviver à exclusão do cadastro. */
+CREATE TABLE IF NOT EXISTS ferr_insumos (
+  id              SERIAL PRIMARY KEY,
+  insumo          VARCHAR(200) NOT NULL,
+  unidade         VARCHAR(20) DEFAULT 'un',
+  quantidade      NUMERIC(12,3) NOT NULL DEFAULT 0,
+  data_saida      DATE,
+  data_entrada    DATE,
+  colaborador_id  INTEGER REFERENCES colaboradores(id) ON DELETE SET NULL,
+  colab_nome      VARCHAR(200),
+  local           VARCHAR(200),
+  obs             TEXT,
+  registrado_por  INTEGER REFERENCES users(id) ON DELETE SET NULL,
+  created_at      TIMESTAMPTZ DEFAULT NOW(),
+  updated_at      TIMESTAMPTZ DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_ferr_insumos_datas ON ferr_insumos(data_saida, data_entrada);
+
 /* ══════════════ FOTOS (cadastros do ProGestão + Diário de Bordo) ══════════════ */
 
 /* Uma linha por foto. (entidade, registro_id) aponta para o cadastro dono —

@@ -6,7 +6,7 @@ Um único aplicativo, um único banco Postgres e um único login para os três s
 |---|---------|------|-----------|
 | 01 | **Ponto NFC** | `/ponto` | Batida por crachá NFC ou seleção manual, com turno identificado automaticamente |
 | 02 | **Cadenciador de Produção** | `/cadenciador` | Cadência por takt time, avisos de voz, parada de linha e painel de chão de fábrica |
-| 03 | **ProGestão** | `/progestao` | Ferramentas, EPIs, banco de horas, treinamentos, diário de bordo, checklist e produção |
+| 03 | **ProGestão** | `/progestao` | Ferramentas (com insumos), EPIs, banco de horas, treinamentos, diário de bordo, checklist, plano de produção, linha de produção, produtos e limpeza |
 
 Tudo é configurado em um lugar só: **`/admin`** (Painel de Administração).
 
@@ -35,6 +35,18 @@ Os sistemas eram independentes e guardavam dados em lugares diferentes. Agora co
 - `GET /api/ferramentas/checklist` era capturado pela rota `/:id` e virava `WHERE id = 'checklist'`. Rota reordenada.
 - As consultas de aniversariantes usavam `HAVING` sem `GROUP BY`, o que o Postgres rejeita. Reescritas com subquery.
 - Layout retematizado com a identidade da Décio.
+
+**Plano de Produção, Linha de Produção, Produtos e Insumos (27/10/2026)**
+- O módulo **Produção** passou a se chamar **Plano de Produção** (mesmo endereço `/progestao/producao`, mesmas abas, menos a de Produtos).
+- **Produtos** virou módulo próprio em `/progestao/produtos`, com tudo o que a aba tinha (cadastro, códigos, categoria, valor, minutos e hora reportada, fotos, busca) e mais filtro por categoria, KPIs e exportação CSV. Mesma tabela `prod_produtos` e mesmas rotas `/api/prod-produtos`.
+- Novo módulo **Linha de Produção** em `/progestao/linha-producao`:
+  - *Programação do dia*: escolhe a data (◀ ▶ / Hoje) e, para cada célula ativa, liga **Funcionando/Parada** e informa o **produto rodando** (cód. Décio, com a descrição do cadastro), OP opcional (sugere as OPs do Plano Mensal daquele produto), turno, operadores no dia, meta do dia e observação. Cada célula mostra horas disponíveis, capacidade estimada (horas ÷ hora reportada do produto) e o que já foi apontado nela no dia.
+  - Botões *Todas funcionando*, *Nenhuma*, *Copiar do último dia programado* (até 60 dias para trás), *Salvar programação do dia* e *Apagar*. Aviso de alterações não salvas ao trocar de dia.
+  - *Histórico*: quadro dia × célula (ou lista) com filtros por período, célula e produto, KPIs e CSV.
+  - No **Apontamento Diário** do Plano de Produção, escolher a célula (e a data) já preenche produto, OP e meta que estão programados na Linha para aquele dia — só nos campos vazios.
+  - Tabela `linha_producao` (uma linha por célula por dia, `UNIQUE (data, celula_nome)`); rotas em `routes/linha-producao.js`. Renomear a célula (no módulo ou na administração) atualiza a programação.
+- **Ferramentas › Insumos** (aba nova): insumo, quantidade e unidade, **data de saída**, **data de entrada**, colaborador, local/célula e observação. Situação calculada: *Pendente de entrada* (saiu e não entrou), *Saída e entrada*, *Só entrada*; botão *⤵ Entrada* registra a entrada de um pendente. Filtros por texto, situação e mês, KPIs, CSV (também em Relatórios). Tabela `ferr_insumos`; rotas `/api/ferramentas/insumos`.
+- Perfil **PCP**: além do Plano de Produção, passa a visualizar (só leitura) a Linha de Produção e os Produtos.
 
 **Dashboards de Produção, células com operadores, mostrar senha (08/10/2026)**
 - Login: ícone de olho para mostrar/ocultar a senha.
@@ -222,7 +234,7 @@ O UID cadastrado precisa ser exatamente o que o aparelho lê. Se um crachá novo
     ├── js/fotos.js           upload com compressão, galeria e visualizador
     ├── login.html  index.html  admin.html
     ├── ponto.html  cadenciador.html
-    └── progestao/            dashboard + 7 módulos
+    └── progestao/            dashboard + 10 módulos
 ```
 
 ---

@@ -71,6 +71,7 @@ app.use('/api', require('./routes/diario'));
 app.use('/api', require('./routes/checklist'));
 app.use('/api', require('./routes/producao'));
 app.use('/api', require('./routes/produtos'));
+app.use('/api', require('./routes/linha-producao'));
 app.use('/api/limpeza', require('./routes/limpeza'));
 app.use('/api/fotos', require('./routes/fotos'));
 app.use('/api/export', require('./routes/export'));
@@ -94,7 +95,8 @@ app.get('/cadenciador', requireAuth, (_req, res) => res.sendFile(pagina('cadenci
 // Sistema 3 — ProGestão
 const MODULOS_PROGESTAO = [
   'ferramentas', 'epis', 'banco-horas',
-  'treinamentos', 'diario-bordo', 'checklist', 'producao', 'limpeza'
+  'treinamentos', 'diario-bordo', 'checklist', 'producao', 'limpeza',
+  'produtos', 'linha-producao'
 ];
 
 app.get('/progestao', requireAuth, (_req, res) => res.sendFile(pagina('progestao', 'index.html')));

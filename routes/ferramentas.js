@@ -119,6 +119,99 @@ router.delete('/checklists/:id', requireAuth, async (req, res) => {
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
+// ======================== INSUMOS ========================
+/*
+ * GET    /api/ferramentas/insumos          lista (filtros: q, status=pendente|concluido|so_entrada, mes=AAAA-MM)
+ * POST   /api/ferramentas/insumos          { insumo, unidade, quantidade, data_saida, data_entrada, colaborador_id, local, obs }
+ * PUT    /api/ferramentas/insumos/:id      mesmo corpo (edição completa)
+ * PUT    /api/ferramentas/insumos/:id/entrada  { data_entrada }  — registra só a entrada
+ * DELETE /api/ferramentas/insumos/:id
+ * Ficam antes das rotas /:id para não serem capturadas por elas.
+ */
+const SELECT_INSUMO = `SELECT i.*, to_char(i.data_saida,'YYYY-MM-DD') AS data_saida, to_char(i.data_entrada,'YYYY-MM-DD') AS data_entrada,
+  COALESCE(c.nome, i.colab_nome) AS colab_nome, u.nome AS registrado_por_nome
+  FROM ferr_insumos i
+  LEFT JOIN colaboradores c ON c.id = i.colaborador_id
+  LEFT JOIN users u ON u.id = i.registrado_por`;
+const DATA_OK = d => !d || /^\d{4}-\d{2}-\d{2}$/.test(d);
+
+async function camposInsumo(b) {
+  const insumo = String(b.insumo || '').trim();
+  const quantidade = parseFloat(String(b.quantidade ?? '').replace(',', '.'));
+  const data_saida = b.data_saida || null, data_entrada = b.data_entrada || null;
+  if (!insumo) throw Object.assign(new Error('Informe o insumo'), { status: 400 });
+  if (!Number.isFinite(quantidade) || quantidade <= 0) throw Object.assign(new Error('Informe uma quantidade maior que zero'), { status: 400 });
+  if (!data_saida && !data_entrada) throw Object.assign(new Error('Informe a data de saída e/ou a data de entrada'), { status: 400 });
+  if (!DATA_OK(data_saida) || !DATA_OK(data_entrada)) throw Object.assign(new Error('Data inválida'), { status: 400 });
+  const colaborador_id = parseInt(b.colaborador_id) || null;
+  let colab_nome = null;
+  if (colaborador_id) {
+    const c = await pool.query('SELECT nome FROM colaboradores WHERE id=$1', [colaborador_id]);
+    colab_nome = c.rows[0] ? c.rows[0].nome : null;
+  }
+  return {
+    insumo, quantidade, data_saida, data_entrada, colaborador_id, colab_nome,
+    unidade: String(b.unidade || 'un').trim().slice(0, 20) || 'un',
+    local: String(b.local || '').trim() || null,
+    obs: String(b.obs || '').trim() || null
+  };
+}
+
+router.get('/insumos', requireAuth, async (req, res) => {
+  try {
+    const { q, status, mes } = req.query;
+    const params = [], where = [];
+    if (q) { params.push('%' + String(q).toLowerCase() + '%'); where.push(`(LOWER(i.insumo) LIKE $${params.length} OR LOWER(COALESCE(i.obs,'')) LIKE $${params.length} OR LOWER(COALESCE(i.local,'')) LIKE $${params.length})`); }
+    if (status === 'pendente')   where.push('i.data_saida IS NOT NULL AND i.data_entrada IS NULL');
+    if (status === 'concluido')  where.push('i.data_saida IS NOT NULL AND i.data_entrada IS NOT NULL');
+    if (status === 'so_entrada') where.push('i.data_saida IS NULL AND i.data_entrada IS NOT NULL');
+    if (mes && /^\d{4}-\d{2}$/.test(mes)) { params.push(mes); where.push(`(to_char(i.data_saida,'YYYY-MM') = $${params.length} OR to_char(i.data_entrada,'YYYY-MM') = $${params.length})`); }
+    const r = await pool.query(SELECT_INSUMO + (where.length ? ' WHERE ' + where.join(' AND ') : '') +
+      ' ORDER BY COALESCE(i.data_saida, i.data_entrada) DESC, i.id DESC', params);
+    res.json(r.rows);
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+router.post('/insumos', requireAuth, async (req, res) => {
+  try {
+    const c = await camposInsumo(req.body);
+    const r = await pool.query(
+      `INSERT INTO ferr_insumos (insumo, unidade, quantidade, data_saida, data_entrada, colaborador_id, colab_nome, local, obs, registrado_por)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) RETURNING id`,
+      [c.insumo, c.unidade, c.quantidade, c.data_saida, c.data_entrada, c.colaborador_id, c.colab_nome, c.local, c.obs, req.session.userId || null]);
+    res.json((await pool.query(SELECT_INSUMO + ' WHERE i.id=$1', [r.rows[0].id])).rows[0]);
+  } catch (e) { res.status(e.status || 500).json({ error: e.message }); }
+});
+
+router.put('/insumos/:id/entrada', requireAuth, async (req, res) => {
+  try {
+    const d = req.body.data_entrada || new Date().toISOString().slice(0, 10);
+    if (!DATA_OK(d)) return res.status(400).json({ error: 'Data inválida' });
+    const r = await pool.query('UPDATE ferr_insumos SET data_entrada=$1, updated_at=NOW() WHERE id=$2 RETURNING id', [d, req.params.id]);
+    if (!r.rows.length) return res.status(404).json({ error: 'Registro não encontrado' });
+    res.json((await pool.query(SELECT_INSUMO + ' WHERE i.id=$1', [req.params.id])).rows[0]);
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+router.put('/insumos/:id', requireAuth, async (req, res) => {
+  try {
+    const c = await camposInsumo(req.body);
+    const r = await pool.query(
+      `UPDATE ferr_insumos SET insumo=$1, unidade=$2, quantidade=$3, data_saida=$4, data_entrada=$5,
+         colaborador_id=$6, colab_nome=$7, local=$8, obs=$9, updated_at=NOW() WHERE id=$10 RETURNING id`,
+      [c.insumo, c.unidade, c.quantidade, c.data_saida, c.data_entrada, c.colaborador_id, c.colab_nome, c.local, c.obs, req.params.id]);
+    if (!r.rows.length) return res.status(404).json({ error: 'Registro não encontrado' });
+    res.json((await pool.query(SELECT_INSUMO + ' WHERE i.id=$1', [req.params.id])).rows[0]);
+  } catch (e) { res.status(e.status || 500).json({ error: e.message }); }
+});
+
+router.delete('/insumos/:id', requireAuth, async (req, res) => {
+  try {
+    await pool.query('DELETE FROM ferr_insumos WHERE id=$1', [req.params.id]);
+    res.json({ success: true });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
 // ======================== FERRAMENTAS CRUD ========================
 
 // GET /api/ferramentas

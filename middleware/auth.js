@@ -21,13 +21,14 @@ function requireAdmin(req, res, next) {
 }
 
 /*
- * Perfil "pcp": só enxerga ProGestão › Produção, e só leitura.
+ * Perfil "pcp": só enxerga ProGestão › Plano de Produção, Linha de Produção
+ * e Produtos, e só leitura.
  * Vale no servidor, para toda rota: o que não está na lista abaixo recebe
  * 403 (API) ou vai para /progestao/producao (página). Assim, mesmo digitando
  * uma URL ou chamando a API direto, o usuário não vê nem altera o resto.
  */
-const PCP_PAGINAS = ['/login', '/progestao/producao'];
-const PCP_API_LEITURA = /^\/api\/(me|prod-planos|prod-apontamentos|prod-apontamentos-detalhados|prod-produtos|prod-celulas|fotos\/produto|fotos\/arquivo)(\/|$|\?)/;   // fotos: só as dos produtos
+const PCP_PAGINAS = ['/login', '/progestao/producao', '/progestao/linha-producao', '/progestao/produtos'];
+const PCP_API_LEITURA = /^\/api\/(me|prod-planos|prod-apontamentos|prod-apontamentos-detalhados|prod-produtos|prod-celulas|linha-producao|fotos\/produto|fotos\/arquivo)(\/|$|\?)/;   // fotos: só as dos produtos
 const PCP_API_LIVRE = /^\/api\/(logout|login)$/;
 
 function restringirPcp(req, res, next) {
@@ -37,7 +38,7 @@ function restringirPcp(req, res, next) {
   if (p.startsWith('/api/')) {
     if (PCP_API_LIVRE.test(p)) return next();
     if (req.method === 'GET' && PCP_API_LEITURA.test(p)) return next();
-    return res.status(403).json({ error: 'Perfil PCP: somente visualização de Produção' });
+    return res.status(403).json({ error: 'Perfil PCP: somente visualização (Plano de Produção, Linha de Produção e Produtos)' });
   }
   if (PCP_PAGINAS.includes(p)) return next();
   return res.redirect('/progestao/producao');

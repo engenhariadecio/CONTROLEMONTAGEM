@@ -63,7 +63,7 @@
     <button class="aba" role="tab" data-p="colabs"   aria-selected="false">Colaboradores</button>
     <button class="aba" role="tab" data-p="crachas"  aria-selected="false">Crachás NFC</button>
     <button class="aba" role="tab" data-p="takt"     aria-selected="false">Takt Times</button>
-    <button class="aba" role="tab" data-p="produtos" aria-selected="false">Produtos (Produção)</button>
+    <button class="aba" role="tab" data-p="produtos" aria-selected="false">Produtos</button>
     <button class="aba" role="tab" data-p="usuarios" aria-selected="false">Usuários</button>
     <button class="aba" role="tab" data-p="params"   aria-selected="false">Parâmetros</button>
   </div>
@@ -138,7 +138,7 @@
 
   <!-- ══════════ PRODUTOS PRODUÇÃO ══════════ -->
   <section class="painel" id="p-produtos" role="tabpanel" hidden>
-    <p class="sub">Cadastro de produtos do módulo de Produção do ProGestão — código Décio, código Intelbras, valor e tempo reportado.</p>
+    <p class="sub">Cadastro de produtos do ProGestão (o mesmo do módulo Produtos) — código Décio, código Intelbras, valor e tempo reportado.</p>
     <div class="barra-acoes">
       <button class="btn btn-primario btn-sm" onclick="abrirProdutoProd()">Novo produto</button>
       <input class="controle busca" id="buscaProduto" placeholder="Buscar por código ou descrição…">
@@ -151,7 +151,7 @@
 
   <!-- ══════════ USUÁRIOS ══════════ -->
   <section class="painel" id="p-usuarios" role="tabpanel" hidden>
-    <p class="sub">Quem acessa o sistema. <strong>Administrador</strong> configura tudo nesta página; <strong>Operação</strong> usa os três sistemas mas não altera cadastros estruturais; <strong>PCP</strong> só visualiza ProGestão › Produção, sem editar nada.</p>
+    <p class="sub">Quem acessa o sistema. <strong>Administrador</strong> configura tudo nesta página; <strong>Operação</strong> usa os três sistemas mas não altera cadastros estruturais; <strong>PCP</strong> só visualiza ProGestão › Plano de Produção, Linha de Produção e Produtos, sem editar nada.</p>
     <div class="barra-acoes">
       <button class="btn btn-primario btn-sm" onclick="abrirUsuario()">Novo usuário</button>
     </div>
@@ -700,7 +700,7 @@ async function carregarUsuarios() {
     <tr>
       <td class="destaque">${escapar(u.username)}</td>
       <td>${escapar(u.nome || '—')}</td>
-      <td><span class="selo ${u.role === 'admin' ? 'selo-marca' : u.role === 'pcp' ? 'selo-alerta' : 'selo-neutro'}">${u.role === 'admin' ? 'Administrador' : u.role === 'pcp' ? 'PCP (só Produção)' : 'Operação'}</span></td>
+      <td><span class="selo ${u.role === 'admin' ? 'selo-marca' : u.role === 'pcp' ? 'selo-alerta' : 'selo-neutro'}">${u.role === 'admin' ? 'Administrador' : u.role === 'pcp' ? 'PCP (só visualização)' : 'Operação'}</span></td>
       <td><span class="selo ${u.ativo !== false ? 'selo-ok' : 'selo-neutro'}">${u.ativo !== false ? 'Ativo' : 'Desativado'}</span></td>
       <td><button class="btn btn-fantasma btn-xs" onclick="abrirUsuario(${u.id})">Editar</button>
           <button class="btn btn-fantasma btn-xs" onclick="trocarSenha(${u.id})">Trocar senha</button>
@@ -724,7 +724,7 @@ function abrirUsuario(id) {
         <select class="controle" id="uPapel">
           <option value="user" ${!u.role || u.role === 'user' ? 'selected' : ''}>Operação</option>
           <option value="admin" ${u.role === 'admin' ? 'selected' : ''}>Administrador</option>
-          <option value="pcp" ${u.role === 'pcp' ? 'selected' : ''}>PCP — só visualiza Produção</option>
+          <option value="pcp" ${u.role === 'pcp' ? 'selected' : ''}>PCP — só visualiza Plano de Produção, Linha e Produtos</option>
         </select></div>
       ${novo ? '' : `<div class="campo campo-full"><label class="chave"><input type="checkbox" id="uAtivo" ${u.ativo !== false ? 'checked' : ''}>
         <span class="chave-tri"></span><span class="chave-txt">Usuário ativo</span></label></div>`}

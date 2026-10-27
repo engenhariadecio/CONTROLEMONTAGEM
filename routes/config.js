@@ -167,6 +167,8 @@ router.put('/celulas/:id', requireAdmin, async (req, res) => {
        parseFloat(horas_operador) > 0 ? parseFloat(horas_operador) : null, req.params.id]
     );
     if (!r.rows.length) return res.status(404).json({ error: 'Célula não encontrada' });
+    // a Linha de Produção guarda o nome da célula: renomear acompanha
+    await pool.query('UPDATE linha_producao SET celula_nome=$1 WHERE celula_id=$2 AND celula_nome<>$1', [r.rows[0].nome, req.params.id]).catch(() => {});
     res.json(r.rows[0]);
   } catch (e) { res.status(500).json({ error: e.message }); }
 });

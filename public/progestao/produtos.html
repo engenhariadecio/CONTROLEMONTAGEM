@@ -1,0 +1,364 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ProGestão – Produtos</title>
+<style>
+:root{--bg:#0A1620;--card:#14293A;--card2:#1A3347;--accent:#26B247;--accent2:#1C4984;--green:#34D399;--yellow:#F0B429;--red:#F26D6D;--orange:#E88C4A;--blue:#56B6E0;--purple:#1D6574;--text:#EAF4F1;--text2:#A2BCC3;--border:#1E3D52;--radius:12px;--panel:#14293A;--panel2:#1A3347;--fade:linear-gradient(135deg,#26B247 0%,#1D6574 55%,#1C4984 100%)}
+*{margin:0;padding:0;box-sizing:border-box;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif}
+body{background:var(--bg);color:var(--text);min-height:100vh}
+.topbar{background:var(--panel);border-bottom:1px solid var(--border);padding:12px 24px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100}
+.topbar .logo{font-size:18px;font-weight:700;color:var(--accent)}
+.topbar .user-info{display:flex;align-items:center;gap:16px;font-size:13px}
+.topbar .clock{color:var(--text2)}
+.topbar .btn-logout{background:var(--red);color:#fff;border:none;padding:6px 14px;border-radius:6px;cursor:pointer;font-size:12px;font-weight:600}
+.layout{display:flex;min-height:calc(100vh - 56px)}
+.sidebar{width:220px;background:var(--panel);border-right:1px solid var(--border);padding:20px 0;flex-shrink:0}
+.sidebar a{display:block;padding:10px 24px;color:var(--text2);text-decoration:none;font-size:14px;border-left:3px solid transparent;transition:all .2s}
+.sidebar a:hover{background:var(--panel2);color:var(--text)}
+.sidebar a.active{background:var(--panel2);color:var(--accent);border-left-color:var(--accent)}
+.main{flex:1;padding:24px;overflow-x:auto}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:14px;margin-bottom:20px}
+.kpi{background:var(--panel);border:1px solid var(--border);border-radius:8px;padding:14px}
+.kpi .lbl{font-size:11px;color:var(--text2);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px}
+.kpi .val{font-size:24px;font-weight:700;color:var(--text)}
+.kpi.green .val{color:var(--accent)}
+.kpi.blue .val{color:var(--blue)}
+.kpi.orange .val{color:var(--orange)}
+.kpi.red .val{color:var(--red)}
+.kpi.yellow .val{color:var(--yellow)}
+.tabs{display:flex;gap:4px;margin-bottom:16px;border-bottom:1px solid var(--border);flex-wrap:wrap}
+.tab{background:transparent;border:none;color:var(--text2);padding:10px 16px;cursor:pointer;font-size:13px;font-weight:600;border-bottom:2px solid transparent;transition:all .2s}
+.tab:hover{color:var(--text)}
+.tab.active{color:var(--accent);border-bottom-color:var(--accent)}
+.section{display:none}
+.section.show{display:block}
+.card{background:var(--panel);border:1px solid var(--border);border-radius:8px;padding:18px;margin-bottom:16px}
+.card-title{font-size:14px;font-weight:700;color:var(--text);margin-bottom:14px;display:flex;align-items:center;gap:8px}
+.form-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;margin-bottom:12px}
+.form-group{display:flex;flex-direction:column;gap:5px}
+.form-group label{font-size:11px;color:var(--text2);font-weight:600;text-transform:uppercase;letter-spacing:.3px}
+.form-group input,.form-group select,.form-group textarea{background:var(--panel2);border:1px solid var(--border);color:var(--text);padding:8px 10px;border-radius:6px;font-size:13px;outline:none;transition:border-color .2s}
+.form-group input:focus,.form-group select:focus,.form-group textarea:focus{border-color:var(--accent)}
+.form-group input.invalid{border-color:var(--red)}
+.form-group input.valid{border-color:var(--accent)}
+.form-group input[readonly]{background:#0d1419;color:var(--text2);cursor:not-allowed}
+.form-group textarea{min-height:60px;resize:vertical;font-family:inherit}
+.form-group small.hint{font-size:10px;color:var(--text2)}
+.form-group small.hint.error{color:var(--red)}
+.btn-sm{padding:8px 14px;border:none;border-radius:6px;cursor:pointer;font-size:12px;font-weight:600;transition:opacity .2s}
+.btn-sm:hover{opacity:.85}
+.btn-sm:disabled{opacity:.4;cursor:not-allowed}
+.btn-accent{background:var(--accent);color:#fff}
+.btn-blue{background:var(--blue);color:#fff}
+.btn-orange{background:var(--orange);color:#fff}
+.btn-red{background:var(--red);color:#fff}
+.btn-ghost{background:transparent;color:var(--text2);border:1px solid var(--border)}
+table{width:100%;border-collapse:collapse;font-size:12px}
+table th{background:var(--panel2);color:var(--text2);text-align:left;padding:10px 8px;font-weight:600;text-transform:uppercase;letter-spacing:.3px;font-size:11px;border-bottom:1px solid var(--border)}
+table td{padding:9px 8px;border-bottom:1px solid var(--border);color:var(--text)}
+table tr:hover{background:var(--panel2)}
+.badge{display:inline-block;padding:3px 8px;border-radius:10px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.3px}
+.badge.green{background:rgba(63,185,80,.15);color:var(--accent)}
+.badge.blue{background:rgba(88,166,255,.15);color:var(--blue)}
+.badge.orange{background:rgba(240,136,62,.15);color:var(--orange)}
+.badge.red{background:rgba(248,81,73,.15);color:var(--red)}
+.badge.yellow{background:rgba(210,153,34,.15);color:var(--yellow)}
+.badge.purple{background:rgba(163,113,247,.15);color:var(--purple)}
+#toast{position:fixed;bottom:20px;right:20px;background:var(--panel);border:1px solid var(--border);border-left:4px solid var(--accent);padding:12px 18px;border-radius:6px;color:var(--text);font-size:13px;z-index:1000;opacity:0;transform:translateY(20px);transition:all .3s;box-shadow:0 4px 12px rgba(0,0,0,.3);max-width:360px}
+#toast.show{opacity:1;transform:translateY(0)}
+#toast.error{border-left-color:var(--red)}
+#toast.warn{border-left-color:var(--yellow)}
+.autocomplete{position:relative}
+.autocomplete-list{position:absolute;top:100%;left:0;right:0;background:var(--panel);border:1px solid var(--border);border-top:none;border-radius:0 0 6px 6px;max-height:240px;overflow-y:auto;z-index:50;display:none}
+.autocomplete-list.show{display:block}
+.autocomplete-item{padding:8px 10px;cursor:pointer;font-size:12px;border-bottom:1px solid var(--border)}
+.autocomplete-item:hover{background:var(--panel2)}
+.autocomplete-item:last-child{border-bottom:none}
+.autocomplete-item strong{color:var(--accent)}
+@media(max-width:768px){.sidebar{width:60px}.sidebar a{padding:10px;text-align:center;font-size:10px}}
+
+/* ===== Dashboard ===== */
+.dash-filtros{display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end;background:var(--panel);border:1px solid var(--border);border-radius:8px;padding:12px 14px;margin-bottom:10px}
+.dash-filtros .form-group{min-width:130px}
+.dash-filtros select,.dash-filtros input{background:var(--panel2);border:1px solid var(--border);color:var(--text);padding:7px 10px;border-radius:6px;font-size:13px}
+.dash-resumo{font-size:12px;color:var(--text2);margin-bottom:14px}
+.dash-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(380px,1fr));gap:16px}
+.chart-box{position:relative;height:260px}.chart-box.tall{height:340px}
+.chart-box[data-vazio]::after{content:attr(data-vazio);position:absolute;inset:0;display:grid;place-items:center;color:var(--text2);font-size:13px;text-align:center;padding:20px}
+.chart-nota{font-size:11px;color:var(--text2);margin-top:10px;line-height:1.5}
+.kpi-sub{font-size:10px;color:var(--text2);margin-top:4px}
+@media(max-width:768px){.dash-grid{grid-template-columns:1fr}.chart-box{height:230px}.chart-box.tall{height:280px}}
+
+/* ===== Observações do status ===== */
+.obs-btn{display:inline-flex;align-items:center;gap:4px;margin-left:6px;padding:3px 8px;border-radius:10px;border:1px solid var(--border);background:var(--card2,#1A3347);color:var(--text2);font-size:11px;font-weight:700;cursor:pointer;vertical-align:middle}
+.obs-btn.tem{border-color:var(--orange,#E88C4A);color:var(--orange,#E88C4A);background:rgba(232,140,74,.12)}
+.obs-btn:hover{border-color:var(--accent);color:var(--accent)}
+.modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.62);z-index:999;align-items:center;justify-content:center}.modal-overlay.show{display:flex}
+.modal{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:22px;max-width:640px;width:94%;max-height:88vh;overflow-y:auto}
+.modal h3{margin-bottom:4px;font-size:1rem}.modal .sub{font-size:.8rem;color:var(--text2);margin-bottom:14px}
+.obs-item{border:1px solid var(--border);border-radius:10px;padding:10px 12px;margin-bottom:8px;background:var(--card2,#1A3347)}
+.obs-item .cab{display:flex;justify-content:space-between;align-items:center;gap:8px;font-size:.75rem;color:var(--text2);margin-bottom:6px;flex-wrap:wrap}
+.obs-item .txt{white-space:pre-wrap;font-size:.9rem;line-height:1.5}
+.obs-nova textarea{width:100%;min-height:80px;padding:10px;border-radius:8px;border:1px solid var(--border);background:var(--card2,#1A3347);color:var(--text);font-family:inherit;font-size:.9rem;resize:vertical}
+.modal .btns{display:flex;gap:8px;justify-content:flex-end;margin-top:14px}
+
+/* ===== Perfil PCP: somente visualização ===== */
+body.pcp .so-edicao, body.pcp .tab[onclick*="'apontar'"], body.pcp #sec-apontar,
+body.pcp .btn-red, body.pcp button[onclick^="editar"], body.pcp button[onclick^="excluir"], body.pcp button[onclick^="salvar"],
+body.pcp .sidebar a:not([href="/progestao/producao"]):not([href="/progestao/linha-producao"]):not([href="/progestao/produtos"]), body.pcp .voltar-portal{display:none!important}
+body.pcp .logo a{pointer-events:none}
+.pcp-aviso{display:none;background:rgba(232,140,74,.12);border:1px solid var(--orange,#E88C4A);border-radius:8px;padding:8px 14px;margin-bottom:14px;font-size:.85rem}
+body.pcp .pcp-aviso{display:block}
+</style>
+<link rel="icon" href="/assets/logo-decio.png">
+
+<style>
+/* ===== Tema Décio — sobreposição sobre o CSS original do módulo ===== */
+@import url('https://fonts.googleapis.com/css2?family=Manrope:wght@600;700;800&family=Inter:wght@400;500;600;700&display=swap');
+body{font-family:'Inter','Segoe UI',system-ui,sans-serif}
+h1,h2,h3,.logo{font-family:'Manrope','Segoe UI',system-ui,sans-serif;letter-spacing:-.02em}
+
+.fita-marca{position:fixed;top:0;left:0;right:0;height:3px;background:var(--fade);z-index:9999}
+
+.btn-primary,.btn-accent{
+  background:var(--fade)!important;color:#fff!important;border:none!important;
+  box-shadow:0 2px 12px rgba(38,178,71,.22)}
+.btn-primary:hover,.btn-accent:hover{filter:brightness(1.06);transform:translateY(-1px)}
+.btn-green{background:var(--green)!important;color:#062B1E!important}
+.btn-warning{background:var(--yellow)!important;color:#2B1E00!important}
+
+a{color:var(--accent)}
+.topbar{border-bottom:1px solid var(--border)}
+.logo-decio{height:26px;width:26px;border-radius:7px;vertical-align:-7px;margin-right:8px}
+.voltar-portal{
+  display:inline-flex;align-items:center;gap:6px;padding:6px 12px;margin-right:6px;
+  border:1px solid var(--border);border-radius:8px;background:var(--card2);
+  color:var(--text2)!important;font-size:12px;font-weight:600;text-decoration:none}
+.voltar-portal:hover{background:var(--panel2);color:var(--text)!important}
+
+::-webkit-scrollbar{width:8px;height:8px}
+::-webkit-scrollbar-track{background:var(--bg)}
+::-webkit-scrollbar-thumb{background:#2C5570;border-radius:99px}
+:focus-visible{outline:2px solid #35C95C;outline-offset:2px}
+@media(prefers-reduced-motion:reduce){*{animation-duration:.01ms!important;transition-duration:.01ms!important}}
+</style>
+<style>
+.sem-tempo{color:var(--yellow);font-size:11px;font-weight:600}
+</style>
+</head>
+<body>
+<div class="fita-marca"></div>
+
+<div class="topbar">
+  <div class="logo"><img src="/assets/logo-decio.png" class="logo-decio" alt=""><a href="/progestao">ProGestão</a> / Produtos</div>
+  <div class="user-info">
+    <a href="/" class="voltar-portal">← Portal</a><span class="clock" id="clock">--:--</span>
+    <span id="user-name">Carregando...</span>
+    <button class="btn-logout" onclick="logout()">Sair</button>
+  </div>
+</div>
+
+<div class="layout">
+  <nav class="sidebar">
+    <a href="/progestao">🏠 Início</a>
+    <a href="/progestao/ferramentas">🔧 Ferramentas</a>
+    <a href="/progestao/epis">🦺 EPIs</a>
+    <a href="/progestao/banco-horas">⏰ Banco Horas</a>
+    <a href="/progestao/treinamentos">📚 Treinamentos</a>
+    <a href="/progestao/diario-bordo">📓 Diário Bordo</a>
+    <a href="/progestao/checklist">✅ Checklist</a>
+    <a href="/progestao/producao">🏭 Plano de Produção</a><a href="/progestao/linha-producao">🏗️ Linha de Produção</a><a href="/progestao/produtos" class="active">📦 Produtos</a><a href="/progestao/limpeza">🧹 Limpeza</a>
+  </nav>
+
+  <div class="main">
+    <div class="kpis">
+      <div class="kpi blue"><div class="lbl">Produtos cadastrados</div><div class="val" id="kpi-total">0</div></div>
+      <div class="kpi green"><div class="lbl">Com tempo reportado</div><div class="val" id="kpi-tempo">0</div></div>
+      <div class="kpi yellow"><div class="lbl">Sem tempo reportado</div><div class="val" id="kpi-semtempo">0</div></div>
+      <div class="kpi orange"><div class="lbl">Categorias</div><div class="val" id="kpi-cats">0</div></div>
+    </div>
+
+    <div class="pcp-aviso">👁 Perfil <strong>PCP</strong>: acesso somente para visualização dos produtos.</div>
+
+    <div class="card so-edicao">
+      <div class="card-title" id="prod-titulo">🗂️ Cadastro de Produtos</div>
+      <input type="hidden" id="prod-edit-id">
+      <div class="form-row">
+        <div class="form-group"><label>Cód. Décio *</label><input type="text" id="prod-decio"></div>
+        <div class="form-group"><label>Cód. Intelbras</label><input type="text" id="prod-intelbras"></div>
+        <div class="form-group"><label>Descrição *</label><input type="text" id="prod-desc"></div>
+        <div class="form-group"><label>Categoria</label>
+          <select id="prod-cat"><option value="">--</option><option>Parede</option><option>Piso</option><option>Acessórios</option><option>Luiz</option><option>Outro</option></select>
+        </div>
+        <div class="form-group"><label>Valor (R$)</label><input type="number" id="prod-valor" step="0.01" min="0"></div>
+        <div class="form-group"><label>Min. Reportados</label><input type="number" id="prod-min" step="0.01" min="0"></div>
+        <div class="form-group"><label>Hora Reportada</label><input type="number" id="prod-hora" step="0.0001" min="0"></div>
+      </div>
+      <div id="fotos-prod" style="margin-bottom:14px"></div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button class="btn-sm btn-accent" onclick="salvarProduto()">💾 Salvar Produto</button>
+        <button class="btn-sm btn-ghost" onclick="limparProduto()">Cancelar</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">📦 Produtos Cadastrados <span style="margin-left:auto;font-size:11px;color:var(--text2)">Mostrando: <span id="prod-total">0</span></span></div>
+      <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap">
+        <input type="text" id="prod-busca" placeholder="🔍 Buscar por código ou descrição..." oninput="renderProdutos()" style="flex:1;min-width:200px;background:var(--panel2);border:1px solid var(--border);color:var(--text);padding:8px 10px;border-radius:6px;font-size:13px">
+        <select id="prod-f-cat" onchange="renderProdutos()" style="background:var(--panel2);border:1px solid var(--border);color:var(--text);padding:8px 10px;border-radius:6px;font-size:13px"><option value="">Todas categorias</option></select>
+        <button class="btn-sm btn-blue" onclick="exportarCSV()">📥 Exportar CSV</button>
+      </div>
+      <div style="overflow-x:auto">
+        <table>
+          <thead><tr><th>Foto</th><th>Cód. Décio</th><th>Cód. Intel.</th><th>Descrição</th><th>Categoria</th><th>Valor</th><th>Min.</th><th>Hora</th><th>Ações</th></tr></thead>
+          <tbody id="tb-produtos"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script src="/js/fotos.js"></script>
+<script>
+let usuarioAtual = null, produtos = [], fotosProd = {};
+const galProd = Fotos.galeria('#fotos-prod', { entidade: 'produto', titulo: 'Fotos do produto' });
+
+async function api(url, opts = {}) {
+  opts.headers = { 'Content-Type': 'application/json', ...(opts.headers||{}) };
+  if (opts.body && typeof opts.body !== 'string') opts.body = JSON.stringify(opts.body);
+  const r = await fetch('/api' + url, opts);
+  if (r.status === 401) { location.href = '/login'; throw new Error('Sessão expirada'); }
+  if (!r.ok) { let msg = 'Erro na requisição'; try { const j = await r.json(); msg = j.error || msg; } catch(e){} throw new Error(msg); }
+  return r.json();
+}
+function toast(msg, type = 'ok') {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = type === 'error' ? 'show error' : type === 'warn' ? 'show warn' : 'show';
+  setTimeout(() => t.className = '', 4500);
+}
+function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function fmtNum(n) { return Number(n||0).toLocaleString('pt-BR', { maximumFractionDigits:4 }); }
+function updateClock() { document.getElementById('clock').textContent = new Date().toLocaleTimeString('pt-BR', { hour:'2-digit', minute:'2-digit' }); }
+setInterval(updateClock, 30000); updateClock();
+
+async function loadUser() {
+  try {
+    usuarioAtual = await api('/me');
+    document.getElementById('user-name').textContent = usuarioAtual.nome || usuarioAtual.username || 'Usuário';
+    if (usuarioAtual.role === 'pcp') document.body.classList.add('pcp');
+  } catch(e) { document.getElementById('user-name').textContent = 'Usuário'; }
+}
+async function logout() { await fetch('/api/logout', { method:'POST' }); location.href = '/login'; }
+
+async function carregar() {
+  [produtos, fotosProd] = await Promise.all([api('/prod-produtos').catch(() => []), Fotos.mapa('produto')]);
+  const sel = document.getElementById('prod-f-cat'), v = sel.value;
+  const cats = [...new Set(produtos.map(p => p.categoria).filter(Boolean))].sort();
+  sel.innerHTML = '<option value="">Todas categorias</option>' + cats.map(c => `<option>${esc(c)}</option>`).join('');
+  sel.value = v;
+  const comTempo = produtos.filter(p => Number(p.hora_reportado) > 0).length;
+  document.getElementById('kpi-total').textContent = produtos.length;
+  document.getElementById('kpi-tempo').textContent = comTempo;
+  document.getElementById('kpi-semtempo').textContent = produtos.length - comTempo;
+  document.getElementById('kpi-cats').textContent = cats.length;
+  renderProdutos();
+}
+
+function filtrados() {
+  const q = (document.getElementById('prod-busca').value || '').toLowerCase();
+  const cat = document.getElementById('prod-f-cat').value;
+  return produtos.filter(p =>
+    (!cat || p.categoria === cat) &&
+    (!q || (p.cod_decio||'').toLowerCase().includes(q) || (p.cod_intelbras||'').toLowerCase().includes(q) || (p.descricao||'').toLowerCase().includes(q)));
+}
+
+function renderProdutos() {
+  const tb = document.getElementById('tb-produtos');
+  const lista = filtrados();
+  document.getElementById('prod-total').textContent = lista.length;
+  if (!lista.length) { tb.innerHTML = '<tr><td colspan="9" style="text-align:center;color:var(--text2);padding:24px">Nenhum produto.</td></tr>'; return; }
+  tb.innerHTML = lista.map(p => `<tr>
+    <td>${Fotos.miniaturas(fotosProd[p.id], { max:1 })}</td>
+    <td><strong>${esc(p.cod_decio||'-')}</strong></td>
+    <td>${esc(p.cod_intelbras||'-')}</td>
+    <td>${esc(p.descricao||'-')}</td>
+    <td>${esc(p.categoria||'-')}</td>
+    <td>${fmtNum(p.valor)}</td>
+    <td>${fmtNum(p.minutos_reportados)}</td>
+    <td>${Number(p.hora_reportado) > 0 ? fmtNum(p.hora_reportado) : '<span class="sem-tempo">sem tempo</span>'}</td>
+    <td style="white-space:nowrap">
+      <button class="btn-sm btn-blue" onclick="editarProduto(${p.id})" style="padding:4px 8px;font-size:11px">✏️</button>
+      <button class="btn-sm btn-red" onclick="excluirProduto(${p.id})" style="padding:4px 8px;font-size:11px">🗑️</button>
+    </td>
+  </tr>`).join('');
+}
+
+async function salvarProduto() {
+  const body = {
+    cod_decio: document.getElementById('prod-decio').value.trim(),
+    cod_intelbras: document.getElementById('prod-intelbras').value.trim(),
+    descricao: document.getElementById('prod-desc').value.trim(),
+    categoria: document.getElementById('prod-cat').value,
+    valor: parseFloat(document.getElementById('prod-valor').value || 0),
+    minutos_reportados: parseFloat(document.getElementById('prod-min').value || 0),
+    hora_reportado: parseFloat(document.getElementById('prod-hora').value || 0)
+  };
+  if (!body.cod_decio) return toast('Informe o código Décio', 'error');
+  if (!body.descricao) return toast('Informe a descrição', 'error');
+  const editId = document.getElementById('prod-edit-id').value;
+  try {
+    const salvo = editId
+      ? await api('/prod-produtos/' + editId, { method:'PUT', body })
+      : await api('/prod-produtos', { method:'POST', body });
+    await galProd.salvar(salvo.id);
+    toast(editId ? 'Produto atualizado!' : 'Produto criado!');
+    limparProduto();
+    await carregar();
+  } catch(e) { toast('Erro: ' + e.message, 'error'); }
+}
+function limparProduto() {
+  ['prod-edit-id','prod-decio','prod-intelbras','prod-desc','prod-cat','prod-valor','prod-min','prod-hora'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
+  document.getElementById('prod-titulo').textContent = '🗂️ Cadastro de Produtos';
+  galProd.limpar();
+}
+function editarProduto(id) {
+  const p = produtos.find(x => x.id === id); if (!p) return;
+  document.getElementById('prod-edit-id').value = p.id;
+  document.getElementById('prod-decio').value = p.cod_decio || '';
+  document.getElementById('prod-intelbras').value = p.cod_intelbras || '';
+  document.getElementById('prod-desc').value = p.descricao || '';
+  document.getElementById('prod-cat').value = p.categoria || '';
+  document.getElementById('prod-valor').value = p.valor || '';
+  document.getElementById('prod-min').value = p.minutos_reportados || '';
+  document.getElementById('prod-hora').value = p.hora_reportado || '';
+  document.getElementById('prod-titulo').textContent = '✏️ Editar Produto — ' + (p.cod_decio || '');
+  galProd.carregar(p.id);
+  window.scrollTo({ top:0, behavior:'smooth' });
+}
+async function excluirProduto(id) {
+  if (!confirm('Excluir este produto?')) return;
+  try { await api('/prod-produtos/' + id, { method:'DELETE' }); toast('Produto excluído'); await carregar(); }
+  catch(e) { toast('Erro: ' + e.message, 'error'); }
+}
+function exportarCSV() {
+  const lista = filtrados();
+  if (!lista.length) return toast('Nada para exportar', 'warn');
+  const cab = ['Cód. Décio','Cód. Intelbras','Descrição','Categoria','Valor','Min. Reportados','Hora Reportada'];
+  const linhas = lista.map(p => [p.cod_decio||'', p.cod_intelbras||'', p.descricao||'', p.categoria||'', p.valor||0, p.minutos_reportados||0, p.hora_reportado||0]);
+  const csv = [cab, ...linhas].map(r => r.map(c => `"${String(c).replace(/"/g,'""')}"`).join(';')).join('\n');
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob(['﻿' + csv], { type:'text/csv;charset=utf-8' }));
+  a.download = `produtos_${new Date().toISOString().slice(0,10)}.csv`; a.click();
+  toast('CSV exportado!');
+}
+
+loadUser();
+carregar();
+</script>
+</body>
+</html>
