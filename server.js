@@ -96,7 +96,7 @@ app.get('/cadenciador', requireAuth, (_req, res) => res.sendFile(pagina('cadenci
 const MODULOS_PROGESTAO = [
   'ferramentas', 'epis', 'banco-horas',
   'treinamentos', 'diario-bordo', 'checklist', 'producao', 'limpeza',
-  'produtos', 'linha-producao'
+  'produtos', 'linha-producao', 'produto-estrutura'
 ];
 
 app.get('/progestao', requireAuth, (_req, res) => res.sendFile(pagina('progestao', 'index.html')));

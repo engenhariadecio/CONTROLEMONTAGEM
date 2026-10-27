@@ -146,6 +146,11 @@ a{color:var(--accent)}
 </style>
 <style>
 .sem-tempo{color:var(--yellow);font-size:11px;font-weight:600}
+.btn-est{display:inline-flex;align-items:center;gap:4px;text-decoration:none;background:var(--panel2);color:var(--text)!important;border:1px solid var(--border);padding:4px 9px!important;font-size:11px!important;vertical-align:middle}
+.btn-est:hover{border-color:var(--accent);opacity:1}
+.est-n{background:rgba(38,178,71,.18);color:var(--accent);border-radius:8px;padding:0 6px;font-size:10px}
+.est-alerta{background:rgba(242,109,109,.2);color:var(--red);border-radius:8px;padding:0 6px;font-size:10px}
+.est-nc{background:rgba(232,140,74,.2);color:var(--orange);border-radius:8px;padding:0 6px;font-size:10px}
 </style>
 </head>
 <body>
@@ -224,7 +229,7 @@ a{color:var(--accent)}
 
 <script src="/js/fotos.js"></script>
 <script>
-let usuarioAtual = null, produtos = [], fotosProd = {};
+let usuarioAtual = null, produtos = [], fotosProd = {}, resumoEst = {};
 const galProd = Fotos.galeria('#fotos-prod', { entidade: 'produto', titulo: 'Fotos do produto' });
 
 async function api(url, opts = {}) {
@@ -256,7 +261,7 @@ async function loadUser() {
 async function logout() { await fetch('/api/logout', { method:'POST' }); location.href = '/login'; }
 
 async function carregar() {
-  [produtos, fotosProd] = await Promise.all([api('/prod-produtos').catch(() => []), Fotos.mapa('produto')]);
+  [produtos, fotosProd, resumoEst] = await Promise.all([api('/prod-produtos').catch(() => []), Fotos.mapa('produto'), api('/prod-estrutura-resumo').catch(() => ({}))]);
   const sel = document.getElementById('prod-f-cat'), v = sel.value;
   const cats = [...new Set(produtos.map(p => p.categoria).filter(Boolean))].sort();
   sel.innerHTML = '<option value="">Todas categorias</option>' + cats.map(c => `<option>${esc(c)}</option>`).join('');
@@ -277,6 +282,13 @@ function filtrados() {
     (!q || (p.cod_decio||'').toLowerCase().includes(q) || (p.cod_intelbras||'').toLowerCase().includes(q) || (p.descricao||'').toLowerCase().includes(q)));
 }
 
+function botaoEstrutura(p) {
+  const r = resumoEst[p.id] || {};
+  const n = ['subitem','agregado','ferramenta','alerta','nc'].reduce((s, t) => s + (r[t] || 0), 0);
+  const avisos = (r.alertas_ativos ? ` <span class="est-alerta" title="Alertas da qualidade ativos">⚠ ${r.alertas_ativos}</span>` : '') +
+                 (r.nc_abertas ? ` <span class="est-nc" title="Não conformidades abertas">NC ${r.nc_abertas}</span>` : '');
+  return `<a class="btn-sm btn-est" href="/progestao/produto-estrutura?id=${p.id}" title="Subitens, agregados, ferramentas, alertas da qualidade e não conformidades">🧩 Estrutura${n ? ' <span class="est-n">' + n + '</span>' : ''}${avisos}</a>`;
+}
 function renderProdutos() {
   const tb = document.getElementById('tb-produtos');
   const lista = filtrados();
@@ -292,6 +304,7 @@ function renderProdutos() {
     <td>${fmtNum(p.minutos_reportados)}</td>
     <td>${Number(p.hora_reportado) > 0 ? fmtNum(p.hora_reportado) : '<span class="sem-tempo">sem tempo</span>'}</td>
     <td style="white-space:nowrap">
+      ${botaoEstrutura(p)}
       <button class="btn-sm btn-blue" onclick="editarProduto(${p.id})" style="padding:4px 8px;font-size:11px">✏️</button>
       <button class="btn-sm btn-red" onclick="excluirProduto(${p.id})" style="padding:4px 8px;font-size:11px">🗑️</button>
     </td>

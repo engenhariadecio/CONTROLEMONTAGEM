@@ -36,6 +36,17 @@ Os sistemas eram independentes e guardavam dados em lugares diferentes. Agora co
 - As consultas de aniversariantes usavam `HAVING` sem `GROUP BY`, o que o Postgres rejeita. Reescritas com subquery.
 - Layout retematizado com a identidade da Décio.
 
+**Estrutura do produto (27/10/2026)**
+- Em **Produtos**, cada produto cadastrado tem o botão **🧩 Estrutura** (com o total de linhas e selos de ⚠ alertas ativos e NC abertas). Abre `/progestao/produto-estrutura?id=…`, dividida em abas:
+  - **Subitens** e **Agregados**: categoria, código, descrição, quantidade, unidade de medida, posto de trabalho e foto.
+  - **Ferramentas**: código, descrição, categoria, quantidade, posto de trabalho, observação/ajuste e foto.
+  - **Alerta da qualidade**: data, nível (Crítico/Atenção/Informativo), posto, o que observar, como evitar, situação (Ativo/Encerrado) e foto. Os alertas ativos aparecem numa faixa vermelha no topo da estrutura e no card da célula na Linha de Produção.
+  - **Histórico de não conformidade**: data, peça/código, não conformidade, quantidade afetada, posto, causa, ação corretiva, responsável, situação (Aberta/Em análise/Encerrada) e foto.
+- Cada aba é uma planilha: digita direto na célula, salva sozinho ao sair dela, Enter/↑↓ descem/sobem, ←→ nas bordas do texto trocam de coluna, Esc desfaz a célula. Colar do Excel (Ctrl+V) preenche várias linhas e colunas de uma vez (aceita números "1.234,5" e datas dd/mm/aaaa). Linha ＊ no fim para incluir, ↑ ↓ para ordenar, seleção múltipla para excluir, filtro, totais, CSV e impressão da aba.
+- Código conhecido preenche descrição/categoria/unidade (de outros produtos, de estruturas já cadastradas e do cadastro de ferramentas). Categorias, postos (inclui as células), unidades e responsáveis viram sugestões.
+- **Copiar estrutura de outro produto**: acrescenta as linhas escolhidas (por aba) de outro produto — útil para modelos parecidos. Fotos não são copiadas.
+- Tabela `prod_estrutura` (uma linha por item, coluna `tipo`); fotos na tabela `fotos` com entidade `estrutura`. Excluir o produto apaga a estrutura e as fotos dela. Rotas em `routes/produtos.js`. O PCP visualiza sem editar.
+
 **Plano de Produção, Linha de Produção, Produtos e Insumos (27/10/2026)**
 - O módulo **Produção** passou a se chamar **Plano de Produção** (mesmo endereço `/progestao/producao`, mesmas abas, menos a de Produtos).
 - **Produtos** virou módulo próprio em `/progestao/produtos`, com tudo o que a aba tinha (cadastro, códigos, categoria, valor, minutos e hora reportada, fotos, busca) e mais filtro por categoria, KPIs e exportação CSV. Mesma tabela `prod_produtos` e mesmas rotas `/api/prod-produtos`.

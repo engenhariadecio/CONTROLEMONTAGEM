@@ -79,6 +79,162 @@ router.delete('/prod-produtos/:id', requireAuth, async (req, res) => {
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
+/* ===================== ESTRUTURA DO PRODUTO ===================== */
+/*
+ * GET    /api/prod-produtos/:id/estrutura           { produto, itens }
+ * POST   /api/prod-produtos/:id/estrutura           { tipo, ...colunas }  → nova linha
+ * POST   /api/prod-produtos/:id/estrutura/copiar    { de_produto_id, tipos: [...] }
+ * PUT    /api/prod-produtos/:id/estrutura/ordem     { tipo, ids: [...] }
+ * GET    /api/prod-estrutura-resumo                 { produto_id: { subitem: n, ..., alertas_ativos: n } }
+ * GET    /api/prod-estrutura-listas                 valores já usados (categorias, postos, unidades...)
+ * PUT    /api/prod-estrutura/:id                    { ...colunas }
+ * DELETE /api/prod-estrutura/:id
+ */
+const TIPOS_ESTRUTURA = ['subitem', 'agregado', 'ferramenta', 'alerta', 'nc'];
+const COLUNAS_ESTRUTURA = ['categoria', 'codigo', 'descricao', 'quantidade', 'unidade', 'posto',
+  'nivel', 'data', 'causa', 'acao', 'responsavel', 'situacao', 'obs'];
+const SELECT_ESTRUTURA = `SELECT e.*, to_char(e.data,'YYYY-MM-DD') AS data, u.nome AS atualizado_por_nome
+  FROM prod_estrutura e LEFT JOIN users u ON u.id = e.atualizado_por`;
+
+function erro400(msg) { return Object.assign(new Error(msg), { status: 400 }); }
+
+function camposEstrutura(b) {
+  const c = {};
+  for (const k of COLUNAS_ESTRUTURA) {
+    let v = b[k];
+    if (v === undefined || v === null) { c[k] = null; continue; }
+    v = String(v).trim();
+    if (k === 'quantidade') {
+      if (v === '') { c[k] = null; continue; }
+      // aceita "1.234,5" (Excel em português) e "1234.5"
+      const n = Number(v.includes(',') ? v.replace(/\./g, '').replace(',', '.') : v);
+      if (!Number.isFinite(n) || n < 0) throw erro400('Quantidade inválida: ' + v);
+      c[k] = n;
+    } else if (k === 'data') {
+      if (v && !/^\d{4}-\d{2}-\d{2}$/.test(v)) throw erro400('Data inválida: ' + v);
+      c[k] = v || null;
+    } else c[k] = v || null;
+  }
+  return c;
+}
+
+router.get('/prod-estrutura-resumo', requireAuth, async (_req, res) => {
+  try {
+    const r = await pool.query(
+      `SELECT produto_id, tipo, COUNT(*)::int AS n,
+              COUNT(*) FILTER (WHERE tipo='alerta' AND COALESCE(situacao,'Ativo') <> 'Encerrado')::int AS alertas_ativos,
+              COUNT(*) FILTER (WHERE tipo='nc' AND COALESCE(situacao,'Aberta') <> 'Encerrada')::int AS nc_abertas
+         FROM prod_estrutura GROUP BY produto_id, tipo`);
+    const out = {};
+    r.rows.forEach(x => {
+      const o = out[x.produto_id] = out[x.produto_id] || { alertas_ativos: 0, nc_abertas: 0 };
+      o[x.tipo] = x.n; o.alertas_ativos += x.alertas_ativos; o.nc_abertas += x.nc_abertas;
+    });
+    res.json(out);
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+router.get('/prod-estrutura-listas', requireAuth, async (_req, res) => {
+  try {
+    const dist = async (col, extra = '') => (await pool.query(
+      `SELECT DISTINCT ${col} AS v FROM prod_estrutura WHERE ${col} IS NOT NULL AND ${col} <> '' ${extra} ORDER BY 1 LIMIT 500`)).rows.map(x => x.v);
+    /* itens já usados em alguma estrutura: código → última descrição/categoria/unidade (autopreenchimento) */
+    const itens = (await pool.query(
+      `SELECT DISTINCT ON (tipo, codigo) tipo, codigo, descricao, categoria, unidade
+         FROM prod_estrutura WHERE codigo IS NOT NULL AND codigo <> '' AND tipo IN ('subitem','agregado','ferramenta')
+        ORDER BY tipo, codigo, updated_at DESC LIMIT 3000`)).rows;
+    const celulas = (await pool.query('SELECT nome FROM celulas ORDER BY nome')).rows.map(x => x.nome);
+    res.json({
+      categorias: await dist('categoria'),
+      postos: [...new Set([...celulas, ...(await dist('posto'))])],
+      unidades: await dist('unidade'),
+      responsaveis: await dist('responsavel'),
+      itens
+    });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+router.get('/prod-produtos/:id/estrutura', requireAuth, async (req, res) => {
+  try {
+    if (!/^\d+$/.test(req.params.id)) return res.status(400).json({ error: 'ID inválido' });
+    const p = await pool.query('SELECT * FROM prod_produtos WHERE id=$1', [req.params.id]);
+    if (!p.rows.length) return res.status(404).json({ error: 'Produto não encontrado' });
+    const itens = await pool.query(SELECT_ESTRUTURA + ' WHERE e.produto_id=$1 ORDER BY e.tipo, e.ordem, e.id', [req.params.id]);
+    res.json({ produto: p.rows[0], itens: itens.rows });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+router.post('/prod-produtos/:id/estrutura', requireAuth, async (req, res) => {
+  try {
+    const tipo = req.body.tipo;
+    if (!TIPOS_ESTRUTURA.includes(tipo)) return res.status(400).json({ error: 'Tipo inválido' });
+    const c = camposEstrutura(req.body);
+    const p = await pool.query('SELECT id FROM prod_produtos WHERE id=$1', [req.params.id]);
+    if (!p.rows.length) return res.status(404).json({ error: 'Produto não encontrado' });
+    const ord = await pool.query('SELECT COALESCE(MAX(ordem),0)+1 AS o FROM prod_estrutura WHERE produto_id=$1 AND tipo=$2', [req.params.id, tipo]);
+    const cols = COLUNAS_ESTRUTURA;
+    const r = await pool.query(
+      `INSERT INTO prod_estrutura (produto_id, tipo, ordem, ${cols.join(',')}, atualizado_por)
+       VALUES ($1,$2,$3,${cols.map((_, i) => '$' + (i + 4)).join(',')},$${cols.length + 4}) RETURNING id`,
+      [req.params.id, tipo, ord.rows[0].o, ...cols.map(k => c[k]), req.session.userId || null]);
+    res.json((await pool.query(SELECT_ESTRUTURA + ' WHERE e.id=$1', [r.rows[0].id])).rows[0]);
+  } catch (e) { res.status(e.status || 500).json({ error: e.message }); }
+});
+
+router.post('/prod-produtos/:id/estrutura/copiar', requireAuth, async (req, res) => {
+  try {
+    const de = parseInt(req.body.de_produto_id);
+    const tipos = (Array.isArray(req.body.tipos) ? req.body.tipos : []).filter(t => TIPOS_ESTRUTURA.includes(t));
+    if (!de || String(de) === String(req.params.id)) return res.status(400).json({ error: 'Escolha outro produto de origem' });
+    if (!tipos.length) return res.status(400).json({ error: 'Escolha o que copiar' });
+    const cols = ['tipo', ...COLUNAS_ESTRUTURA];
+    const r = await pool.query(
+      `INSERT INTO prod_estrutura (produto_id, ordem, ${cols.join(',')}, atualizado_por)
+       SELECT $1, ordem + COALESCE((SELECT MAX(ordem) FROM prod_estrutura d WHERE d.produto_id=$1 AND d.tipo=s.tipo), 0),
+              ${cols.map(c => 's.' + c).join(',')}, $4
+         FROM prod_estrutura s WHERE s.produto_id=$2 AND s.tipo = ANY($3::text[]) ORDER BY s.tipo, s.ordem, s.id`,
+      [req.params.id, de, tipos, req.session.userId || null]);
+    res.json({ success: true, copiadas: r.rowCount });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+router.put('/prod-produtos/:id/estrutura/ordem', requireAuth, async (req, res) => {
+  const ids = (Array.isArray(req.body.ids) ? req.body.ids : []).map(Number).filter(Boolean);
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    for (let i = 0; i < ids.length; i++) {
+      await client.query('UPDATE prod_estrutura SET ordem=$1 WHERE id=$2 AND produto_id=$3', [i + 1, ids[i], req.params.id]);
+    }
+    await client.query('COMMIT');
+    res.json({ success: true });
+  } catch (e) {
+    await client.query('ROLLBACK').catch(() => {});
+    res.status(500).json({ error: e.message });
+  } finally { client.release(); }
+});
+
+router.put('/prod-estrutura/:id', requireAuth, async (req, res) => {
+  try {
+    const c = camposEstrutura(req.body);
+    const cols = COLUNAS_ESTRUTURA;
+    const r = await pool.query(
+      `UPDATE prod_estrutura SET ${cols.map((k, i) => `${k}=$${i + 1}`).join(', ')},
+              atualizado_por=$${cols.length + 1}, updated_at=NOW()
+        WHERE id=$${cols.length + 2} RETURNING id`,
+      [...cols.map(k => c[k]), req.session.userId || null, req.params.id]);
+    if (!r.rows.length) return res.status(404).json({ error: 'Linha não encontrada' });
+    res.json((await pool.query(SELECT_ESTRUTURA + ' WHERE e.id=$1', [req.params.id])).rows[0]);
+  } catch (e) { res.status(e.status || 500).json({ error: e.message }); }
+});
+
+router.delete('/prod-estrutura/:id', requireAuth, async (req, res) => {
+  try {
+    await pool.query('DELETE FROM prod_estrutura WHERE id=$1', [req.params.id]);
+    res.json({ success: true });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
 /* ============== IMPORTAÇÃO INICIAL (banco da planilha) ============== */
 
 const SEED_PRODUTOS = [

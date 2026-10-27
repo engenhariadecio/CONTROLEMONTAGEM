@@ -27,8 +27,8 @@ function requireAdmin(req, res, next) {
  * 403 (API) ou vai para /progestao/producao (página). Assim, mesmo digitando
  * uma URL ou chamando a API direto, o usuário não vê nem altera o resto.
  */
-const PCP_PAGINAS = ['/login', '/progestao/producao', '/progestao/linha-producao', '/progestao/produtos'];
-const PCP_API_LEITURA = /^\/api\/(me|prod-planos|prod-apontamentos|prod-apontamentos-detalhados|prod-produtos|prod-celulas|linha-producao|fotos\/produto|fotos\/arquivo)(\/|$|\?)/;   // fotos: só as dos produtos
+const PCP_PAGINAS = ['/login', '/progestao/producao', '/progestao/linha-producao', '/progestao/produtos', '/progestao/produto-estrutura'];
+const PCP_API_LEITURA = /^\/api\/(me|prod-planos|prod-apontamentos|prod-apontamentos-detalhados|prod-produtos|prod-celulas|linha-producao|prod-estrutura-resumo|prod-estrutura-listas|fotos\/produto|fotos\/estrutura|fotos\/arquivo)(\/|$|\?)/;   // fotos: só as dos produtos
 const PCP_API_LIVRE = /^\/api\/(logout|login)$/;
 
 function restringirPcp(req, res, next) {

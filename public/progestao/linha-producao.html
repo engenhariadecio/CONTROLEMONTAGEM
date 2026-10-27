@@ -278,7 +278,7 @@ body.pcp .cel-card input,body.pcp .cel-card select,body.pcp .chave{pointer-event
 <div id="toast"></div>
 
 <script>
-let usuarioAtual = null, celulas = [], produtos = [], planos = [];
+let usuarioAtual = null, celulas = [], produtos = [], planos = [], resumoEst = {};
 let programado = [];     // linhas salvas do dia
 let estado = {};         // { nomeCelula: { funcionando, cod_decio, num_op, turno, operadores, horas_operador, meta, obs } }
 let apontDia = [];       // apontamentos do dia (Plano de Produção)
@@ -333,10 +333,11 @@ function showTab(name, ev) {
 
 /* ---------- cadastros ---------- */
 async function carregarCadastros() {
-  [celulas, produtos, planos] = await Promise.all([
+  [celulas, produtos, planos, resumoEst] = await Promise.all([
     api('/prod-celulas').catch(() => []),
     api('/prod-produtos').catch(() => []),
-    api('/prod-planos').catch(() => [])
+    api('/prod-planos').catch(() => []),
+    api('/prod-estrutura-resumo').catch(() => ({}))
   ]);
   document.getElementById('dl-produtos').innerHTML = produtos.map(p => `<option value="${esc(p.cod_decio)}">${esc(p.descricao || '')}${p.cod_intelbras ? ' · ' + esc(p.cod_intelbras) : ''}</option>`).join('');
 }
@@ -399,6 +400,11 @@ function opsDoProduto(cod) {
   return [...new Set(planos.filter(p => p.cod_decio === cod && p.num_op).map(p => p.num_op))];
 }
 
+function linkEstrutura(p) {
+  const r = resumoEst[p.id] || {};
+  const al = r.alertas_ativos ? `<a href="/progestao/produto-estrutura?id=${p.id}#alerta" target="_blank" style="color:var(--red);font-weight:700;margin-left:6px;text-decoration:none">⚠ ${r.alertas_ativos} alerta(s) da qualidade</a>` : '';
+  return al + ` <a href="/progestao/produto-estrutura?id=${p.id}" target="_blank" style="margin-left:6px;font-size:11px">🧩 estrutura</a>`;
+}
 function cardHTML(nome) {
   const e = estado[nome], c = celulaDe(nome) || {};
   const id = 'c' + btoa(unescape(encodeURIComponent(nome))).replace(/[^a-zA-Z0-9]/g, '');
@@ -422,7 +428,7 @@ function cardHTML(nome) {
     <div class="cel-campos">
       <div class="form-group full"><label>Produto rodando (Cód. Décio)</label>
         <input list="dl-produtos" value="${esc(e.cod_decio)}" placeholder="Digite o código ou escolha…" onchange="alterar(this,'cod_decio',this.value.trim(),true)" autocomplete="off"></div>
-      <div class="cel-desc full ${e.cod_decio && !p ? 'erro' : ''}">${e.cod_decio ? (p ? esc(p.descricao || '') + (p.cod_intelbras ? ' · Intelbras ' + esc(p.cod_intelbras) : '') + (p.categoria ? ' · ' + esc(p.categoria) : '') : '⚠ Código não encontrado no cadastro de Produtos') : 'Nenhum produto escolhido'}</div>
+      <div class="cel-desc full ${e.cod_decio && !p ? 'erro' : ''}">${e.cod_decio ? (p ? esc(p.descricao || '') + (p.cod_intelbras ? ' · Intelbras ' + esc(p.cod_intelbras) : '') + (p.categoria ? ' · ' + esc(p.categoria) : '') : '⚠ Código não encontrado no cadastro de Produtos') : 'Nenhum produto escolhido'}${p ? linkEstrutura(p) : ''}</div>
       <div class="form-group"><label>N° OP (opcional)</label>
         <input value="${esc(e.num_op)}" maxlength="8" inputmode="numeric" list="dl-op-${id}" placeholder="8 dígitos" oninput="this.value=this.value.replace(/\\D/g,'')" onchange="alterar(this,'num_op',this.value)">
         <datalist id="dl-op-${id}">${ops.map(o => `<option value="${esc(o)}">`).join('')}</datalist></div>

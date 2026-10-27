@@ -590,6 +590,36 @@ CREATE TABLE IF NOT EXISTS lp_agenda (
 CREATE INDEX IF NOT EXISTS idx_lp_agenda_item ON lp_agenda(item_id, status, data);
 CREATE INDEX IF NOT EXISTS idx_lp_agenda_data ON lp_agenda(data, status);
 
+/* ══════════════ ESTRUTURA DO PRODUTO (módulo Produtos) ══════════════ */
+
+/* Linhas da "planilha" de cada produto, separadas por tipo:
+   subitem | agregado | ferramenta | alerta (alerta da qualidade) | nc (não conformidade).
+   Cada tipo usa as colunas que fazem sentido para ele; as demais ficam nulas.
+   Fotos por linha na tabela fotos (entidade 'estrutura'). */
+CREATE TABLE IF NOT EXISTS prod_estrutura (
+  id              SERIAL PRIMARY KEY,
+  produto_id      INTEGER NOT NULL REFERENCES prod_produtos(id) ON DELETE CASCADE,
+  tipo            VARCHAR(20) NOT NULL,
+  ordem           INTEGER NOT NULL DEFAULT 0,
+  categoria       VARCHAR(120),
+  codigo          VARCHAR(80),
+  descricao       TEXT,
+  quantidade      NUMERIC(14,4),
+  unidade         VARCHAR(20),
+  posto           VARCHAR(120),
+  nivel           VARCHAR(20),
+  data            DATE,
+  causa           TEXT,
+  acao            TEXT,
+  responsavel     VARCHAR(200),
+  situacao        VARCHAR(30),
+  obs             TEXT,
+  atualizado_por  INTEGER REFERENCES users(id) ON DELETE SET NULL,
+  created_at      TIMESTAMPTZ DEFAULT NOW(),
+  updated_at      TIMESTAMPTZ DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_prod_estrutura ON prod_estrutura(produto_id, tipo, ordem, id);
+
 /* ══════════════ LINHA DE PRODUÇÃO (células funcionando por dia) ══════════════ */
 
 /* Uma linha por célula por dia: se ela funciona e qual produto está rodando.
