@@ -145,73 +145,32 @@ a{color:var(--accent)}
 @media(prefers-reduced-motion:reduce){*{animation-duration:.01ms!important;transition-duration:.01ms!important}}
 </style>
 <style>
-/* ===== Estrutura do produto — planilha ===== */
-.prod-cab{display:flex;gap:16px;align-items:center;flex-wrap:wrap;background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:14px 16px;margin-bottom:14px}
+/* ===== Estrutura do produto ===== */
+.prod-cab{display:flex;gap:16px;align-items:center;flex-wrap:wrap;background:var(--panel);border:1px solid var(--border);border-radius:8px;padding:14px 18px;margin-bottom:16px}
 .prod-cab .voltar{font-size:12px;font-weight:600;text-decoration:none;color:var(--text2);border:1px solid var(--border);border-radius:6px;padding:6px 10px}
 .prod-cab .voltar:hover{color:var(--text);border-color:var(--accent)}
 .prod-cab .info{flex:1;min-width:220px}
-.prod-cab .info h1{font-size:19px;margin-bottom:3px}
+.prod-cab .info h1{font-size:18px;margin-bottom:3px}
 .prod-cab .info .meta{font-size:12px;color:var(--text2);display:flex;gap:14px;flex-wrap:wrap}
 .prod-cab .info .meta b{color:var(--text)}
 .prod-cab .acoes-cab{display:flex;gap:8px;flex-wrap:wrap}
-.alerta-faixa{display:none;background:rgba(242,109,109,.1);border:1px solid var(--red);border-radius:8px;padding:10px 14px;margin-bottom:14px;font-size:13px}
+.alerta-faixa{display:none;background:rgba(242,109,109,.1);border:1px solid var(--red);border-radius:8px;padding:10px 14px;margin-bottom:16px;font-size:13px}
 .alerta-faixa.show{display:block}
 .alerta-faixa ul{margin:6px 0 0 18px}
 .tab .cont{display:inline-block;min-width:20px;padding:1px 6px;margin-left:6px;border-radius:10px;background:var(--panel2);color:var(--text2);font-size:11px;text-align:center}
 .tab.active .cont{background:rgba(38,178,71,.18);color:var(--accent)}
 .tab .cont.alerta{background:rgba(242,109,109,.2);color:var(--red)}
-.pl-barra{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:10px}
-.pl-barra input[type=search]{flex:1;min-width:200px;max-width:360px;background:var(--panel2);border:1px solid var(--border);color:var(--text);padding:7px 10px;border-radius:6px;font-size:13px}
-.pl-barra .dica{font-size:11px;color:var(--text2);margin-left:auto}
-.pl-wrap{overflow:auto;max-height:calc(100vh - 330px);min-height:220px;border:1px solid var(--border);border-radius:8px;background:#0E1E2A}
-table.planilha{border-collapse:separate;border-spacing:0;width:max-content;min-width:100%;font-size:13px;table-layout:fixed}
-table.planilha th,table.planilha td{border-right:1px solid var(--border);border-bottom:1px solid var(--border);padding:0;height:34px;background:#0E1E2A}
-table.planilha thead th{position:sticky;top:0;z-index:3;background:var(--panel2);color:var(--text2);font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.3px;padding:0 8px;text-align:left;white-space:nowrap}
-table.planilha tr:hover td{background:#12263A}
-table.planilha td.n,table.planilha th.n{position:sticky;left:34px;z-index:2;width:44px;text-align:center;color:var(--text2);font-size:11px;background:var(--panel)}
-table.planilha th.n{z-index:4;background:var(--panel2)}
-table.planilha td.sel,table.planilha th.sel{position:sticky;left:0;z-index:2;width:34px;text-align:center;background:var(--panel)}
-table.planilha th.sel{z-index:4;background:var(--panel2)}
-table.planilha td.n .ponto{display:inline-block;width:6px;height:6px;border-radius:50%;margin-left:3px;vertical-align:middle}
-tr.salvando td.n .ponto{background:var(--yellow)}
-tr.erro td.n .ponto{background:var(--red)}
-tr.erro td{box-shadow:inset 0 0 0 1px rgba(242,109,109,.35)}
-tr.marcada td{background:rgba(86,182,224,.09)!important}
-table.planilha input.cel,table.planilha select.cel{width:100%;height:33px;border:none;background:transparent;color:var(--text);padding:0 8px;font-size:13px;outline:none;font-family:inherit;border-radius:0}
-table.planilha select.cel{cursor:pointer}
-table.planilha select.cel option{background:var(--panel2)}
-table.planilha input.cel:focus,table.planilha select.cel:focus{background:rgba(38,178,71,.08);box-shadow:inset 0 0 0 2px var(--accent)}
-table.planilha input.cel[type=number]{text-align:right}
-table.planilha input.cel::placeholder{color:#4B6878}
-table.planilha tr.nova td{background:#0B1822}
-table.planilha tr.nova td.n{color:var(--accent);font-weight:700}
-table.planilha td.foto{padding:0 6px;white-space:nowrap}
-table.planilha td.foto .fx-thumbs img{width:26px;height:26px}
-table.planilha td.foto button{padding:2px 7px;font-size:12px;border-radius:5px;border:1px solid var(--border);background:var(--panel2);color:var(--text2);cursor:pointer;vertical-align:middle}
-table.planilha td.foto button:hover{border-color:var(--accent);color:var(--text)}
-table.planilha td.acoes{padding:0 4px;white-space:nowrap;width:92px}
-table.planilha td.acoes button{background:transparent;border:none;color:var(--text2);cursor:pointer;font-size:13px;padding:4px 5px;border-radius:4px}
-table.planilha td.acoes button:hover{background:var(--panel2);color:var(--text)}
-table.planilha td.acoes button.del:hover{color:var(--red)}
-table.planilha tfoot .tot-txt{position:sticky;left:90px}
-table.planilha tfoot td{position:sticky;bottom:0;z-index:2;background:var(--panel2);font-size:12px;color:var(--text2);padding:0 8px;font-weight:600}
-table.planilha .niv-Crítico{color:var(--red);font-weight:700}
-table.planilha .niv-Atenção{color:var(--yellow);font-weight:700}
-.sit-chip{font-size:11px}
+.form-group textarea{min-height:64px}
+.td-txt{max-width:320px;white-space:normal;line-height:1.4}
 .modal-overlay .modal.md{max-width:560px}
 .copiar-tipos{display:flex;flex-wrap:wrap;gap:10px;margin:10px 0}
 .copiar-tipos label{display:flex;gap:6px;align-items:center;font-size:13px;background:var(--panel2);border:1px solid var(--border);border-radius:6px;padding:6px 10px;cursor:pointer}
-body.pcp table.planilha td.acoes,body.pcp table.planilha th.acoes,body.pcp table.planilha td.sel,body.pcp table.planilha th.sel{display:none}
-body.pcp table.planilha td.n,body.pcp table.planilha th.n{left:0}
 @media print{
-  .sidebar,.topbar,.fita-marca,.tabs,.pl-barra,.acoes-cab,.voltar,td.acoes,th.acoes,td.sel,th.sel,td.foto button,.pcp-aviso,#toast{display:none!important}
-  body,.main{background:#fff!important;color:#000!important}
+  .sidebar,.topbar,.fita-marca,.tabs,.acoes-cab,.voltar,.so-edicao,.busca-linha,td.acoes,th.acoes,.pcp-aviso,#toast{display:none!important}
+  body,.main,.card{background:#fff!important;color:#000!important;border-color:#999!important}
   .layout{display:block}.main{padding:0}
-  .pl-wrap{max-height:none;overflow:visible;border:none;background:#fff}
-  table.planilha th,table.planilha td,table.planilha tfoot td{background:#fff!important;color:#000!important;border-color:#999;position:static!important}
-  table.planilha input.cel,table.planilha select.cel{color:#000;appearance:none}
+  table th,table td{background:#fff!important;color:#000!important;border-color:#999}
   .prod-cab{background:#fff;border-color:#999;color:#000}
-  .section{display:none!important}.section.show{display:block!important}
 }
 </style>
 </head>
@@ -251,26 +210,34 @@ body.pcp table.planilha td.n,body.pcp table.planilha th.n{left:0}
       </div>
       <div class="acoes-cab">
         <button class="btn-sm btn-ghost so-edicao" onclick="abrirCopiar()">⧉ Copiar estrutura de outro produto</button>
-        <button class="btn-sm btn-ghost" onclick="window.print()">🖨 Imprimir aba</button>
+        <button class="btn-sm btn-ghost" onclick="window.print()">🖨 Imprimir</button>
       </div>
     </div>
 
     <div class="alerta-faixa" id="alerta-faixa"></div>
 
     <div class="tabs" id="abas"></div>
-    <div id="secoes"></div>
-  </div>
-</div>
 
-<!-- MODAL FOTOS DA LINHA -->
-<div class="modal-overlay" id="modal-fotos" onclick="if(event.target===this)fecharFotos()">
-  <div class="modal md">
-    <h3 id="mf-titulo">📷 Fotos</h3>
-    <div class="sub" id="mf-sub"></div>
-    <div id="ed-fotos"></div>
-    <div class="btns">
-      <button class="btn-sm btn-ghost" onclick="fecharFotos()">Fechar</button>
-      <button class="btn-sm btn-accent so-edicao" id="mf-salvar" onclick="salvarFotos()">💾 Salvar fotos</button>
+    <!-- FORMULÁRIO (muda conforme a aba) -->
+    <div class="card so-edicao">
+      <div class="card-title" id="form-titulo">➕ Novo item</div>
+      <input type="hidden" id="f-id">
+      <div class="form-row" id="form-campos"></div>
+      <div id="fotos-item" style="margin-bottom:14px"></div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button class="btn-sm btn-accent" id="btn-salvar" onclick="salvarItem()">💾 Salvar</button>
+        <button class="btn-sm btn-ghost" onclick="limparForm()">Cancelar</button>
+      </div>
+    </div>
+
+    <!-- LISTA -->
+    <div class="card">
+      <div class="card-title"><span id="lista-titulo">Itens cadastrados</span> <span style="margin-left:auto;font-size:11px;color:var(--text2)" id="lista-total"></span></div>
+      <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap" class="busca-linha">
+        <input type="text" id="busca" placeholder="🔍 Buscar..." oninput="renderLista()" style="flex:1;min-width:200px;background:var(--panel2);border:1px solid var(--border);color:var(--text);padding:8px 10px;border-radius:6px;font-size:13px">
+        <button class="btn-sm btn-blue" onclick="exportarCSV()">📥 Exportar CSV</button>
+      </div>
+      <div style="overflow-x:auto"><table><thead id="lista-cab"></thead><tbody id="lista-corpo"></tbody></table></div>
     </div>
   </div>
 </div>
@@ -279,7 +246,7 @@ body.pcp table.planilha td.n,body.pcp table.planilha th.n{left:0}
 <div class="modal-overlay" id="modal-copiar" onclick="if(event.target===this)this.classList.remove('show')">
   <div class="modal md">
     <h3>⧉ Copiar estrutura de outro produto</h3>
-    <div class="sub">As linhas do produto escolhido são <strong>acrescentadas</strong> às deste produto (nada é apagado). Fotos não são copiadas.</div>
+    <div class="sub">Os itens do produto escolhido são <strong>acrescentados</strong> aos deste produto (nada é apagado). Fotos não são copiadas.</div>
     <div class="form-group"><label>Copiar de</label><select id="cp-origem" onchange="cpResumo()"></select></div>
     <div class="copiar-tipos" id="cp-tipos"></div>
     <div class="btns">
@@ -289,71 +256,60 @@ body.pcp table.planilha td.n,body.pcp table.planilha th.n{left:0}
   </div>
 </div>
 
-<datalist id="dl-cat"></datalist><datalist id="dl-posto"></datalist><datalist id="dl-un"></datalist>
-<datalist id="dl-resp"></datalist><datalist id="dl-cod-item"></datalist><datalist id="dl-cod-ferr"></datalist>
+<datalist id="dl-posto"></datalist><datalist id="dl-un"></datalist><datalist id="dl-resp"></datalist>
+<datalist id="dl-cod-item"></datalist><datalist id="dl-cod-ferr"></datalist>
 <div id="toast"></div>
 
 <script src="/js/fotos.js"></script>
 <script>
-/* ═════════════ CONFIGURAÇÃO DAS ABAS ═════════════ */
+/* ═════════════ CONFIGURAÇÃO DAS ABAS ═════════════
+   campo: k = coluna no banco · t = tipo do campo (txt, num, data, sel, area) · lista = sugestões */
 const UNIDADES = ['un','pç','cj','kg','g','m','mm','m²','L','ml','par','rolo','cx','pct'];
 const ABAS = [
-  { tipo:'subitem', rot:'Subitens', ico:'🔩', qtd:true, cols:[
-    { k:'categoria', rot:'Categoria', w:150, dl:'dl-cat' },
-    { k:'codigo', rot:'Código', w:130, dl:'dl-cod-item' },
-    { k:'descricao', rot:'Descrição', w:320 },
-    { k:'quantidade', rot:'Quantidade', w:100, t:'num' },
-    { k:'unidade', rot:'Unid. medida', w:100, dl:'dl-un' },
-    { k:'posto', rot:'Posto de trabalho', w:160, dl:'dl-posto' },
-    { k:'foto', rot:'Foto', w:110, t:'foto' } ] },
-  { tipo:'agregado', rot:'Agregados', ico:'🧩', qtd:true, cols:[
-    { k:'categoria', rot:'Categoria', w:150, dl:'dl-cat' },
-    { k:'codigo', rot:'Código', w:130, dl:'dl-cod-item' },
-    { k:'descricao', rot:'Descrição', w:320 },
-    { k:'quantidade', rot:'Quantidade', w:100, t:'num' },
-    { k:'unidade', rot:'Unid. medida', w:100, dl:'dl-un' },
-    { k:'posto', rot:'Posto de trabalho', w:160, dl:'dl-posto' },
-    { k:'foto', rot:'Foto', w:110, t:'foto' } ] },
-  { tipo:'ferramenta', rot:'Ferramentas', ico:'🔧', qtd:true, cols:[
-    { k:'codigo', rot:'Código', w:130, dl:'dl-cod-ferr' },
-    { k:'descricao', rot:'Descrição', w:300 },
-    { k:'categoria', rot:'Categoria', w:140, dl:'dl-cat' },
-    { k:'quantidade', rot:'Quantidade', w:100, t:'num' },
-    { k:'posto', rot:'Posto de trabalho', w:170, dl:'dl-posto' },
-    { k:'obs', rot:'Observação / ajuste', w:260 },
-    { k:'foto', rot:'Foto', w:120, t:'foto' } ] },
-  { tipo:'alerta', rot:'Alerta da qualidade', ico:'⚠️', cols:[
-    { k:'data', rot:'Data', w:140, t:'data' },
-    { k:'nivel', rot:'Nível', w:120, t:'sel', ops:['Crítico','Atenção','Informativo'] },
-    { k:'posto', rot:'Posto de trabalho', w:160, dl:'dl-posto' },
-    { k:'descricao', rot:'Alerta (o que observar)', w:290 },
-    { k:'acao', rot:'Como evitar / o que fazer', w:260 },
-    { k:'situacao', rot:'Situação', w:120, t:'sel', ops:['Ativo','Encerrado'], padrao:'Ativo' },
-    { k:'foto', rot:'Foto', w:120, t:'foto' } ] },
-  { tipo:'nc', rot:'Histórico de não conformidade', ico:'📋', cols:[
-    { k:'data', rot:'Data', w:140, t:'data' },
-    { k:'codigo', rot:'Peça / código', w:130, dl:'dl-cod-item' },
-    { k:'descricao', rot:'Não conformidade', w:300 },
-    { k:'quantidade', rot:'Qtd. afetada', w:105, t:'num' },
-    { k:'posto', rot:'Posto de trabalho', w:150, dl:'dl-posto' },
-    { k:'causa', rot:'Causa', w:230 },
-    { k:'acao', rot:'Ação corretiva', w:260 },
-    { k:'responsavel', rot:'Responsável', w:160, dl:'dl-resp' },
-    { k:'situacao', rot:'Situação', w:125, t:'sel', ops:['Aberta','Em análise','Encerrada'], padrao:'Aberta' },
-    { k:'foto', rot:'Foto', w:120, t:'foto' } ] }
+  { tipo:'subitem', rot:'Subitens', ico:'🔩', novo:'Novo subitem', qtd:true, campos:[
+    { k:'codigo', rot:'Código', lista:'dl-cod-item' },
+    { k:'descricao', rot:'Descrição', obrig:true },
+    { k:'quantidade', rot:'Quantidade', t:'num' },
+    { k:'unidade', rot:'Unidade de medida', lista:'dl-un', padrao:'un' },
+    { k:'posto', rot:'Posto de trabalho', lista:'dl-posto' } ] },
+  { tipo:'agregado', rot:'Agregados', ico:'🧩', novo:'Novo agregado', qtd:true, campos:[
+    { k:'codigo', rot:'Código', lista:'dl-cod-item' },
+    { k:'descricao', rot:'Descrição', obrig:true },
+    { k:'quantidade', rot:'Quantidade', t:'num' },
+    { k:'unidade', rot:'Unidade de medida', lista:'dl-un', padrao:'un' },
+    { k:'posto', rot:'Posto de trabalho', lista:'dl-posto' } ] },
+  { tipo:'ferramenta', rot:'Ferramentas', ico:'🔧', novo:'Nova ferramenta', qtd:true, campos:[
+    { k:'codigo', rot:'Código', lista:'dl-cod-ferr' },
+    { k:'descricao', rot:'Descrição', obrig:true },
+    { k:'quantidade', rot:'Quantidade', t:'num' },
+    { k:'posto', rot:'Posto de trabalho', lista:'dl-posto' },
+    { k:'obs', rot:'Observação / ajuste', largo:true } ] },
+  { tipo:'alerta', rot:'Alerta da qualidade', ico:'⚠️', novo:'Novo alerta da qualidade', campos:[
+    { k:'data', rot:'Data', t:'data', hoje:true },
+    { k:'nivel', rot:'Nível', t:'sel', ops:['Crítico','Atenção','Informativo'], padrao:'Atenção' },
+    { k:'posto', rot:'Posto de trabalho', lista:'dl-posto' },
+    { k:'situacao', rot:'Situação', t:'sel', ops:['Ativo','Encerrado'], padrao:'Ativo' },
+    { k:'descricao', rot:'Alerta (o que observar)', t:'area', obrig:true },
+    { k:'acao', rot:'Como evitar / o que fazer', t:'area' } ] },
+  { tipo:'nc', rot:'Histórico de não conformidade', ico:'📋', novo:'Nova não conformidade', campos:[
+    { k:'data', rot:'Data', t:'data', hoje:true },
+    { k:'codigo', rot:'Peça / código', lista:'dl-cod-item' },
+    { k:'quantidade', rot:'Qtd. afetada', t:'num' },
+    { k:'posto', rot:'Posto de trabalho', lista:'dl-posto' },
+    { k:'responsavel', rot:'Responsável', lista:'dl-resp' },
+    { k:'situacao', rot:'Situação', t:'sel', ops:['Aberta','Em análise','Encerrada'], padrao:'Aberta' },
+    { k:'descricao', rot:'Não conformidade', t:'area', obrig:true },
+    { k:'causa', rot:'Causa', t:'area' },
+    { k:'acao', rot:'Ação corretiva', t:'area' } ] }
 ];
 const abaDe = tipo => ABAS.find(a => a.tipo === tipo);
-const colsEditaveis = aba => aba.cols.filter(c => c.t !== 'foto');
 
 /* ═════════════ ESTADO ═════════════ */
 const PRODUTO_ID = parseInt(new URLSearchParams(location.search).get('id')) || 0;
-let usuarioAtual = null, produto = null, produtos = [], ferramentasCad = [], listas = { categorias:[], postos:[], unidades:[], responsaveis:[], itens:[] };
-let fotosEst = {};                 // { id_linha: [ids das fotos] }
-const linhas = {};                 // { tipo: [ { uid, id, d:{...}, fila } ] }  — a última é sempre a linha nova (em branco)
-let seq = 0, abaAtual = 'subitem';
-let pendentes = 0;
-const galEd = Fotos.galeria('#ed-fotos', { entidade: 'estrutura', titulo: 'Fotos da linha' });
-let fotosLinha = null;
+let usuarioAtual = null, produto = null, produtos = [], ferramentasCad = [];
+let listas = { categorias:[], postos:[], unidades:[], responsaveis:[], itens:[] };
+let itens = [], fotosEst = {}, abaAtual = 'subitem';
+const galItem = Fotos.galeria('#fotos-item', { entidade: 'estrutura', titulo: 'Fotos' });
 
 /* ═════════════ UTILIDADES ═════════════ */
 async function api(url, opts = {}) {
@@ -372,21 +328,13 @@ function toast(msg, type = 'ok') {
 }
 const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const fmtNum = n => Number(n||0).toLocaleString('pt-BR', { maximumFractionDigits:4 });
-const fmtData = iso => iso ? iso.slice(8,10) + '/' + iso.slice(5,7) + '/' + iso.slice(0,4) : '';
+const fmtData = iso => iso ? iso.slice(8,10) + '/' + iso.slice(5,7) + '/' + iso.slice(0,4) : '-';
 const ehPcp = () => usuarioAtual && usuarioAtual.role === 'pcp';
 function hojeISO() { const d = new Date(); return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0'); }
 function updateClock() { document.getElementById('clock').textContent = new Date().toLocaleTimeString('pt-BR', { hour:'2-digit', minute:'2-digit' }); }
 setInterval(updateClock, 30000); updateClock();
 async function logout() { await fetch('/api/logout', { method:'POST' }); location.href = '/login'; }
-window.addEventListener('beforeunload', e => { if (pendentes > 0) { e.preventDefault(); e.returnValue = ''; } });
-
-/* valor da linha → texto da célula */
-function valorCelula(c, d) {
-  const v = d[c.k];
-  if (v == null) return '';
-  if (c.t === 'num') return String(Number(v));
-  return String(v);
-}
+const itensDe = tipo => itens.filter(i => i.tipo === tipo);
 
 /* ═════════════ CARGA ═════════════ */
 async function carregarTudo() {
@@ -395,7 +343,7 @@ async function carregarTudo() {
   let dados;
   try { dados = await api('/prod-produtos/' + PRODUTO_ID + '/estrutura'); }
   catch (e) { document.getElementById('prod-nome').textContent = e.message; return; }
-  produto = dados.produto;
+  produto = dados.produto; itens = dados.itens;
   const [prods, lst, fmap, fprod, ferr] = await Promise.all([
     api('/prod-produtos').catch(() => []),
     api('/prod-estrutura-listas').catch(() => listas),
@@ -411,30 +359,20 @@ async function carregarTudo() {
     `<span>Hora reportada: <b>${Number(produto.hora_reportado) ? fmtNum(produto.hora_reportado) + ' h' : '-'}</b></span>`;
   document.getElementById('prod-fotos').innerHTML = Fotos.miniaturas(fprod[produto.id], { max:1, vazio:'' });
   montarDatalists();
-  ABAS.forEach(a => {
-    linhas[a.tipo] = dados.itens.filter(i => i.tipo === a.tipo).map(i => ({ uid: 'u' + (++seq), id: i.id, d: i }));
-    if (!ehPcp()) linhas[a.tipo].push(linhaNova(a));
-  });
   const pedida = location.hash.replace('#', '');
   if (abaDe(pedida)) abaAtual = pedida;
-  montarAbas();
-  ABAS.forEach(a => renderAba(a.tipo));
   mostrarAba(abaAtual);
-  atualizarAlertas();
 }
 
-function linhaNova(aba) { const d = {}; aba.cols.forEach(c => { if (c.padrao) d[c.k] = c.padrao; }); return { uid: 'u' + (++seq), id: null, d, nova: true }; }
-
 function montarDatalists() {
-  const opts = (arr, rot) => arr.map(v => `<option value="${esc(typeof v === 'string' ? v : v.v)}">${rot ? esc(rot(v)) : ''}</option>`).join('');
-  document.getElementById('dl-cat').innerHTML = opts(listas.categorias);
+  const opts = arr => arr.map(v => `<option value="${esc(v)}">`).join('');
   document.getElementById('dl-posto').innerHTML = opts(listas.postos);
   document.getElementById('dl-un').innerHTML = opts([...new Set([...UNIDADES, ...listas.unidades])]);
   document.getElementById('dl-resp').innerHTML = opts(listas.responsaveis);
-  const itens = new Map();
-  listas.itens.filter(i => i.tipo !== 'ferramenta').forEach(i => itens.set(i.codigo, i.descricao || ''));
-  produtos.forEach(p => { if (p.id !== PRODUTO_ID && !itens.has(p.cod_decio)) itens.set(p.cod_decio, p.descricao || ''); });
-  document.getElementById('dl-cod-item').innerHTML = [...itens].map(([c, d]) => `<option value="${esc(c)}">${esc(d)}</option>`).join('');
+  const it = new Map();
+  listas.itens.filter(i => i.tipo !== 'ferramenta').forEach(i => it.set(i.codigo, i.descricao || ''));
+  produtos.forEach(p => { if (p.id !== PRODUTO_ID && !it.has(p.cod_decio)) it.set(p.cod_decio, p.descricao || ''); });
+  document.getElementById('dl-cod-item').innerHTML = [...it].map(([c, d]) => `<option value="${esc(c)}">${esc(d)}</option>`).join('');
   const fer = new Map();
   ferramentasCad.forEach(f => { if (f.codigo) fer.set(f.codigo, f.nome || ''); });
   listas.itens.filter(i => i.tipo === 'ferramenta').forEach(i => { if (!fer.has(i.codigo)) fer.set(i.codigo, i.descricao || ''); });
@@ -442,384 +380,191 @@ function montarDatalists() {
 }
 
 /* ═════════════ ABAS ═════════════ */
-function montarAbas() {
-  document.getElementById('abas').innerHTML = ABAS.map(a =>
-    `<button class="tab" data-tipo="${a.tipo}" onclick="mostrarAba('${a.tipo}')">${a.ico} ${a.rot}<span class="cont" id="cont-${a.tipo}">0</span></button>`).join('');
-  document.getElementById('secoes').innerHTML = ABAS.map(a => `
-    <div class="section" id="sec-${a.tipo}">
-      <div class="pl-barra">
-        <input type="search" placeholder="🔍 Filtrar linhas…" oninput="filtrar('${a.tipo}', this.value)">
-        <button class="btn-sm btn-accent so-edicao" onclick="focarNova('${a.tipo}')">＋ Nova linha</button>
-        <button class="btn-sm btn-red so-edicao" onclick="excluirMarcadas('${a.tipo}')">🗑 Excluir selecionadas</button>
-        <button class="btn-sm btn-blue" onclick="exportarCSV('${a.tipo}')">📥 CSV</button>
-        <span class="dica so-edicao">Salva sozinho ao sair da célula · Enter/↑↓ navegam · cole do Excel com Ctrl+V</span>
-      </div>
-      <div class="pl-wrap"><table class="planilha" id="pl-${a.tipo}"></table></div>
-    </div>`).join('');
+function renderAbas() {
+  document.getElementById('abas').innerHTML = ABAS.map(a => {
+    const n = itensDe(a.tipo).length;
+    const alerta = a.tipo === 'alerta' && itensDe('alerta').some(i => (i.situacao || 'Ativo') !== 'Encerrado');
+    return `<button class="tab${a.tipo === abaAtual ? ' active' : ''}" onclick="mostrarAba('${a.tipo}')">${a.ico} ${a.rot}<span class="cont${alerta ? ' alerta' : ''}">${n}</span></button>`;
+  }).join('');
 }
 function mostrarAba(tipo) {
   abaAtual = tipo;
   history.replaceState(null, '', '#' + tipo);
-  document.querySelectorAll('#abas .tab').forEach(t => t.classList.toggle('active', t.dataset.tipo === tipo));
-  document.querySelectorAll('#secoes .section').forEach(s => s.classList.toggle('show', s.id === 'sec-' + tipo));
+  document.getElementById('busca').value = '';
+  renderAbas();
+  limparForm();
+  renderLista();
+  atualizarAlertas();
 }
 
-/* ═════════════ PLANILHA ═════════════ */
-function celulaHTML(aba, c, l) {
-  const ro = ehPcp() ? ' disabled' : '';
-  const v = valorCelula(c, l.d);
-  if (c.t === 'foto') return `<td class="foto">${fotoHTML(l)}</td>`;
-  if (c.t === 'sel') {
-    return `<td><select class="cel${c.k === 'nivel' && v ? ' niv-' + esc(v) : ''}" data-k="${c.k}"${ro}><option value=""></option>${c.ops.map(o => `<option${o === v ? ' selected' : ''}>${esc(o)}</option>`).join('')}${v && !c.ops.includes(v) ? `<option selected>${esc(v)}</option>` : ''}</select></td>`;
-  }
-  const tipoIn = c.t === 'num' ? 'number" step="any" min="0' : c.t === 'data' ? 'date' : 'text';
-  return `<td><input class="cel" data-k="${c.k}" type="${tipoIn}" value="${esc(v)}"${c.dl ? ` list="${c.dl}"` : ''}${ro} autocomplete="off" spellcheck="false"></td>`;
+/* ═════════════ FORMULÁRIO ═════════════ */
+function campoHTML(c) {
+  const id = 'f-' + c.k, rot = c.rot + (c.obrig ? ' *' : '');
+  const larg = (c.t === 'area' || c.largo) ? ' style="grid-column:1/-1"' : '';
+  if (c.t === 'sel') return `<div class="form-group"><label>${rot}</label><select id="${id}">${c.ops.map(o => `<option>${esc(o)}</option>`).join('')}</select></div>`;
+  if (c.t === 'area') return `<div class="form-group"${larg}><label>${rot}</label><textarea id="${id}"></textarea></div>`;
+  const tipo = c.t === 'num' ? 'number" step="any" min="0' : c.t === 'data' ? 'date' : 'text';
+  return `<div class="form-group"${larg}><label>${rot}</label><input type="${tipo}" id="${id}"${c.lista ? ` list="${c.lista}"` : ''} autocomplete="off"${c.k === 'codigo' ? ' onchange="autoPreencher()"' : ''}></div>`;
 }
-function fotoHTML(l) {
-  if (!l.id) return '<span style="font-size:11px;color:var(--text2)">—</span>';
-  const ids = fotosEst[l.id] || [];
-  return `${Fotos.miniaturas(ids, { max:2, vazio:'' })} ${ehPcp() ? '' : `<button type="button" data-acao="fotos" title="Fotos desta linha">📷${ids.length ? '' : ' +'}</button>`}`;
-}
-function linhaHTML(aba, l, i) {
-  return `<tr data-uid="${l.uid}" class="${l.nova ? 'nova' : ''}">
-    <td class="sel">${l.nova ? '' : '<input type="checkbox" class="chk">'}</td>
-    <td class="n">${l.nova ? '＊' : i + 1}<span class="ponto"></span></td>
-    ${aba.cols.map(c => celulaHTML(aba, c, l)).join('')}
-    <td class="acoes">${l.nova ? '' : '<button data-acao="subir" title="Mover para cima">↑</button><button data-acao="descer" title="Mover para baixo">↓</button><button data-acao="excluir" class="del" title="Excluir linha">🗑</button>'}</td>
-  </tr>`;
-}
-function renderAba(tipo) {
-  const aba = abaDe(tipo), tb = document.getElementById('pl-' + tipo);
-  const larg = 34 + 44 + aba.cols.reduce((s, c) => s + c.w, 0) + 92;
-  tb.style.width = larg + 'px';
-  tb.innerHTML = `<colgroup><col style="width:34px"><col style="width:44px">${aba.cols.map(c => `<col style="width:${c.w}px">`).join('')}<col style="width:92px"></colgroup>
-    <thead><tr><th class="sel"><input type="checkbox" class="chk-todos" title="Selecionar todas"></th><th class="n">#</th>${aba.cols.map(c => `<th>${esc(c.rot)}</th>`).join('')}<th class="acoes"></th></tr></thead>
-    <tbody>${linhas[tipo].map((l, i) => linhaHTML(aba, l, i)).join('')}</tbody>
-    <tfoot><tr><td class="sel"></td><td colspan="${aba.cols.length + 2}"><span class="tot-txt" id="tot-${tipo}"></span></td></tr></tfoot>`;
-  if (!linhas[tipo].some(l => !l.nova)) {
-    const tr = document.createElement('tr'); tr.className = 'vazia';
-    tr.innerHTML = `<td class="sel"></td><td class="n"></td><td colspan="${aba.cols.length + 1}" style="padding:10px;color:var(--text2);font-size:12px">${ehPcp() ? 'Nenhuma linha cadastrada.' : 'Nenhuma linha ainda — digite na linha ＊ ou cole do Excel.'}</td>`;
-    tb.querySelector('tbody').prepend(tr);
-  }
-  totais(tipo);
-}
-function totais(tipo) {
-  const aba = abaDe(tipo), reais = linhas[tipo].filter(l => !l.nova);
-  let txt = `${reais.length} linha(s)`;
-  if (aba.qtd) txt += ` · quantidade total: ${fmtNum(reais.reduce((s, l) => s + (Number(l.d.quantidade) || 0), 0))}`;
-  if (tipo === 'alerta') txt += ` · ${reais.filter(l => (l.d.situacao || 'Ativo') !== 'Encerrado').length} ativo(s)`;
-  if (tipo === 'nc') txt += ` · ${reais.filter(l => (l.d.situacao || 'Aberta') !== 'Encerrada').length} aberta(s)`;
-  const el = document.getElementById('tot-' + tipo); if (el) el.textContent = txt;
-  const cont = document.getElementById('cont-' + tipo);
-  if (cont) {
-    const alerta = tipo === 'alerta' ? reais.filter(l => (l.d.situacao || 'Ativo') !== 'Encerrado').length : 0;
-    cont.textContent = reais.length;
-    cont.classList.toggle('alerta', alerta > 0);
-  }
-}
-function renumerar(tipo) {
-  const tb = document.getElementById('pl-' + tipo);
-  let n = 0;
-  tb.querySelectorAll('tbody tr[data-uid]').forEach(tr => {
-    const l = acharLinha(tipo, tr.dataset.uid);
-    if (l && !l.nova) tr.querySelector('td.n').firstChild.textContent = ++n;
+function limparForm() {
+  const aba = abaDe(abaAtual);
+  document.getElementById('f-id').value = '';
+  document.getElementById('form-titulo').textContent = '➕ ' + aba.novo;
+  document.getElementById('form-campos').innerHTML = aba.campos.map(campoHTML).join('');
+  aba.campos.forEach(c => {
+    const el = document.getElementById('f-' + c.k);
+    if (c.padrao) el.value = c.padrao;
+    if (c.hoje) el.value = hojeISO();
   });
+  galItem.limpar();
 }
-const acharLinha = (tipo, uid) => linhas[tipo].find(l => l.uid === uid);
-const trDe = (tipo, l) => document.querySelector(`#pl-${tipo} tr[data-uid="${l.uid}"]`);
-
-/* a linha ＊ recebeu conteúdo: vira linha normal e nasce outra em branco */
-function promoverNova(tipo, l) {
-  const aba = abaDe(tipo), tr = trDe(tipo, l);
-  l.nova = false;
-  tr.classList.remove('nova');
-  tr.querySelector('td.sel').innerHTML = '<input type="checkbox" class="chk">';
-  tr.querySelector('td.acoes').innerHTML = '<button data-acao="subir" title="Mover para cima">↑</button><button data-acao="descer" title="Mover para baixo">↓</button><button data-acao="excluir" class="del" title="Excluir linha">🗑</button>';
-  const vazia = tr.parentElement.querySelector('tr.vazia'); if (vazia) vazia.remove();
-  const nova = linhaNova(aba);
-  linhas[tipo].push(nova);
-  tr.insertAdjacentHTML('afterend', linhaHTML(aba, nova, 0));
-  renumerar(tipo);
-}
-
-const vazia = (aba, d) => colsEditaveis(aba).every(c => c.padrao ? true : (d[c.k] == null || String(d[c.k]).trim() === ''));
-
-function salvarLinha(tipo, l) {
-  const aba = abaDe(tipo);
-  pendentes++;
-  const tr = () => trDe(tipo, l);
-  tr() && tr().classList.add('salvando');
-  l.fila = (l.fila || Promise.resolve()).then(async () => {
-    if (l.excluida) return;
-    const corpo = { tipo };
-    colsEditaveis(aba).forEach(c => { corpo[c.k] = l.d[c.k] ?? null; });
-    const salvo = l.id
-      ? await api('/prod-estrutura/' + l.id, { method:'PUT', body: corpo })
-      : await api('/prod-produtos/' + PRODUTO_ID + '/estrutura', { method:'POST', body: corpo });
-    const eraNova = !l.id;
-    l.id = salvo.id;
-    if (l.excluida) { await api('/prod-estrutura/' + l.id, { method:'DELETE' }); return; }
-    if (eraNova) { const td = tr() && tr().querySelector('td.foto'); if (td) td.innerHTML = fotoHTML(l); }
-    tr() && tr().classList.remove('erro');
-    lembrarValores(tipo, l.d);
-  }).catch(e => {
-    tr() && tr().classList.add('erro');
-    toast('Linha não salva: ' + e.message, 'error');
-  }).finally(() => {
-    pendentes--;
-    tr() && tr().classList.remove('salvando');
-    totais(tipo);
-    if (tipo === 'alerta') atualizarAlertas();
+function editarItem(id) {
+  const it = itens.find(x => x.id === id); if (!it) return;
+  limparForm();
+  const aba = abaDe(abaAtual);
+  document.getElementById('f-id').value = id;
+  document.getElementById('form-titulo').textContent = '✏️ Editar — ' + aba.rot;
+  aba.campos.forEach(c => {
+    const el = document.getElementById('f-' + c.k);
+    let v = it[c.k];
+    if (c.t === 'num') v = v == null ? '' : Number(v);
+    if (c.t === 'sel' && v && !c.ops.includes(v)) el.insertAdjacentHTML('beforeend', `<option>${esc(v)}</option>`);
+    el.value = v == null ? (c.t === 'sel' ? (c.padrao || '') : '') : v;
   });
-  return l.fila;
+  galItem.carregar(id);
+  window.scrollTo({ top: document.querySelector('.card.so-edicao').offsetTop - 70, behavior:'smooth' });
 }
-function lembrarValores(tipo, d) {
-  const add = (arr, v, dl) => { if (v && !arr.includes(v)) { arr.push(v); document.getElementById(dl).insertAdjacentHTML('beforeend', `<option value="${esc(v)}">`); } };
-  add(listas.categorias, d.categoria, 'dl-cat'); add(listas.postos, d.posto, 'dl-posto');
-  add(listas.unidades, d.unidade, 'dl-un'); add(listas.responsaveis, d.responsavel, 'dl-resp');
-  if (d.codigo && ['subitem','agregado','ferramenta'].includes(tipo)) {
-    const i = listas.itens.find(x => x.tipo === tipo && x.codigo === d.codigo);
-    if (i) Object.assign(i, { descricao: d.descricao, categoria: d.categoria, unidade: d.unidade });
-    else listas.itens.push({ tipo, codigo: d.codigo, descricao: d.descricao, categoria: d.categoria, unidade: d.unidade });
-  }
-}
-
-/* código conhecido: preenche descrição/categoria/unidade que estiverem vazias */
-function autoPreencher(tipo, l) {
-  const cod = (l.d.codigo || '').trim(); if (!cod) return;
+/* código conhecido: completa descrição e unidade, se estiverem vazias */
+function autoPreencher() {
+  const cod = (document.getElementById('f-codigo').value || '').trim(); if (!cod) return;
   let ref = null;
-  if (tipo === 'ferramenta') {
+  if (abaAtual === 'ferramenta') {
     const f = ferramentasCad.find(x => x.codigo === cod);
-    ref = listas.itens.find(x => x.tipo === 'ferramenta' && x.codigo === cod) || (f ? { descricao: f.nome, categoria: f.categoria } : null);
+    ref = listas.itens.find(x => x.tipo === 'ferramenta' && x.codigo === cod) || (f ? { descricao: f.nome } : null);
   } else {
     const p = produtos.find(x => x.cod_decio === cod);
-    ref = listas.itens.find(x => x.tipo === tipo && x.codigo === cod) || listas.itens.find(x => x.tipo !== 'ferramenta' && x.codigo === cod) || (p ? { descricao: p.descricao, unidade: 'un' } : null);
+    ref = listas.itens.find(x => x.tipo === abaAtual && x.codigo === cod) || listas.itens.find(x => x.tipo !== 'ferramenta' && x.codigo === cod) || (p ? { descricao: p.descricao } : null);
   }
   if (!ref) return;
-  const aba = abaDe(tipo), tr = trDe(tipo, l);
-  ['descricao','categoria','unidade'].forEach(k => {
-    if (!aba.cols.some(c => c.k === k) || (l.d[k] && String(l.d[k]).trim()) || !ref[k]) return;
-    l.d[k] = ref[k];
-    const inp = tr.querySelector(`.cel[data-k="${k}"]`); if (inp) inp.value = ref[k];
+  ['descricao', 'unidade'].forEach(k => {
+    const el = document.getElementById('f-' + k);
+    if (el && !el.value.trim() && ref[k]) el.value = ref[k];
   });
 }
-
-function aoMudar(tipo, el) {
-  const tr = el.closest('tr'), l = acharLinha(tipo, tr.dataset.uid); if (!l) return;
-  const aba = abaDe(tipo), k = el.dataset.k;
-  let v = el.value;
-  if (k === 'quantidade' && v !== '' && !(Number(v) >= 0)) { toast('Quantidade inválida', 'error'); el.value = valorCelula({ k, t:'num' }, l.d); return; }
-  if ((l.d[k] ?? '') === v) return;
-  l.d[k] = v === '' ? null : v;
-  if (k === 'nivel') el.className = 'cel' + (v ? ' niv-' + v : '');
-  if (k === 'codigo') autoPreencher(tipo, l);
-  if (l.nova) {
-    if (vazia(aba, l.d)) return;
-    if (aba.cols.some(c => c.k === 'data') && !l.d.data) { l.d.data = hojeISO(); const d = tr.querySelector('.cel[data-k="data"]'); if (d) d.value = l.d.data; }
-    promoverNova(tipo, l);
+async function salvarItem() {
+  const aba = abaDe(abaAtual), id = document.getElementById('f-id').value;
+  const body = { tipo: abaAtual };
+  for (const c of aba.campos) {
+    const v = document.getElementById('f-' + c.k).value.trim();
+    if (c.obrig && !v) return toast('Preencha: ' + c.rot, 'error');
+    if (c.t === 'num' && v !== '' && !(Number(v) >= 0)) return toast(c.rot + ' inválida', 'error');
+    body[c.k] = v || null;
   }
-  salvarLinha(tipo, l);
-}
-
-/* ─── navegação de planilha ─── */
-function moverFoco(el, dLinha, dCol) {
-  const td = el.closest('td'), tr = td.parentElement;
-  const cels = [...tr.querySelectorAll('.cel')];
-  const ci = cels.indexOf(el);
-  let alvoTr = tr;
-  if (dLinha) {
-    alvoTr = dLinha > 0 ? tr.nextElementSibling : tr.previousElementSibling;
-    while (alvoTr && (!alvoTr.dataset.uid || alvoTr.style.display === 'none')) alvoTr = dLinha > 0 ? alvoTr.nextElementSibling : alvoTr.previousElementSibling;
-    if (!alvoTr) return false;
-  }
-  const alvos = [...alvoTr.querySelectorAll('.cel')];
-  const alvo = alvos[Math.max(0, Math.min(alvos.length - 1, ci + dCol))];
-  if (!alvo || alvo === el) return false;
-  alvo.focus();
-  if (alvo.select && alvo.type === 'text') alvo.select();
-  return true;
-}
-function aoTeclar(tipo, e) {
-  const el = e.target; if (!el.classList.contains('cel')) return;
-  const tr = el.closest('tr'), l = acharLinha(tipo, tr.dataset.uid);
-  if (e.key === 'Escape' && l) { el.value = valorCelula(abaDe(tipo).cols.find(c => c.k === el.dataset.k), l.d); el.blur(); return; }
-  const ehSel = el.tagName === 'SELECT';
-  const listaAberta = el.list && el.value && (e.key === 'ArrowDown' || e.key === 'ArrowUp') && !e.ctrlKey;
-  if (e.key === 'Enter') { e.preventDefault(); el.dispatchEvent(new Event('change', { bubbles:true })); moverFoco(el, e.shiftKey ? -1 : 1, 0); return; }
-  if (!ehSel && !listaAberta && (e.key === 'ArrowDown' || e.key === 'ArrowUp')) { if (moverFoco(el, e.key === 'ArrowDown' ? 1 : -1, 0)) e.preventDefault(); return; }
-  if (el.type === 'text' && (e.key === 'ArrowRight' || e.key === 'ArrowLeft')) {
-    const ini = el.selectionStart, fim = el.selectionEnd;
-    if (e.key === 'ArrowRight' && ini === el.value.length && fim === ini) { if (moverFoco(el, 0, 1)) e.preventDefault(); }
-    if (e.key === 'ArrowLeft' && ini === 0 && fim === 0) { if (moverFoco(el, 0, -1)) e.preventDefault(); }
-  }
-}
-
-/* ─── colar do Excel: várias linhas/colunas a partir da célula atual ─── */
-function casarOpcao(c, v) {
-  if (c.t !== 'sel') return v;
-  const o = c.ops.find(x => x.toLowerCase() === v.toLowerCase() || x.toLowerCase().startsWith(v.toLowerCase()));
-  return o || v;
-}
-function converterData(v) {
-  const m = v.match(/^(\d{1,2})\/(\d{1,2})\/(\d{2,4})$/);
-  if (m) { const a = m[3].length === 2 ? '20' + m[3] : m[3]; return `${a}-${m[2].padStart(2,'0')}-${m[1].padStart(2,'0')}`; }
-  return /^\d{4}-\d{2}-\d{2}$/.test(v) ? v : '';
-}
-function converterNum(v) {
-  if (v === '') return '';
-  const n = Number(v.includes(',') ? v.replace(/\./g, '').replace(',', '.') : v);
-  return Number.isFinite(n) && n >= 0 ? String(n) : '';
-}
-async function aoColar(tipo, e) {
-  const el = e.target; if (!el.classList || !el.classList.contains('cel')) return;
-  const texto = (e.clipboardData || window.clipboardData).getData('text');
-  if (!texto || (!texto.includes('\t') && !texto.replace(/\r?\n$/, '').includes('\n'))) return;   // colagem simples: deixa o navegador
-  e.preventDefault();
-  const aba = abaDe(tipo), cols = colsEditaveis(aba);
-  const grade = texto.replace(/\r/g, '').replace(/\n$/, '').split('\n').map(r => r.split('\t'));
-  const tr = el.closest('tr');
-  let idx = linhas[tipo].findIndex(l => l.uid === tr.dataset.uid);
-  const c0 = cols.findIndex(c => c.k === el.dataset.k);
-  const afetadas = [];
-  for (const r of grade) {
-    if (r.every(x => !x.trim())) { idx++; continue; }
-    let l = linhas[tipo][idx];
-    if (!l) break;
-    r.forEach((val, j) => {
-      const c = cols[c0 + j]; if (!c) return;
-      let v = val.trim();
-      if (c.t === 'num') v = converterNum(v);
-      else if (c.t === 'data') v = converterData(v);
-      else v = casarOpcao(c, v);
-      l.d[c.k] = v === '' ? null : v;
-    });
-    if (l.nova) {
-      if (vazia(aba, l.d)) { idx++; continue; }
-      if (aba.cols.some(c => c.k === 'data') && !l.d.data) l.d.data = hojeISO();
-      promoverNova(tipo, l);
-    }
-    autoPreencher(tipo, l);
-    const t = trDe(tipo, l);
-    cols.forEach(c => { const inp = t.querySelector(`.cel[data-k="${c.k}"]`); if (inp) inp.value = valorCelula(c, l.d); });
-    afetadas.push(l);
-    idx++;
-  }
-  if (!afetadas.length) return;
-  toast(`Colando ${afetadas.length} linha(s)…`, 'warn');
-  for (const l of afetadas) await salvarLinha(tipo, l);   // em sequência, para manter a ordem
-  toast(`✅ ${afetadas.length} linha(s) coladas e salvas`);
-}
-
-/* ─── ações das linhas ─── */
-async function excluirLinhas(tipo, lista) {
-  for (const l of lista) {
-    l.excluida = true;
-    const tr = trDe(tipo, l); if (tr) tr.remove();
-    linhas[tipo] = linhas[tipo].filter(x => x !== l);
-    if (l.id) { try { await (l.fila || Promise.resolve()); await api('/prod-estrutura/' + l.id, { method:'DELETE' }); } catch (e) { toast('Erro ao excluir: ' + e.message, 'error'); } }
-  }
-  renumerar(tipo); totais(tipo);
-  if (tipo === 'alerta') atualizarAlertas();
-}
-async function mover(tipo, l, d) {
-  const reais = linhas[tipo].filter(x => !x.nova);
-  const i = reais.indexOf(l), j = i + d;
-  if (j < 0 || j >= reais.length) return;
-  const outro = reais[j];
-  const a = linhas[tipo].indexOf(l), b = linhas[tipo].indexOf(outro);
-  [linhas[tipo][a], linhas[tipo][b]] = [linhas[tipo][b], linhas[tipo][a]];
-  const tr = trDe(tipo, l), tr2 = trDe(tipo, outro);
-  if (d < 0) tr2.before(tr); else tr2.after(tr);
-  renumerar(tipo);
-  tr.querySelector(`button[data-acao="${d < 0 ? 'subir' : 'descer'}"]`).focus();
-  await Promise.all(linhas[tipo].map(x => x.fila).filter(Boolean));
-  try { await api('/prod-produtos/' + PRODUTO_ID + '/estrutura/ordem', { method:'PUT', body:{ tipo, ids: linhas[tipo].filter(x => x.id).map(x => x.id) } }); }
-  catch (e) { toast('Erro ao reordenar: ' + e.message, 'error'); }
-}
-function aoClicar(tipo, e) {
-  const tb = document.getElementById('pl-' + tipo);
-  if (e.target.classList.contains('chk-todos')) {
-    tb.querySelectorAll('tbody tr').forEach(tr => { const c = tr.querySelector('.chk'); if (c && tr.style.display !== 'none') { c.checked = e.target.checked; tr.classList.toggle('marcada', c.checked); } });
-    return;
-  }
-  if (e.target.classList.contains('chk')) { e.target.closest('tr').classList.toggle('marcada', e.target.checked); return; }
-  const b = e.target.closest('button[data-acao]'); if (!b) return;
-  const l = acharLinha(tipo, b.closest('tr').dataset.uid); if (!l) return;
-  const acao = b.dataset.acao;
-  if (acao === 'excluir') { if (confirm('Excluir esta linha?')) excluirLinhas(tipo, [l]); }
-  if (acao === 'subir') mover(tipo, l, -1);
-  if (acao === 'descer') mover(tipo, l, 1);
-  if (acao === 'fotos') abrirFotos(tipo, l);
-}
-function excluirMarcadas(tipo) {
-  const tb = document.getElementById('pl-' + tipo);
-  const sel = [...tb.querySelectorAll('tbody tr')].filter(tr => tr.querySelector('.chk:checked')).map(tr => acharLinha(tipo, tr.dataset.uid)).filter(Boolean);
-  if (!sel.length) return toast('Marque as linhas na primeira coluna', 'warn');
-  if (!confirm(`Excluir ${sel.length} linha(s)?`)) return;
-  excluirLinhas(tipo, sel);
-  const t = tb.querySelector('.chk-todos'); if (t) t.checked = false;
-}
-function focarNova(tipo) {
-  const l = linhas[tipo].find(x => x.nova); if (!l) return;
-  const tr = trDe(tipo, l); tr.scrollIntoView({ block:'nearest' });
-  const c = tr.querySelector('.cel'); if (c) c.focus();
-}
-function filtrar(tipo, q) {
-  q = q.trim().toLowerCase();
-  document.querySelectorAll(`#pl-${tipo} tbody tr[data-uid]`).forEach(tr => {
-    const l = acharLinha(tipo, tr.dataset.uid);
-    const ok = !q || (l && l.nova) || colsEditaveis(abaDe(tipo)).some(c => { const v = c.t === 'data' ? fmtData(l.d[c.k]) : l.d[c.k]; return v != null && String(v).toLowerCase().includes(q); });
-    tr.style.display = ok ? '' : 'none';
-  });
-}
-
-/* ─── fotos de uma linha ─── */
-async function abrirFotos(tipo, l) {
-  if (!l.id) { await l.fila; if (!l.id) return toast('Salve a linha primeiro', 'warn'); }
-  fotosLinha = { tipo, l };
-  document.getElementById('mf-titulo').textContent = '📷 Fotos — ' + abaDe(tipo).rot;
-  document.getElementById('mf-sub').textContent = [l.d.codigo, l.d.descricao].filter(Boolean).join(' — ') || ('Linha ' + (linhas[tipo].filter(x => !x.nova).indexOf(l) + 1));
-  await galEd.carregar(l.id);
-  document.getElementById('modal-fotos').classList.add('show');
-}
-function fecharFotos() {
-  if (galEd.temAlteracoes() && !confirm('Há fotos não salvas. Fechar assim mesmo?')) return;
-  document.getElementById('modal-fotos').classList.remove('show'); fotosLinha = null;
-}
-async function salvarFotos() {
-  if (!fotosLinha) return;
-  const btn = document.getElementById('mf-salvar'); btn.disabled = true; btn.textContent = 'Salvando…';
+  const btn = document.getElementById('btn-salvar'); btn.disabled = true; btn.textContent = 'Salvando…';
   try {
-    const r = await galEd.salvar(fotosLinha.l.id);
-    fotosEst = await Fotos.mapa('estrutura');
-    const td = trDe(fotosLinha.tipo, fotosLinha.l)?.querySelector('td.foto'); if (td) td.innerHTML = fotoHTML(fotosLinha.l);
-    if (!r.falhas) { toast('Fotos salvas'); document.getElementById('modal-fotos').classList.remove('show'); fotosLinha = null; }
-  } finally { btn.disabled = false; btn.textContent = '💾 Salvar fotos'; }
+    const salvo = id
+      ? await api('/prod-estrutura/' + id, { method:'PUT', body })
+      : await api('/prod-produtos/' + PRODUTO_ID + '/estrutura', { method:'POST', body });
+    await galItem.salvar(salvo.id);
+    toast(id ? 'Item atualizado!' : 'Item cadastrado!');
+    await recarregar();
+    limparForm();
+  } catch (e) { toast('Erro: ' + e.message, 'error'); }
+  finally { btn.disabled = false; btn.textContent = '💾 Salvar'; }
+}
+async function excluirItem(id) {
+  if (!confirm('Excluir este item?')) return;
+  try {
+    await api('/prod-estrutura/' + id, { method:'DELETE' });
+    toast('Item excluído');
+    if (document.getElementById('f-id').value == id) limparForm();
+    await recarregar();
+  } catch (e) { toast('Erro: ' + e.message, 'error'); }
+}
+async function mover(id, d) {
+  const lista = itensDe(abaAtual), i = lista.findIndex(x => x.id === id), j = i + d;
+  if (j < 0 || j >= lista.length) return;
+  [lista[i], lista[j]] = [lista[j], lista[i]];
+  try { await api('/prod-produtos/' + PRODUTO_ID + '/estrutura/ordem', { method:'PUT', body:{ tipo: abaAtual, ids: lista.map(x => x.id) } }); await recarregar(); }
+  catch (e) { toast('Erro: ' + e.message, 'error'); }
+}
+async function recarregar() {
+  const [dados, fmap, lst] = await Promise.all([api('/prod-produtos/' + PRODUTO_ID + '/estrutura'), Fotos.mapa('estrutura'), api('/prod-estrutura-listas').catch(() => listas)]);
+  itens = dados.itens; fotosEst = fmap; listas = lst;
+  montarDatalists(); renderAbas(); renderLista(); atualizarAlertas();
 }
 
-/* ─── faixa de alertas ativos (aparece em todas as abas) ─── */
+/* ═════════════ LISTA ═════════════ */
+function badgeNivel(v) {
+  const cls = v === 'Crítico' ? 'red' : v === 'Atenção' ? 'yellow' : 'blue';
+  return v ? `<span class="badge ${cls}">${esc(v)}</span>` : '-';
+}
+function badgeSit(v) {
+  const cls = v === 'Encerrado' || v === 'Encerrada' ? 'green' : v === 'Em análise' ? 'yellow' : v === 'Ativo' ? 'red' : 'orange';
+  return v ? `<span class="badge ${cls}">${esc(v)}</span>` : '-';
+}
+function celula(c, it) {
+  const v = it[c.k];
+  if (c.k === 'nivel') return badgeNivel(v);
+  if (c.k === 'situacao') return badgeSit(v);
+  if (c.t === 'data') return fmtData(v);
+  if (c.t === 'num') return v == null ? '-' : fmtNum(v);
+  if (c.k === 'codigo') return v ? `<strong>${esc(v)}</strong>` : '-';
+  if (c.t === 'area' || c.largo) return `<div class="td-txt">${esc(v || '-')}</div>`;
+  return esc(v || '-');
+}
+function filtrados() {
+  const q = (document.getElementById('busca').value || '').toLowerCase().trim();
+  const aba = abaDe(abaAtual);
+  return itensDe(abaAtual).filter(it => !q || aba.campos.some(c => { const v = c.t === 'data' ? fmtData(it[c.k]) : it[c.k]; return v != null && String(v).toLowerCase().includes(q); }));
+}
+function renderLista() {
+  const aba = abaDe(abaAtual), lista = filtrados(), todos = itensDe(abaAtual);
+  document.getElementById('lista-titulo').textContent = aba.ico + ' ' + aba.rot + ' cadastrados';
+  let tot = `Total: ${todos.length}`;
+  if (aba.qtd) tot += ` · Quantidade: ${fmtNum(todos.reduce((s, i) => s + (Number(i.quantidade) || 0), 0))}`;
+  document.getElementById('lista-total').textContent = tot;
+  document.getElementById('lista-cab').innerHTML = `<tr><th>#</th><th>Foto</th>${aba.campos.map(c => `<th>${esc(c.rot)}</th>`).join('')}<th class="acoes">Ações</th></tr>`;
+  const tb = document.getElementById('lista-corpo');
+  if (!lista.length) { tb.innerHTML = `<tr><td colspan="${aba.campos.length + 3}" style="text-align:center;color:var(--text2);padding:24px">Nenhum item cadastrado.</td></tr>`; return; }
+  tb.innerHTML = lista.map(it => {
+    const pos = todos.indexOf(it);
+    return `<tr>
+      <td style="color:var(--text2)">${pos + 1}</td>
+      <td>${Fotos.miniaturas(fotosEst[it.id], { max:1 })}</td>
+      ${aba.campos.map(c => `<td>${celula(c, it)}</td>`).join('')}
+      <td class="acoes" style="white-space:nowrap">
+        <button class="btn-sm btn-ghost so-edicao" onclick="mover(${it.id},-1)" style="padding:4px 7px;font-size:11px" title="Subir" ${pos === 0 ? 'disabled' : ''}>↑</button>
+        <button class="btn-sm btn-ghost so-edicao" onclick="mover(${it.id},1)" style="padding:4px 7px;font-size:11px" title="Descer" ${pos === todos.length - 1 ? 'disabled' : ''}>↓</button>
+        <button class="btn-sm btn-blue" onclick="editarItem(${it.id})" style="padding:4px 8px;font-size:11px">✏️</button>
+        <button class="btn-sm btn-red" onclick="excluirItem(${it.id})" style="padding:4px 8px;font-size:11px">🗑️</button>
+      </td></tr>`;
+  }).join('');
+}
+
+/* ─── faixa de alertas ativos ─── */
 function atualizarAlertas() {
-  const ativos = (linhas.alerta || []).filter(l => !l.nova && (l.d.situacao || 'Ativo') !== 'Encerrado')
-    .sort((a, b) => (a.d.nivel === 'Crítico' ? 0 : a.d.nivel === 'Atenção' ? 1 : 2) - (b.d.nivel === 'Crítico' ? 0 : b.d.nivel === 'Atenção' ? 1 : 2));
+  const ordem = n => n === 'Crítico' ? 0 : n === 'Atenção' ? 1 : 2;
+  const ativos = itensDe('alerta').filter(i => (i.situacao || 'Ativo') !== 'Encerrado').sort((a, b) => ordem(a.nivel) - ordem(b.nivel));
   const el = document.getElementById('alerta-faixa');
   el.classList.toggle('show', ativos.length > 0);
-  el.innerHTML = ativos.length ? `<strong>⚠️ ${ativos.length} alerta(s) da qualidade ativo(s)</strong> <a href="#alerta" onclick="mostrarAba('alerta');return false" style="margin-left:8px">ver aba</a><ul>${
-    ativos.slice(0, 5).map(l => `<li><b class="niv-${esc(l.d.nivel || '')}" style="color:${l.d.nivel === 'Crítico' ? 'var(--red)' : l.d.nivel === 'Atenção' ? 'var(--yellow)' : 'var(--text2)'}">${esc(l.d.nivel || 'Alerta')}</b>${l.d.posto ? ' · ' + esc(l.d.posto) : ''} — ${esc(l.d.descricao || '(sem descrição)')}${l.d.acao ? ' <span style="color:var(--text2)">→ ' + esc(l.d.acao) + '</span>' : ''}</li>`).join('')
+  el.innerHTML = ativos.length ? `<strong>⚠️ ${ativos.length} alerta(s) da qualidade ativo(s)</strong>${abaAtual !== 'alerta' ? ` <a href="#alerta" onclick="mostrarAba('alerta');return false" style="margin-left:8px">ver aba</a>` : ''}<ul>${
+    ativos.slice(0, 5).map(i => `<li>${badgeNivel(i.nivel)}${i.posto ? ' · ' + esc(i.posto) : ''} — ${esc(i.descricao || '')}${i.acao ? ' <span style="color:var(--text2)">→ ' + esc(i.acao) + '</span>' : ''}</li>`).join('')
   }${ativos.length > 5 ? `<li style="color:var(--text2)">e mais ${ativos.length - 5}…</li>` : ''}</ul>` : '';
 }
 
 /* ─── exportar ─── */
-function exportarCSV(tipo) {
-  const aba = abaDe(tipo), cols = colsEditaveis(aba);
-  const reais = linhas[tipo].filter(l => !l.nova);
-  if (!reais.length) return toast('Nada para exportar', 'warn');
-  const val = (c, d) => c.t === 'data' ? fmtData(d[c.k]) : c.t === 'num' ? (d[c.k] == null ? '' : String(Number(d[c.k])).replace('.', ',')) : (d[c.k] ?? '');
-  const cab = ['#', ...cols.map(c => c.rot), 'Fotos'];
-  const rows = reais.map((l, i) => [i + 1, ...cols.map(c => val(c, l.d)), (fotosEst[l.id] || []).length]);
+function exportarCSV() {
+  const aba = abaDe(abaAtual), lista = itensDe(abaAtual);
+  if (!lista.length) return toast('Nada para exportar', 'warn');
+  const val = (c, it) => c.t === 'data' ? (it[c.k] ? fmtData(it[c.k]) : '') : c.t === 'num' ? (it[c.k] == null ? '' : String(Number(it[c.k])).replace('.', ',')) : (it[c.k] ?? '');
+  const cab = ['#', ...aba.campos.map(c => c.rot), 'Fotos'];
+  const rows = lista.map((it, i) => [i + 1, ...aba.campos.map(c => val(c, it)), (fotosEst[it.id] || []).length]);
   const csv = [cab, ...rows].map(r => r.map(c => `"${String(c).replace(/"/g,'""').replace(/[\r\n]+/g,' ')}"`).join(';')).join('\n');
   const a = document.createElement('a');
   a.href = URL.createObjectURL(new Blob(['﻿' + csv], { type:'text/csv;charset=utf-8' }));
-  a.download = `estrutura_${produto.cod_decio}_${tipo}.csv`; a.click();
+  a.download = `estrutura_${produto.cod_decio}_${abaAtual}.csv`; a.click();
+  toast('CSV exportado!');
 }
 
 /* ─── copiar estrutura de outro produto ─── */
@@ -829,7 +574,7 @@ async function abrirCopiar() {
   const total = id => ABAS.reduce((s, a) => s + ((resumo[id] || {})[a.tipo] || 0), 0);
   const outros = produtos.filter(p => p.id !== PRODUTO_ID).sort((a, b) => total(b.id) - total(a.id) || String(a.descricao).localeCompare(String(b.descricao)));
   document.getElementById('cp-origem').innerHTML = '<option value="">Selecione…</option>' + outros.map(p =>
-    `<option value="${p.id}">${esc(p.cod_decio)} — ${esc(p.descricao || '')}${total(p.id) ? ` (${total(p.id)} linhas)` : ' (sem estrutura)'}</option>`).join('');
+    `<option value="${p.id}">${esc(p.cod_decio)} — ${esc(p.descricao || '')}${total(p.id) ? ` (${total(p.id)} itens)` : ' (sem estrutura)'}</option>`).join('');
   cpResumo();
   document.getElementById('modal-copiar').classList.add('show');
 }
@@ -845,16 +590,11 @@ async function copiarEstrutura() {
   if (!tipos.length) return toast('Marque o que copiar', 'error');
   try {
     const r = await api('/prod-produtos/' + PRODUTO_ID + '/estrutura/copiar', { method:'POST', body:{ de_produto_id: de, tipos } });
-    toast(`✅ ${r.copiadas} linha(s) copiadas`);
-    setTimeout(() => location.reload(), 700);
+    toast(`✅ ${r.copiadas} item(ns) copiados`);
+    document.getElementById('modal-copiar').classList.remove('show');
+    await recarregar();
   } catch (e) { toast('Erro: ' + e.message, 'error'); }
 }
-
-/* ═════════════ EVENTOS ═════════════ */
-document.getElementById('secoes').addEventListener('change', e => { const s = e.target.closest('.section'); if (s && e.target.classList.contains('cel')) aoMudar(s.id.slice(4), e.target); });
-document.getElementById('secoes').addEventListener('keydown', e => { const s = e.target.closest('.section'); if (s) aoTeclar(s.id.slice(4), e); });
-document.getElementById('secoes').addEventListener('paste', e => { const s = e.target.closest('.section'); if (s) aoColar(s.id.slice(4), e); });
-document.getElementById('secoes').addEventListener('click', e => { const s = e.target.closest('.section'); if (s) aoClicar(s.id.slice(4), e); });
 
 carregarTudo();
 </script>

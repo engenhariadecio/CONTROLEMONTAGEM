@@ -37,14 +37,14 @@ Os sistemas eram independentes e guardavam dados em lugares diferentes. Agora co
 - Layout retematizado com a identidade da Décio.
 
 **Estrutura do produto (27/10/2026)**
-- Em **Produtos**, cada produto cadastrado tem o botão **🧩 Estrutura** (com o total de linhas e selos de ⚠ alertas ativos e NC abertas). Abre `/progestao/produto-estrutura?id=…`, dividida em abas:
-  - **Subitens** e **Agregados**: categoria, código, descrição, quantidade, unidade de medida, posto de trabalho e foto.
-  - **Ferramentas**: código, descrição, categoria, quantidade, posto de trabalho, observação/ajuste e foto.
-  - **Alerta da qualidade**: data, nível (Crítico/Atenção/Informativo), posto, o que observar, como evitar, situação (Ativo/Encerrado) e foto. Os alertas ativos aparecem numa faixa vermelha no topo da estrutura e no card da célula na Linha de Produção.
-  - **Histórico de não conformidade**: data, peça/código, não conformidade, quantidade afetada, posto, causa, ação corretiva, responsável, situação (Aberta/Em análise/Encerrada) e foto.
-- Cada aba é uma planilha: digita direto na célula, salva sozinho ao sair dela, Enter/↑↓ descem/sobem, ←→ nas bordas do texto trocam de coluna, Esc desfaz a célula. Colar do Excel (Ctrl+V) preenche várias linhas e colunas de uma vez (aceita números "1.234,5" e datas dd/mm/aaaa). Linha ＊ no fim para incluir, ↑ ↓ para ordenar, seleção múltipla para excluir, filtro, totais, CSV e impressão da aba.
-- Código conhecido preenche descrição/categoria/unidade (de outros produtos, de estruturas já cadastradas e do cadastro de ferramentas). Categorias, postos (inclui as células), unidades e responsáveis viram sugestões.
-- **Copiar estrutura de outro produto**: acrescenta as linhas escolhidas (por aba) de outro produto — útil para modelos parecidos. Fotos não são copiadas.
+- Em **Produtos**, cada produto cadastrado tem o botão **🧩 Estrutura** (com o total de itens e selos de ⚠ alertas ativos e NC abertas). Abre `/progestao/produto-estrutura?id=…`, dividida em abas:
+  - **Subitens** e **Agregados**: código, descrição, quantidade, unidade de medida, posto de trabalho e fotos.
+  - **Ferramentas**: código, descrição, quantidade, posto de trabalho, observação/ajuste e fotos.
+  - **Alerta da qualidade**: data, nível (Crítico/Atenção/Informativo), posto, o que observar, como evitar, situação (Ativo/Encerrado) e fotos. Os alertas ativos aparecem numa faixa vermelha no topo da estrutura e no card da célula na Linha de Produção.
+  - **Histórico de não conformidade**: data, peça/código, quantidade afetada, posto, responsável, situação (Aberta/Em análise/Encerrada), descrição, causa, ação corretiva e fotos.
+- Mesmo formato do cadastro de Produtos: formulário em cima (Salvar/Cancelar, fotos) e a lista cadastrada embaixo, com busca, ✏️ editar, 🗑️ excluir, ↑ ↓ para ordenar, totais e CSV. Imprimir mostra só a lista.
+- Código conhecido completa descrição e unidade (de outros produtos, de estruturas já cadastradas e do cadastro de ferramentas). Postos (inclui as células), unidades e responsáveis viram sugestões.
+- **Copiar estrutura de outro produto**: acrescenta os itens escolhidos (por aba) de outro produto. Fotos não são copiadas.
 - Tabela `prod_estrutura` (uma linha por item, coluna `tipo`); fotos na tabela `fotos` com entidade `estrutura`. Excluir o produto apaga a estrutura e as fotos dela. Rotas em `routes/produtos.js`. O PCP visualiza sem editar.
 
 **Plano de Produção, Linha de Produção, Produtos e Insumos (27/10/2026)**
