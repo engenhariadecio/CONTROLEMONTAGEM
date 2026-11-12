@@ -212,6 +212,188 @@ router.delete('/insumos/:id', requireAuth, async (req, res) => {
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
+// ======================== ESTOQUE INTERMEDIÁRIO (insumos) ========================
+/*
+ * GET    /api/ferramentas/estoque                 { saldo: [...], movimentos: [...] }
+ * POST   /api/ferramentas/estoque/entradas        { codigo, descricao, quantidade, data_entrada }
+ * PUT    /api/ferramentas/estoque/entradas/:id    mesmo corpo
+ * DELETE /api/ferramentas/estoque/entradas/:id
+ * POST   /api/ferramentas/estoque/saidas          { codigo, descricao, quantidade, colaborador_id, motivo, data_saida }
+ * PUT    /api/ferramentas/estoque/saidas/:id      mesmo corpo
+ * DELETE /api/ferramentas/estoque/saidas/:id
+ *
+ * O saldo de um código é Σ entradas − Σ baixas. Toda alteração roda numa
+ * transação que trava o(s) código(s) envolvidos e é desfeita se algum saldo
+ * ficar negativo — assim não dá para baixar mais do que entrou, nem apagar
+ * ou reduzir uma entrada que já foi consumida.
+ */
+const MOTIVOS_BAIXA = ['Novo', 'Gasto', 'Quebrado', 'Perdido', 'Não se aplica'];
+const chaveCod = c => String(c || '').trim().toUpperCase();
+const erro400 = msg => Object.assign(new Error(msg), { status: 400 });
+const fmtNum = n => Number(n).toLocaleString('pt-BR', { maximumFractionDigits: 3 });
+
+function camposMovEstoque(b, tipo) {
+  const codigo = String(b.codigo || '').trim().slice(0, 100);
+  const descricao = String(b.descricao || '').trim().slice(0, 300);
+  const quantidade = parseFloat(String(b.quantidade ?? '').replace(',', '.'));
+  const data = tipo === 'entrada' ? b.data_entrada : b.data_saida;
+  if (!codigo) throw erro400('Informe o código');
+  if (!descricao) throw erro400('Informe a descrição');
+  if (!Number.isFinite(quantidade) || quantidade <= 0) throw erro400('Informe uma quantidade maior que zero');
+  if (!data || !DATA_OK(data)) throw erro400(tipo === 'entrada' ? 'Informe a data de entrada' : 'Informe a data de saída');
+  const c = { codigo, descricao, quantidade, data };
+  if (tipo === 'saida') {
+    c.motivo = MOTIVOS_BAIXA.find(m => m.toLowerCase() === String(b.motivo || '').trim().toLowerCase());
+    if (!c.motivo) throw erro400('Escolha o motivo: ' + MOTIVOS_BAIXA.join(', '));
+    c.colaborador_id = parseInt(b.colaborador_id) || null;
+    if (!c.colaborador_id) throw erro400('Informe o operador');
+  }
+  return c;
+}
+
+async function saldoCodigo(client, codigo) {
+  const r = await client.query(
+    `SELECT COALESCE((SELECT SUM(quantidade) FROM ferr_estoque_entradas WHERE UPPER(TRIM(codigo))=$1),0)
+          - COALESCE((SELECT SUM(quantidade) FROM ferr_estoque_saidas   WHERE UPPER(TRIM(codigo))=$1),0) AS saldo`,
+    [chaveCod(codigo)]);
+  return Number(r.rows[0].saldo);
+}
+
+/* Roda `fn` numa transação com os códigos travados; confere os saldos no fim. */
+async function movimentarEstoque(codigos, fn) {
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    const chaves = [...new Set(codigos.filter(Boolean).map(chaveCod))].sort();
+    for (const k of chaves) await client.query('SELECT pg_advisory_xact_lock(hashtext($1))', ['estoque:' + k]);
+    const out = await fn(client);
+    for (const k of chaves) {
+      const s = await saldoCodigo(client, k);
+      if (s < -1e-9) {
+        const disp = s + (out && out._qtdBaixa && chaveCod(out._codBaixa) === k ? out._qtdBaixa : 0);
+        throw erro400(out && out._qtdBaixa && chaveCod(out._codBaixa) === k
+          ? `Saldo insuficiente para o código ${k}: disponível ${fmtNum(Math.max(disp, 0))}`
+          : `Não é possível: o saldo do código ${k} ficaria negativo (${fmtNum(s)}). Já houve baixas dessa entrada.`);
+      }
+    }
+    await client.query('COMMIT');
+    return out;
+  } catch (e) {
+    await client.query('ROLLBACK').catch(() => {});
+    throw e;
+  } finally { client.release(); }
+}
+
+async function nomeColab(client, id) {
+  if (!id) return null;
+  const c = await client.query('SELECT nome FROM colaboradores WHERE id=$1', [id]);
+  if (!c.rows.length) throw erro400('Operador não encontrado');
+  return c.rows[0].nome;
+}
+
+router.get('/estoque', requireAuth, async (req, res) => {
+  try {
+    const saldo = await pool.query(`
+      WITH mov AS (
+        SELECT UPPER(TRIM(codigo)) AS chave, codigo, descricao, quantidade AS ent, 0::numeric AS sai, data_entrada AS dt_ent, NULL::date AS dt_sai, created_at, id
+          FROM ferr_estoque_entradas
+        UNION ALL
+        SELECT UPPER(TRIM(codigo)), codigo, descricao, 0, quantidade, NULL, data_saida, created_at, id
+          FROM ferr_estoque_saidas
+      )
+      SELECT chave,
+        (ARRAY_AGG(TRIM(codigo) ORDER BY (dt_ent IS NULL), COALESCE(dt_ent, dt_sai) DESC, created_at DESC, id DESC))[1] AS codigo,
+        (ARRAY_AGG(descricao    ORDER BY (dt_ent IS NULL), COALESCE(dt_ent, dt_sai) DESC, created_at DESC, id DESC))[1] AS descricao,
+        SUM(ent) AS entradas, SUM(sai) AS saidas, SUM(ent) - SUM(sai) AS saldo,
+        to_char(MAX(dt_ent),'YYYY-MM-DD') AS ultima_entrada, to_char(MAX(dt_sai),'YYYY-MM-DD') AS ultima_saida
+      FROM mov GROUP BY chave ORDER BY chave`);
+    const movimentos = await pool.query(`
+      SELECT 'entrada' AS tipo, e.id, e.codigo, e.descricao, e.quantidade, to_char(e.data_entrada,'YYYY-MM-DD') AS data,
+             NULL::int AS colaborador_id, NULL AS operador_nome, NULL AS motivo, e.created_at, u.nome AS registrado_por_nome
+        FROM ferr_estoque_entradas e LEFT JOIN users u ON u.id = e.registrado_por
+      UNION ALL
+      SELECT 'saida', s.id, s.codigo, s.descricao, s.quantidade, to_char(s.data_saida,'YYYY-MM-DD'),
+             s.colaborador_id, COALESCE(c.nome, s.operador_nome), s.motivo, s.created_at, u.nome
+        FROM ferr_estoque_saidas s LEFT JOIN colaboradores c ON c.id = s.colaborador_id LEFT JOIN users u ON u.id = s.registrado_por
+      ORDER BY data DESC, created_at DESC`);
+    res.json({ saldo: saldo.rows, movimentos: movimentos.rows });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+router.post('/estoque/entradas', requireAuth, async (req, res) => {
+  try {
+    const c = camposMovEstoque(req.body, 'entrada');
+    const r = await movimentarEstoque([c.codigo], cl => cl.query(
+      `INSERT INTO ferr_estoque_entradas (codigo, descricao, quantidade, data_entrada, registrado_por)
+       VALUES ($1,$2,$3,$4,$5) RETURNING *`,
+      [c.codigo, c.descricao, c.quantidade, c.data, req.session.userId || null]));
+    res.json(r.rows[0]);
+  } catch (e) { res.status(e.status || 500).json({ error: e.message }); }
+});
+
+router.put('/estoque/entradas/:id', requireAuth, async (req, res) => {
+  try {
+    const c = camposMovEstoque(req.body, 'entrada');
+    const ant = await pool.query('SELECT codigo FROM ferr_estoque_entradas WHERE id=$1', [req.params.id]);
+    if (!ant.rows.length) return res.status(404).json({ error: 'Entrada não encontrada' });
+    const r = await movimentarEstoque([c.codigo, ant.rows[0].codigo], cl => cl.query(
+      `UPDATE ferr_estoque_entradas SET codigo=$1, descricao=$2, quantidade=$3, data_entrada=$4, updated_at=NOW()
+       WHERE id=$5 RETURNING *`, [c.codigo, c.descricao, c.quantidade, c.data, req.params.id]));
+    res.json(r.rows[0]);
+  } catch (e) { res.status(e.status || 500).json({ error: e.message }); }
+});
+
+router.delete('/estoque/entradas/:id', requireAuth, async (req, res) => {
+  try {
+    const ant = await pool.query('SELECT codigo FROM ferr_estoque_entradas WHERE id=$1', [req.params.id]);
+    if (!ant.rows.length) return res.json({ success: true });
+    await movimentarEstoque([ant.rows[0].codigo], cl => cl.query('DELETE FROM ferr_estoque_entradas WHERE id=$1', [req.params.id]));
+    res.json({ success: true });
+  } catch (e) { res.status(e.status || 500).json({ error: e.message }); }
+});
+
+router.post('/estoque/saidas', requireAuth, async (req, res) => {
+  try {
+    const c = camposMovEstoque(req.body, 'saida');
+    const r = await movimentarEstoque([c.codigo], async cl => {
+      const tem = await cl.query('SELECT 1 FROM ferr_estoque_entradas WHERE UPPER(TRIM(codigo))=$1 LIMIT 1', [chaveCod(c.codigo)]);
+      if (!tem.rows.length) throw erro400(`O código ${chaveCod(c.codigo)} não tem entrada no estoque. Registre a entrada antes da baixa.`);
+      const nome = await nomeColab(cl, c.colaborador_id);
+      const ins = await cl.query(
+        `INSERT INTO ferr_estoque_saidas (codigo, descricao, quantidade, colaborador_id, operador_nome, motivo, data_saida, registrado_por)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING *`,
+        [c.codigo, c.descricao, c.quantidade, c.colaborador_id, nome, c.motivo, c.data, req.session.userId || null]);
+      return Object.assign(ins, { _codBaixa: c.codigo, _qtdBaixa: c.quantidade });
+    });
+    res.json(r.rows[0]);
+  } catch (e) { res.status(e.status || 500).json({ error: e.message }); }
+});
+
+router.put('/estoque/saidas/:id', requireAuth, async (req, res) => {
+  try {
+    const c = camposMovEstoque(req.body, 'saida');
+    const ant = await pool.query('SELECT codigo, quantidade FROM ferr_estoque_saidas WHERE id=$1', [req.params.id]);
+    if (!ant.rows.length) return res.status(404).json({ error: 'Baixa não encontrada' });
+    const r = await movimentarEstoque([c.codigo, ant.rows[0].codigo], async cl => {
+      const nome = await nomeColab(cl, c.colaborador_id);
+      const up = await cl.query(
+        `UPDATE ferr_estoque_saidas SET codigo=$1, descricao=$2, quantidade=$3, colaborador_id=$4, operador_nome=$5,
+           motivo=$6, data_saida=$7, updated_at=NOW() WHERE id=$8 RETURNING *`,
+        [c.codigo, c.descricao, c.quantidade, c.colaborador_id, nome, c.motivo, c.data, req.params.id]);
+      // na edição o "disponível" informado é o saldo sem esta baixa
+      return Object.assign(up, { _codBaixa: c.codigo, _qtdBaixa: c.quantidade });
+    });
+    res.json(r.rows[0]);
+  } catch (e) { res.status(e.status || 500).json({ error: e.message }); }
+});
+
+router.delete('/estoque/saidas/:id', requireAuth, async (req, res) => {
+  try {
+    await pool.query('DELETE FROM ferr_estoque_saidas WHERE id=$1', [req.params.id]);
+    res.json({ success: true });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
 // ======================== FERRAMENTAS CRUD ========================
 
 // GET /api/ferramentas

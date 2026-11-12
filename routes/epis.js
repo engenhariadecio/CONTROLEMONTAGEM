@@ -75,6 +75,27 @@ router.post('/entregas', requireAuth, async (req, res) => {
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
+/*
+ * PUT /api/epis/entregas/:id/status  { status, obs }
+ * status vazio/"auto" volta para o cálculo automático pela validade.
+ */
+const STATUS_ENTREGA = ['valido', 'vencido', 'substituido', 'descartado', 'devolvido', 'perdido'];
+router.put('/entregas/:id/status', requireAuth, async (req, res) => {
+  try {
+    let st = String(req.body.status || '').trim().toLowerCase();
+    if (st === 'auto') st = '';
+    if (st && !STATUS_ENTREGA.includes(st)) return res.status(400).json({ error: 'Status inválido' });
+    const obs = String(req.body.obs || '').trim() || null;
+    const r = await pool.query(
+      `UPDATE epi_entregas SET status_manual=$1::varchar, status_obs=$2::text, status_em=CASE WHEN $1::varchar IS NULL THEN NULL ELSE NOW() END
+       WHERE id=$3 RETURNING *`,
+      [st || null, st ? obs : null, req.params.id]
+    );
+    if (!r.rows.length) return res.status(404).json({ error: 'Entrega não encontrada' });
+    res.json(r.rows[0]);
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
 router.delete('/entregas/:id', requireAuth, async (req, res) => {
   try { await pool.query('DELETE FROM epi_entregas WHERE id=$1', [req.params.id]); res.json({ success: true }); }
   catch (e) { res.status(500).json({ error: e.message }); }

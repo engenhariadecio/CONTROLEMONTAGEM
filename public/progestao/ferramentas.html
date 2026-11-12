@@ -105,7 +105,28 @@ tr.cl-ok td{opacity:.6}
 .a-dang{background:rgba(239,68,68,.08);border-color:rgba(239,68,68,.3)}
 .alert-ico{font-size:20px;flex-shrink:0}
 .alert-title{font-size:.88rem;font-weight:700}.alert-sub{font-size:.8rem;color:var(--text2);margin-top:2px}
-@media(max-width:768px){.sidebar{display:none}.form-grid{grid-template-columns:1fr}.kpis{grid-template-columns:1fr 1fr}}
+/* ===== Estoque intermediário (aba Insumos) ===== */
+.subtabs{display:flex;gap:6px;margin-bottom:18px;border-bottom:1px solid var(--border);flex-wrap:wrap}
+.subtab{padding:9px 16px;cursor:pointer;font-size:.86rem;color:var(--text2);border:none;background:none;border-bottom:2px solid transparent;margin-bottom:-1px;font-weight:600}
+.subtab:hover{color:var(--text)}
+.subtab.active{color:var(--accent);border-bottom-color:var(--accent)}
+.subsec{display:none}.subsec.active{display:block}
+.est-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(360px,1fr));gap:16px;margin-top:6px}
+.est-card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:18px}
+.est-card h4{margin-bottom:4px;font-size:1rem}
+.est-card .hint{color:var(--text2);font-size:.8rem;margin-bottom:12px}
+.est-card .form-grid{grid-template-columns:1fr 1fr;max-width:none}
+.est-card .full{grid-column:1/-1}
+.est-card .form-grid>*{min-width:0}
+.est-card .form-group input,.est-card .form-group select{width:100%;min-width:0}
+.search-bar input[type=checkbox]{flex:none;min-width:0;width:16px;height:16px;padding:0;accent-color:var(--accent)}
+.est-saldo{margin-top:10px;font-size:.85rem;color:var(--text2);min-height:1.2em}
+.est-saldo strong{color:var(--text)}
+.est-saldo.ruim strong{color:var(--red)}
+.est-editando{background:rgba(240,180,41,.12);border:1px solid rgba(240,180,41,.4);color:var(--yellow);padding:6px 10px;border-radius:8px;font-size:.8rem;margin-bottom:10px;display:none}
+.badge-gray{background:rgba(148,163,184,.15);color:var(--text2)}
+.num-r{text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums}
+@media(max-width:768px){.sidebar{display:none}.form-grid{grid-template-columns:1fr}.kpis{grid-template-columns:1fr 1fr}.est-grid{grid-template-columns:1fr}.est-card .form-grid{grid-template-columns:1fr}}
 </style>
 <link rel="icon" href="/assets/logo-decio.png">
 
@@ -271,6 +292,88 @@ a{color:var(--accent)}
 
   <!-- INSUMOS -->
   <div class="section" id="sec-insumos">
+    <div class="subtabs">
+      <button type="button" class="subtab active" data-sub="estoque" onclick="insSub('estoque')">📦 Estoque intermediário</button>
+      <button type="button" class="subtab" data-sub="antigo" onclick="insSub('antigo')">🗂 Saídas e entradas avulsas</button>
+    </div>
+
+    <!-- ===== ESTOQUE INTERMEDIÁRIO ===== -->
+    <div class="subsec active" id="ins-sub-estoque">
+      <div class="kpis" id="est-kpis" style="margin-bottom:18px"></div>
+
+      <div class="est-grid">
+        <div class="est-card" id="est-card-ent">
+          <h4>⤵ Entrada no estoque</h4>
+          <div class="hint">Material que chegou ao estoque intermediário.</div>
+          <div class="est-editando" id="est-ent-editando">✏ Editando uma entrada já lançada</div>
+          <input type="hidden" id="est-ent-id">
+          <div class="form-grid">
+            <div class="form-group"><label>Código *</label><input id="est-ent-cod" list="est-cods-todos" autocomplete="off" placeholder="Ex: 123456" oninput="estAutoDesc('ent')"></div>
+            <div class="form-group"><label>Quantidade *</label><input type="number" id="est-ent-qtd" min="0" step="any" placeholder="0"></div>
+            <div class="form-group full"><label>Descrição *</label><input id="est-ent-desc" placeholder="Ex: Rebite pop 4,0 x 10"></div>
+            <div class="form-group"><label>Data de entrada *</label><input type="date" id="est-ent-dt"></div>
+          </div>
+          <div style="margin-top:14px;display:flex;gap:10px;flex-wrap:wrap">
+            <button class="btn-sm btn-green" id="est-ent-btn" onclick="salvarEntradaEst()">Registrar entrada</button>
+            <button class="btn-sm btn-ghost" onclick="limparEntradaEst()">Limpar</button>
+          </div>
+        </div>
+
+        <div class="est-card" id="est-card-sai">
+          <h4>⤴ Baixa (material liberado)</h4>
+          <div class="hint">Saída do estoque intermediário para a linha.</div>
+          <div class="est-editando" id="est-sai-editando">✏ Editando uma baixa já lançada</div>
+          <input type="hidden" id="est-sai-id">
+          <div class="form-grid">
+            <div class="form-group"><label>Código *</label><input id="est-sai-cod" list="est-cods-saldo" autocomplete="off" placeholder="Digite ou escolha" oninput="estAutoDesc('sai')"></div>
+            <div class="form-group"><label>Quantidade de saída *</label><input type="number" id="est-sai-qtd" min="0" step="any" placeholder="0" oninput="estMostraSaldo()"></div>
+            <div class="form-group full"><label>Descrição *</label><input id="est-sai-desc"></div>
+            <div class="form-group"><label>Operador *</label><select id="est-sai-op"></select></div>
+            <div class="form-group"><label>Motivo *</label>
+              <select id="est-sai-mot">
+                <option value="">Selecione...</option>
+                <option>Novo</option><option>Gasto</option><option>Quebrado</option><option>Perdido</option><option>Não se aplica</option>
+              </select>
+            </div>
+            <div class="form-group"><label>Data de saída *</label><input type="date" id="est-sai-dt"></div>
+          </div>
+          <div class="est-saldo" id="est-sai-saldo"></div>
+          <div style="margin-top:10px;display:flex;gap:10px;flex-wrap:wrap">
+            <button class="btn-sm btn-warning" id="est-sai-btn" onclick="salvarSaidaEst()">Dar baixa</button>
+            <button class="btn-sm btn-ghost" onclick="limparSaidaEst()">Limpar</button>
+          </div>
+        </div>
+      </div>
+      <datalist id="est-cods-todos"></datalist><datalist id="est-cods-saldo"></datalist>
+
+      <h3 style="margin-top:28px">Saldo do estoque</h3>
+      <div class="search-bar" style="margin-top:10px">
+        <input id="est-busca" placeholder="Buscar código ou descrição..." oninput="renderSaldoEst()">
+        <label style="display:flex;align-items:center;gap:6px;font-size:.85rem;color:var(--text2);cursor:pointer"><input type="checkbox" id="est-zerados" onchange="renderSaldoEst()"> Mostrar zerados</label>
+        <button class="btn-sm btn-primary" onclick="exportCSV('estoque')">⬇ CSV saldo</button>
+      </div>
+      <div class="tbl-wrap">
+        <table><thead><tr><th>Código</th><th>Descrição</th><th class="num-r">Entradas</th><th class="num-r">Baixas</th><th class="num-r">Saldo</th><th>Última entrada</th><th>Última baixa</th><th>Ações</th></tr></thead>
+        <tbody id="est-saldo-body"></tbody></table>
+      </div>
+
+      <h3 style="margin-top:28px">Movimentações</h3>
+      <div class="search-bar" style="margin-top:10px">
+        <input id="est-mov-busca" placeholder="Buscar código, descrição ou operador..." oninput="renderMovEst()">
+        <select id="est-mov-tipo" onchange="renderMovEst()"><option value="">Entradas e baixas</option><option value="entrada">Só entradas</option><option value="saida">Só baixas</option></select>
+        <select id="est-mov-mot" onchange="renderMovEst()"><option value="">Todos os motivos</option><option>Novo</option><option>Gasto</option><option>Quebrado</option><option>Perdido</option><option>Não se aplica</option></select>
+        <input type="month" id="est-mov-mes" onchange="renderMovEst()" title="Mês da movimentação" style="flex:0 0 auto;min-width:0">
+        <button class="btn-sm btn-ghost" onclick="limparFiltrosMovEst()">Limpar filtros</button>
+        <button class="btn-sm btn-primary" onclick="exportCSV('estoque-mov')">⬇ CSV</button>
+      </div>
+      <div class="tbl-wrap">
+        <table><thead><tr><th>Data</th><th>Tipo</th><th>Código</th><th>Descrição</th><th class="num-r">Qtd.</th><th>Operador</th><th>Motivo</th><th>Ações</th></tr></thead>
+        <tbody id="est-mov-body"></tbody></table>
+      </div>
+    </div>
+
+    <!-- ===== SAÍDAS E ENTRADAS AVULSAS (registro anterior) ===== -->
+    <div class="subsec" id="ins-sub-antigo">
     <h3 id="ins-titulo">Registrar Insumo</h3>
     <p style="color:var(--text2);font-size:.85rem;margin-top:4px">Informe a quantidade e a data de saída e/ou de entrada. Um registro com saída e sem entrada fica como <strong>pendente de entrada</strong> até você registrar a entrada.</p>
     <input type="hidden" id="ins-id">
@@ -302,6 +405,7 @@ a{color:var(--accent)}
       <table><thead><tr><th>Insumo</th><th>Qtd.</th><th>Data saída</th><th>Data entrada</th><th>Dias fora</th><th>Colaborador</th><th>Local</th><th>Situação</th><th>Obs</th><th>Ações</th></tr></thead>
       <tbody id="ins-body"></tbody></table>
     </div>
+    </div><!-- /ins-sub-antigo -->
   </div>
 
   <!-- CHECKLIST -->
@@ -371,6 +475,8 @@ a{color:var(--accent)}
       <div class="report-card" onclick="exportCSV('ferramentas')"><div class="rc-icon">📦</div><div class="rc-title">Inventário Geral</div><div class="rc-desc">Todas as ferramentas</div><button class="btn-sm btn-primary">⬇ CSV</button></div>
       <div class="report-card" onclick="exportCSV('emprestimos')"><div class="rc-icon">🤝</div><div class="rc-title">Empréstimos</div><div class="rc-desc">Histórico completo</div><button class="btn-sm btn-primary">⬇ CSV</button></div>
       <div class="report-card" onclick="exportCSV('manutencoes')"><div class="rc-icon">🔩</div><div class="rc-title">Manutenções</div><div class="rc-desc">Histórico de manutenções</div><button class="btn-sm btn-primary">⬇ CSV</button></div>
+      <div class="report-card" onclick="exportCSV('estoque')"><div class="rc-icon">📦</div><div class="rc-title">Estoque intermediário</div><div class="rc-desc">Saldo por código</div><button class="btn-sm btn-primary">⬇ CSV</button></div>
+      <div class="report-card" onclick="exportCSV('estoque-mov')"><div class="rc-icon">🔁</div><div class="rc-title">Movimentações do estoque</div><div class="rc-desc">Entradas e baixas com operador e motivo</div><button class="btn-sm btn-primary">⬇ CSV</button></div>
       <div class="report-card" onclick="exportCSV('insumos')"><div class="rc-icon">🧴</div><div class="rc-title">Insumos</div><div class="rc-desc">Quantidades, saídas e entradas</div><button class="btn-sm btn-primary">⬇ CSV</button></div>
       <div class="report-card" onclick="exportExcelChecklists()"><div class="rc-icon">☑</div><div class="rc-title">Conferências</div><div class="rc-desc">Histórico do checklist, ferramenta por ferramenta</div><button class="btn-sm btn-green">⬇ Excel</button></div>
       <div class="report-card" onclick="exportExcel()"><div class="rc-icon">📊</div><div class="rc-title">Excel Completo</div><div class="rc-desc">Exportar via servidor</div><button class="btn-sm btn-green">⬇ Excel</button></div>
@@ -442,7 +548,8 @@ a{color:var(--accent)}
 <script src="/js/fotos.js"></script>
 <script>
 /* ============ GLOBALS ============ */
-let ferramentas=[],emprestimos=[],manutencoes=[],insumos=[],colabs=[],colabsTodos=[],clData={};   // colabs = sem desligados
+let ferramentas=[],emprestimos=[],manutencoes=[],insumos=[],colabs=[],colabsTodos=[],clData={};
+let estSaldo=[],estMov=[];   // estoque intermediário   // colabs = sem desligados
 let editId=null;
 let fotosFerr={};   // { id_ferramenta: [ids das fotos] }
 const galFerr=Fotos.galeria('#fotos-ferr',{entidade:'ferramenta',titulo:'Fotos da ferramenta'});
@@ -482,7 +589,7 @@ function showTab(t){
   if(event&&event.target)event.target.classList.add('active');
   if(t==='emprestimos')populateEmpSelects();
   if(t==='manutencoes')populateManSelects();
-  if(t==='insumos')abrirInsumos();
+  if(t==='insumos'){abrirInsumos();abrirEstoque()}
   if(t==='checklist')abrirChecklist();
   if(t==='alertas')renderAlertas();
   if(t==='colaboradores')renderColabs();
@@ -499,7 +606,8 @@ async function loadAll(){
   ]);
   insumos=await api.get('/api/ferramentas/insumos');if(!Array.isArray(insumos))insumos=[];
   colabsTodos=colabs;colabs=colabs.filter(c=>c.status!=='Desligado');
-  updateKPIs();renderLista();renderEmp();renderMan();renderInsumos();populateCatFilter();
+  await carregarEstoque();
+  updateKPIs();renderLista();renderEmp();renderMan();renderInsumos();renderEstoque();populateCatFilter();
 }
 
 /* ============ KPIs ============ */
@@ -975,6 +1083,211 @@ async function delInsumo(id){
   insumos=await api.get('/api/ferramentas/insumos');if(!Array.isArray(insumos))insumos=[];renderInsumos();
 }
 
+/* ============ ESTOQUE INTERMEDIÁRIO ============ */
+const EST_MOT={'Novo':'badge-green','Gasto':'badge-yellow','Quebrado':'badge-red','Perdido':'badge-orange','Não se aplica':'badge-gray'};
+const chaveCod=c=>String(c||'').trim().toUpperCase();
+const $=id=>document.getElementById(id);
+
+function insSub(qual){
+  document.querySelectorAll('#sec-insumos .subtab').forEach(b=>b.classList.toggle('active',b.dataset.sub===qual));
+  $('ins-sub-estoque').classList.toggle('active',qual==='estoque');
+  $('ins-sub-antigo').classList.toggle('active',qual==='antigo');
+}
+
+async function carregarEstoque(){
+  const r=await api.get('/api/ferramentas/estoque');
+  estSaldo=(r&&Array.isArray(r.saldo))?r.saldo:[];
+  estMov=(r&&Array.isArray(r.movimentos))?r.movimentos:[];
+}
+function saldoDe(cod){const s=estSaldo.find(x=>x.chave===chaveCod(cod));return s?Number(s.saldo):0}
+
+function abrirEstoque(idSel){
+  // operador: só ativos, exceto o já gravado numa baixa em edição
+  const sel=$('est-sai-op'),v=idSel!=null?String(idSel):sel.value;
+  const lista=colabs.slice();
+  const idAtual=parseInt(v)||null;
+  if(idAtual&&!lista.some(c=>c.id===idAtual)){const d=colabsTodos.find(c=>c.id===idAtual);if(d)lista.push({...d,nome:d.nome+' (desligado)'})}
+  sel.innerHTML='<option value="">Selecione...</option>'+lista.map(c=>`<option value="${c.id}">${escI(c.nome)}</option>`).join('');
+  sel.value=v;
+  if(!$('est-ent-dt').value)$('est-ent-dt').value=hojeISO();
+  if(!$('est-sai-dt').value)$('est-sai-dt').value=hojeISO();
+  renderEstoque();
+}
+
+function renderEstoque(){
+  $('est-cods-todos').innerHTML=estSaldo.map(s=>`<option value="${escI(s.codigo)}">${escI(s.descricao)}</option>`).join('');
+  $('est-cods-saldo').innerHTML=estSaldo.filter(s=>Number(s.saldo)>0).map(s=>`<option value="${escI(s.codigo)}">${escI(s.descricao)} — saldo ${fmtQtd(s.saldo)}</option>`).join('');
+  const mes=hojeISO().slice(0,7);
+  const k=[
+    {v:estSaldo.filter(s=>Number(s.saldo)>0).length,l:'Códigos com saldo',c:'var(--accent)'},
+    {v:estSaldo.filter(s=>Number(s.saldo)<=0).length,l:'Códigos zerados',c:'var(--text2)'},
+    {v:estMov.filter(m=>m.tipo==='entrada'&&(m.data||'').startsWith(mes)).length,l:'Entradas no mês',c:'var(--green)'},
+    {v:estMov.filter(m=>m.tipo==='saida'&&(m.data||'').startsWith(mes)).length,l:'Baixas no mês',c:'var(--yellow)'}
+  ];
+  $('est-kpis').innerHTML=k.map(x=>`<div class="kpi"><div class="num" style="color:${x.c}">${x.v}</div><div class="lbl">${x.l}</div></div>`).join('');
+  renderSaldoEst();renderMovEst();estMostraSaldo();
+}
+
+function saldoFiltrado(){
+  const q=($('est-busca').value||'').toLowerCase(),zer=$('est-zerados').checked;
+  return estSaldo.filter(s=>(zer||Number(s.saldo)>0)&&(!q||(s.codigo+' '+s.descricao).toLowerCase().includes(q)));
+}
+function renderSaldoEst(){
+  const lista=saldoFiltrado(),tb=$('est-saldo-body');
+  if(!lista.length){tb.innerHTML=`<tr><td colspan="8" style="text-align:center;color:var(--text2);padding:20px">${estSaldo.length?'Nenhum item com saldo para este filtro.':'Estoque vazio. Registre a primeira entrada acima.'}</td></tr>`;return}
+  tb.innerHTML=lista.map(s=>{
+    const sal=Number(s.saldo),i=estSaldo.indexOf(s);
+    return `<tr>
+      <td><strong>${escI(s.codigo)}</strong></td>
+      <td>${escI(s.descricao)}</td>
+      <td class="num-r">${fmtQtd(s.entradas)}</td>
+      <td class="num-r">${fmtQtd(s.saidas)}</td>
+      <td class="num-r"><span class="badge ${sal>0?'badge-green':'badge-gray'}">${fmtQtd(sal)}</span></td>
+      <td>${fmtISO(s.ultima_entrada)}</td>
+      <td>${fmtISO(s.ultima_saida)}</td>
+      <td style="white-space:nowrap">${sal>0?`<button class="btn-sm btn-warning" onclick="baixarDoSaldo(${i})" title="Dar baixa">⤴ Baixa</button> `:''}<button class="btn-sm btn-ghost" onclick="entradaDoSaldo(${i})" title="Nova entrada deste código">⤵</button> <button class="btn-sm btn-ghost" onclick="historicoEst(${i})" title="Ver movimentações">📜</button></td>
+    </tr>`}).join('');
+}
+
+function movFiltradas(){
+  const q=($('est-mov-busca').value||'').toLowerCase(),tipo=$('est-mov-tipo').value,mot=$('est-mov-mot').value,mes=$('est-mov-mes').value;
+  return estMov.filter(m=>(!q||[m.codigo,m.descricao,m.operador_nome].some(x=>(x||'').toLowerCase().includes(q)))
+    &&(!tipo||m.tipo===tipo)&&(!mot||m.motivo===mot)&&(!mes||(m.data||'').startsWith(mes)));
+}
+function renderMovEst(){
+  const lista=movFiltradas(),tb=$('est-mov-body');
+  if(!lista.length){tb.innerHTML='<tr><td colspan="8" style="text-align:center;color:var(--text2);padding:20px">Nenhuma movimentação.</td></tr>';return}
+  tb.innerHTML=lista.map(m=>{
+    const ent=m.tipo==='entrada';
+    return `<tr>
+      <td style="white-space:nowrap">${fmtISO(m.data)}</td>
+      <td>${ent?'<span class="badge badge-green">⤵ Entrada</span>':'<span class="badge badge-yellow">⤴ Baixa</span>'}</td>
+      <td><strong>${escI(m.codigo)}</strong></td>
+      <td>${escI(m.descricao)}</td>
+      <td class="num-r">${ent?'+':'−'}${fmtQtd(m.quantidade)}</td>
+      <td>${escI(m.operador_nome||'-')}</td>
+      <td>${m.motivo?`<span class="badge ${EST_MOT[m.motivo]||'badge-blue'}">${escI(m.motivo)}</span>`:'-'}</td>
+      <td style="white-space:nowrap"><button class="btn-sm btn-ghost" onclick="editarMovEst('${m.tipo}',${m.id})" title="Editar">✏️</button> <button class="btn-sm btn-danger" onclick="delMovEst('${m.tipo}',${m.id})" title="Excluir">🗑</button></td>
+    </tr>`}).join('');
+}
+function limparFiltrosMovEst(){['est-mov-busca','est-mov-tipo','est-mov-mot','est-mov-mes'].forEach(x=>$(x).value='');renderMovEst()}
+function historicoEst(i){
+  const s=estSaldo[i];if(!s)return;
+  limparFiltrosMovEst();$('est-mov-busca').value=s.codigo;renderMovEst();
+  $('est-mov-body').closest('.tbl-wrap').scrollIntoView({behavior:'smooth',block:'center'});
+}
+
+/* Preenche a descrição pelo código já conhecido (sem apagar o que o usuário digitou) */
+const estDescAuto={ent:'',sai:''};
+function estAutoDesc(qual){
+  const cod=$('est-'+qual+'-cod').value,desc=$('est-'+qual+'-desc');
+  const s=estSaldo.find(x=>x.chave===chaveCod(cod));
+  if(s&&(!desc.value||desc.value===estDescAuto[qual])){desc.value=s.descricao;estDescAuto[qual]=s.descricao}
+  else if(!s&&desc.value===estDescAuto[qual]){desc.value='';estDescAuto[qual]=''}
+  if(qual==='sai')estMostraSaldo();
+}
+/* Saldo disponível para a baixa (na edição, soma de volta a própria baixa) */
+function dispBaixa(){
+  const cod=$('est-sai-cod').value;if(!cod.trim())return null;
+  let d=saldoDe(cod);
+  const id=parseInt($('est-sai-id').value);
+  if(id){const m=estMov.find(x=>x.tipo==='saida'&&x.id===id);if(m&&chaveCod(m.codigo)===chaveCod(cod))d+=Number(m.quantidade)}
+  return d;
+}
+function estMostraSaldo(){
+  const box=$('est-sai-saldo'),d=dispBaixa();
+  if(d===null){box.textContent='';box.className='est-saldo';return}
+  const q=parseFloat($('est-sai-qtd').value)||0;
+  const ruim=q>d+1e-9;
+  box.className='est-saldo'+(ruim?' ruim':'');
+  box.innerHTML=estSaldo.some(x=>x.chave===chaveCod($('est-sai-cod').value))
+    ?`Saldo disponível: <strong>${fmtQtd(d)}</strong>${ruim?' — quantidade maior que o saldo':q>0?` · fica <strong>${fmtQtd(d-q)}</strong> após a baixa`:''}`
+    :'<strong>Código sem entrada no estoque.</strong> Registre a entrada antes da baixa.';
+  if(!estSaldo.some(x=>x.chave===chaveCod($('est-sai-cod').value)))box.className='est-saldo ruim';
+}
+
+async function salvarEntradaEst(){
+  const id=$('est-ent-id').value;
+  const body={codigo:$('est-ent-cod').value.trim(),descricao:$('est-ent-desc').value.trim(),quantidade:$('est-ent-qtd').value,data_entrada:$('est-ent-dt').value};
+  if(!body.codigo)return toast('Informe o código','error');
+  if(!body.descricao)return toast('Informe a descrição','error');
+  if(!(parseFloat(body.quantidade)>0))return toast('Informe a quantidade','error');
+  if(!body.data_entrada)return toast('Informe a data de entrada','error');
+  const r=id?await api.put('/api/ferramentas/estoque/entradas/'+id,body):await api.post('/api/ferramentas/estoque/entradas',body);
+  if(!r||r.error)return toast(r&&r.error?r.error:'Erro ao salvar','error');
+  toast(id?'Entrada atualizada!':'Entrada registrada!');
+  limparEntradaEst();await carregarEstoque();renderEstoque();
+}
+function limparEntradaEst(){
+  ['est-ent-id','est-ent-cod','est-ent-desc','est-ent-qtd'].forEach(x=>$(x).value='');estDescAuto.ent='';
+  $('est-ent-dt').value=hojeISO();$('est-ent-btn').textContent='Registrar entrada';$('est-ent-editando').style.display='none';
+}
+
+async function salvarSaidaEst(){
+  const id=$('est-sai-id').value;
+  const body={codigo:$('est-sai-cod').value.trim(),descricao:$('est-sai-desc').value.trim(),quantidade:$('est-sai-qtd').value,
+    colaborador_id:$('est-sai-op').value||null,motivo:$('est-sai-mot').value,data_saida:$('est-sai-dt').value};
+  if(!body.codigo)return toast('Informe o código','error');
+  if(!body.descricao)return toast('Informe a descrição','error');
+  const q=parseFloat(body.quantidade);
+  if(!(q>0))return toast('Informe a quantidade de saída','error');
+  if(!body.colaborador_id)return toast('Selecione o operador','error');
+  if(!body.motivo)return toast('Selecione o motivo','error');
+  if(!body.data_saida)return toast('Informe a data de saída','error');
+  const d=dispBaixa();
+  if(d!==null&&q>d+1e-9)return toast('Saldo insuficiente: disponível '+fmtQtd(Math.max(d,0)),'error');
+  const r=id?await api.put('/api/ferramentas/estoque/saidas/'+id,body):await api.post('/api/ferramentas/estoque/saidas',body);
+  if(!r||r.error)return toast(r&&r.error?r.error:'Erro ao salvar','error');
+  toast(id?'Baixa atualizada!':'Baixa registrada!');
+  limparSaidaEst();await carregarEstoque();renderEstoque();
+}
+function limparSaidaEst(){
+  ['est-sai-id','est-sai-cod','est-sai-desc','est-sai-qtd','est-sai-op','est-sai-mot'].forEach(x=>$(x).value='');estDescAuto.sai='';
+  $('est-sai-dt').value=hojeISO();$('est-sai-btn').textContent='Dar baixa';$('est-sai-editando').style.display='none';
+  estMostraSaldo();
+}
+
+function baixarDoSaldo(i){
+  const s=estSaldo[i];if(!s)return;
+  limparSaidaEst();
+  $('est-sai-cod').value=s.codigo;$('est-sai-desc').value=s.descricao;estDescAuto.sai=s.descricao;
+  estMostraSaldo();
+  $('est-card-sai').scrollIntoView({behavior:'smooth',block:'center'});
+  setTimeout(()=>$('est-sai-qtd').focus(),300);
+}
+function entradaDoSaldo(i){
+  const s=estSaldo[i];if(!s)return;
+  limparEntradaEst();
+  $('est-ent-cod').value=s.codigo;$('est-ent-desc').value=s.descricao;estDescAuto.ent=s.descricao;
+  $('est-card-ent').scrollIntoView({behavior:'smooth',block:'center'});
+  setTimeout(()=>$('est-ent-qtd').focus(),300);
+}
+
+function editarMovEst(tipo,id){
+  const m=estMov.find(x=>x.tipo===tipo&&x.id===id);if(!m)return;
+  if(tipo==='entrada'){
+    $('est-ent-id').value=m.id;$('est-ent-cod').value=m.codigo;$('est-ent-desc').value=m.descricao;estDescAuto.ent='';
+    $('est-ent-qtd').value=Number(m.quantidade);$('est-ent-dt').value=m.data||'';
+    $('est-ent-btn').textContent='Salvar alterações';$('est-ent-editando').style.display='block';
+    $('est-card-ent').scrollIntoView({behavior:'smooth',block:'center'});
+  }else{
+    $('est-sai-id').value=m.id;$('est-sai-cod').value=m.codigo;$('est-sai-desc').value=m.descricao;estDescAuto.sai='';
+    $('est-sai-qtd').value=Number(m.quantidade);
+    abrirEstoque(m.colaborador_id||'');   // garante o operador na lista mesmo se desligado
+    $('est-sai-mot').value=m.motivo||'';$('est-sai-dt').value=m.data||'';
+    $('est-sai-btn').textContent='Salvar alterações';$('est-sai-editando').style.display='block';
+    estMostraSaldo();
+    $('est-card-sai').scrollIntoView({behavior:'smooth',block:'center'});
+  }
+}
+async function delMovEst(tipo,id){
+  const m=estMov.find(x=>x.tipo===tipo&&x.id===id);if(!m)return;
+  if(!confirm(`Excluir a ${tipo==='entrada'?'entrada':'baixa'} de ${fmtQtd(m.quantidade)} × ${m.codigo} (${fmtISO(m.data)})?`))return;
+  const r=await api.del('/api/ferramentas/estoque/'+(tipo==='entrada'?'entradas':'saidas')+'/'+id);
+  if(!r||r.error)return toast(r&&r.error?r.error:'Erro ao excluir','error');
+  toast('Excluído!');await carregarEstoque();renderEstoque();
+}
+
 /* ============ RELATORIOS ============ */
 function exportCSV(tipo){
   let csv='';
@@ -984,6 +1297,14 @@ function exportCSV(tipo){
   }else if(tipo==='emprestimos'){
     csv='Ferramenta;Colaborador;Retirada;Devolução;Obs\n';
     emprestimos.forEach(e=>{const f=ferramentas.find(x=>x.id===e.ferramenta_id);csv+=`${f?f.nome:'?'};${e.colab_nome||''};${fmtDT(e.retirado_em)};${fmtDT(e.devolvido_em)};${e.obs||''}\n`});
+  }else if(tipo==='estoque'){
+    const sc=v=>String(v??'').replace(/[;\r\n]/g,' '),n=v=>String(Number(v)).replace('.',',');
+    csv='Código;Descrição;Entradas;Baixas;Saldo;Última entrada;Última baixa\n';
+    estSaldo.forEach(s=>csv+=`${sc(s.codigo)};${sc(s.descricao)};${n(s.entradas)};${n(s.saidas)};${n(s.saldo)};${fmtISO(s.ultima_entrada)};${fmtISO(s.ultima_saida)}\n`);
+  }else if(tipo==='estoque-mov'){
+    const sc=v=>String(v??'').replace(/[;\r\n]/g,' ');
+    csv='Data;Tipo;Código;Descrição;Quantidade;Operador;Motivo\n';
+    (document.getElementById('sec-insumos').classList.contains('active')?movFiltradas():estMov).forEach(m=>csv+=`${fmtISO(m.data)};${m.tipo==='entrada'?'Entrada':'Baixa'};${sc(m.codigo)};${sc(m.descricao)};${String(Number(m.quantidade)).replace('.',',')};${sc(m.operador_nome)};${sc(m.motivo)}\n`);
   }else if(tipo==='insumos'){
     const sc=v=>String(v??'').replace(/[;\r\n]/g,' ');
     csv='Insumo;Quantidade;Unidade;Data saída;Data entrada;Colaborador;Local;Situação;Observação\n';

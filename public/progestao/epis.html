@@ -77,6 +77,15 @@ tr.row-irregular:hover{background:rgba(239,68,68,.12)}
 .status-toggle button.ok.active{background:var(--green);color:#fff}
 .status-toggle button.nok.active{background:var(--red);color:#fff}
 .irreg-tags{display:flex;flex-wrap:wrap;gap:4px}
+.st-edit{cursor:pointer;display:inline-flex;align-items:center;gap:6px;border:none;background:none;padding:0;font:inherit;color:inherit}
+.st-edit:hover .badge{outline:1px solid var(--accent);outline-offset:1px}
+.st-edit .st-lapis{font-size:.75rem;color:var(--text2)}
+.st-manual{font-size:.68rem;color:var(--text2);display:block;margin-top:3px}
+.st-opcoes{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:12px}
+.st-op{display:flex;align-items:center;gap:8px;padding:10px 12px;border:1px solid var(--border);border-radius:8px;background:var(--card2);cursor:pointer;font-size:.88rem}
+.st-op:hover{border-color:var(--accent)}
+.st-op input{accent-color:var(--accent)}
+.st-op.auto{grid-column:1/-1}
 .irreg-tag{background:rgba(239,68,68,.18);color:var(--red);padding:3px 9px;border-radius:10px;font-size:.75rem;font-weight:600}
 
 /* ===== CHECKING — multi-seleção de colaboradores ===== */
@@ -333,7 +342,7 @@ a{color:var(--accent)}
     <div style="margin-top:20px">
       <h4>Resumo por EPI</h4>
       <div class="tbl-wrap" style="margin-top:10px">
-        <table><thead><tr><th>EPI</th><th>Entregas</th><th>Ativos</th><th>Vencidos</th><th>Substituídos / Descartados</th><th>Reprovado em Checking</th></tr></thead>
+        <table><thead><tr><th>EPI</th><th>Entregas</th><th>Ativos</th><th>Vencidos</th><th title="Substituídos, descartados, devolvidos ou perdidos">Encerrados</th><th>Reprovado em Checking</th></tr></thead>
         <tbody id="tb-resumo"></tbody></table>
       </div>
     </div>
@@ -366,6 +375,20 @@ a{color:var(--accent)}
     <div class="btns">
       <button class="btn-sm btn-ghost" onclick="fecharModal('modal-del')">Cancelar</button>
       <button class="btn-sm btn-danger" id="modal-del-btn">Excluir</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL STATUS DA ENTREGA -->
+<div class="modal-overlay" id="modal-st" onclick="if(event.target===this)fecharModal('modal-st')">
+  <div class="modal">
+    <h3>Alterar status da entrega</h3>
+    <p id="modal-st-txt" style="color:var(--text2);font-size:.85rem"></p>
+    <div class="st-opcoes" id="modal-st-opcoes"></div>
+    <div class="form-group" style="margin-top:14px"><label>Observação (opcional)</label><input id="modal-st-obs" placeholder="Ex.: devolvido ao almoxarifado, rasgou…"></div>
+    <div class="btns">
+      <button class="btn-sm btn-ghost" onclick="fecharModal('modal-st')">Cancelar</button>
+      <button class="btn-sm btn-green" id="modal-st-btn">Salvar status</button>
     </div>
   </div>
 </div>
@@ -479,8 +502,24 @@ function foiSubstituida(e){
     return a>b||(a===b&&o.id>e.id);
   });
 }
-/* → { chave, badge, val (Date|null), dd (dias até vencer|null) } */
+/* Status escolhidos à mão (coluna Status da aba Entregas). Sobrepõem o cálculo. */
+var ST_MANUAL={
+  valido:{txt:'Válido',cls:'badge-green'},
+  vencido:{txt:'Vencido',cls:'badge-red'},
+  substituido:{txt:'Substituído',cls:'badge-gray'},
+  descartado:{txt:'Descartado',cls:'badge-gray'},
+  devolvido:{txt:'Devolvido',cls:'badge-blue'},
+  perdido:{txt:'Perdido',cls:'badge-orange'}
+};
+var ST_NOMES={sem_validade:'Sem validade',vencido:'Vencido',a_vencer:'A vencer',valido:'Válido',substituido:'Substituído',descartado:'Descartado',devolvido:'Devolvido',perdido:'Perdido'};
+/* → { chave, badge, val (Date|null), dd (dias até vencer|null), manual (bool) } */
 function statusEntrega(e){
+  var auto=statusEntregaAuto(e);
+  var m=e.status_manual&&ST_MANUAL[e.status_manual];
+  if(!m)return auto;
+  return {chave:e.status_manual,badge:'<span class="badge '+m.cls+'">'+m.txt+'</span>',val:auto.val,dd:auto.dd,manual:true};
+}
+function statusEntregaAuto(e){
   var epi=epis.find(function(x){return x.id===e.epi_id});
   var r={chave:'sem_validade',badge:'<span class="badge badge-blue">Sem validade</span>',val:null,dd:null};
   if(epi&&epi.dur_qtd>0){
@@ -603,9 +642,37 @@ function renderEntregas(){
   tb.innerHTML=list.map(function(e){
     var epi=epis.find(function(x){return x.id===e.epi_id});
     var epiNome=epi?epi.nome:'?';
-    var st=statusEntrega(e),valDate=st.val,statusBadge=st.badge;
-    return '<tr><td>'+escHtml(epiNome)+'</td><td>'+escHtml(e.colab_nome||'-')+'</td><td>'+fmtDate(e.dt)+'</td><td>'+(valDate?fmtDate(valDate):'-')+'</td><td>'+badgeMotivo(e.motivo)+'</td><td>'+statusBadge+'</td><td><button class="btn-sm btn-danger" onclick="confirmarDel(\'entrega\','+e.id+',\'entrega de '+epiNome.replace(/'/g,"\\'")+'\')">🗑</button></td></tr>';
+    var st=statusEntrega(e),valDate=st.val;
+    var stTitle=st.manual?'Status definido à mão'+(e.status_obs?' — '+e.status_obs:'')+'. Clique para alterar':'Status automático (pela validade). Clique para alterar';
+    var statusCell='<button type="button" class="st-edit" onclick="abrirStatusEntrega('+e.id+')" title="'+escHtml(stTitle)+'">'+st.badge+'<span class="st-lapis">✏</span></button>'+
+      (st.manual?'<span class="st-manual">✋ manual'+(e.status_obs?' · '+escHtml(e.status_obs.slice(0,40)):'')+'</span>':'');
+    return '<tr><td>'+escHtml(epiNome)+'</td><td>'+escHtml(e.colab_nome||'-')+'</td><td>'+fmtDate(e.dt)+'</td><td>'+(valDate?fmtDate(valDate):'-')+'</td><td>'+badgeMotivo(e.motivo)+'</td><td>'+statusCell+'</td><td><button class="btn-sm btn-danger" onclick="confirmarDel(\'entrega\','+e.id+',\'entrega de '+epiNome.replace(/'/g,"\\'")+'\')">🗑</button></td></tr>';
   }).join('');
+}
+
+function abrirStatusEntrega(id){
+  var e=entregas.find(function(x){return x.id===id});if(!e)return;
+  var epi=epis.find(function(x){return x.id===e.epi_id});
+  var auto=statusEntregaAuto(e);
+  document.getElementById('modal-st-txt').textContent=(epi?epi.nome:'EPI')+' — '+(e.colab_nome||'-')+' — entregue em '+fmtDate(e.dt);
+  var atual=e.status_manual||'auto';
+  var ops=[{v:'auto',txt:'🔄 Automático (pela validade) — hoje: '+(ST_NOMES[auto.chave]||'-'),cls:'auto'}].concat(
+    Object.keys(ST_MANUAL).map(function(k){return {v:k,txt:ST_MANUAL[k].txt,cls:''}}));
+  document.getElementById('modal-st-opcoes').innerHTML=ops.map(function(o){
+    return '<label class="st-op '+o.cls+'"><input type="radio" name="st-op" value="'+o.v+'"'+(o.v===atual?' checked':'')+'> '+escHtml(o.txt)+'</label>';
+  }).join('');
+  document.getElementById('modal-st-obs').value=e.status_obs||'';
+  document.getElementById('modal-st').classList.add('show');
+  document.getElementById('modal-st-btn').onclick=async function(){
+    var sel=document.querySelector('input[name="st-op"]:checked');
+    var v=sel?sel.value:'auto';
+    var r=await api.put('/api/epis/entregas/'+id+'/status',{status:v,obs:document.getElementById('modal-st-obs').value});
+    if(!r||r.error)return toast(r&&r.error?r.error:'Erro ao salvar status','error');
+    toast(v==='auto'?'Status voltou para automático':'Status atualizado!');
+    fecharModal('modal-st');
+    await loadAll();
+    if(document.getElementById('sec-alertas').classList.contains('active'))renderAlertas();
+  };
 }
 
 /* ============ CHECKING ============ */
@@ -853,14 +920,14 @@ function renderAlertas(){
     var st=statusEntrega(e);
     if(st.chave!=='vencido'&&st.chave!=='a_vencer')return;   // substituídas e válidas ficam de fora
     var epi=epis.find(function(x){return x.id===e.epi_id});
-    rows.push({epiNome:epi?epi.nome:'?',colab:e.colab_nome||'-',dt:e.dt,val:st.val,dd:st.dd});
+    rows.push({epiNome:epi?epi.nome:'?',colab:e.colab_nome||'-',dt:e.dt,val:st.val,dd:st.dd,manualVencido:st.manual&&st.chave==='vencido'});
   });
-  rows.sort(function(a,b){return a.dd-b.dd});
+  rows.sort(function(a,b){return (a.dd==null?-1e9:a.dd)-(b.dd==null?-1e9:b.dd)});
   var tb=document.getElementById('tb-alertas');
   if(!rows.length){tb.innerHTML='<tr><td colspan="6" style="text-align:center;color:var(--text2)">Nenhum alerta</td></tr>';return}
   tb.innerHTML=rows.map(function(r){
-    var badge=r.dd<0?'<span class="badge badge-red">Vencido</span>':'<span class="badge badge-yellow">A vencer</span>';
-    return '<tr><td>'+escHtml(r.epiNome)+'</td><td>'+escHtml(r.colab)+'</td><td>'+fmtDate(r.dt)+'</td><td>'+fmtDate(r.val)+'</td><td>'+r.dd+' dias</td><td>'+badge+'</td></tr>';
+    var badge=(r.manualVencido||r.dd<0)?'<span class="badge badge-red">Vencido</span>':'<span class="badge badge-yellow">A vencer</span>';
+    return '<tr><td>'+escHtml(r.epiNome)+'</td><td>'+escHtml(r.colab)+'</td><td>'+fmtDate(r.dt)+'</td><td>'+fmtDate(r.val)+'</td><td>'+(r.dd==null?'-':r.dd+' dias')+'</td><td>'+badge+'</td></tr>';
   }).join('');
 }
 
@@ -873,7 +940,7 @@ function renderResumo(){
     var ativos=0,vencidos=0,subst=0;
     ents.forEach(function(en){
       var st=statusEntrega(en).chave;
-      if(st==='vencido')vencidos++;else if(st==='substituido'||st==='descartado')subst++;else ativos++;
+      if(st==='vencido')vencidos++;else if(st==='substituido'||st==='descartado'||st==='devolvido'||st==='perdido')subst++;else ativos++;
     });
     var reprov=0;
     checkings.forEach(function(c){var det=(c.registros&&c.registros[0])||{};if(det.epis_irregulares_ids&&det.epis_irregulares_ids.indexOf(e.id)>=0)reprov++});
@@ -928,7 +995,7 @@ function exportCSV(){
   entregas.forEach(function(e){
     var epi=epis.find(function(x){return x.id===e.epi_id});var nome=epi?epi.nome:'?';
     var s=statusEntrega(e);var val=s.val?fmtDate(s.val):'-';
-    var st={sem_validade:'Sem validade',vencido:'Vencido',a_vencer:'A vencer',valido:'Válido',substituido:'Substituído',descartado:'Descartado'}[s.chave];
+    var st=(ST_NOMES[s.chave]||'-')+(s.manual?' (manual)':'');
     csv+=nome+';'+(e.colab_nome||'-')+';'+fmtDate(e.dt)+';'+val+';'+(e.motivo||'-')+';'+st+'\n';
   });
   baixarCSV(csv,'epis_entregas.csv');

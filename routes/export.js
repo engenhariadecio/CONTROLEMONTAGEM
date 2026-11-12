@@ -213,6 +213,8 @@ router.get('/:modulo', requireAuth, async (req, res) => {
         { header:'Entrega', key:'dt', width:20 },
         { header:'Validade', key:'validade', width:14 },
         { header:'Motivo', key:'motivo', width:25 },
+        { header:'Status (manual)', key:'status_manual', width:18 },
+        { header:'Obs. do status', key:'status_obs', width:30 },
         { header:'Obs', key:'obs', width:25 }
       ];
       const rows = (await pool.query(`

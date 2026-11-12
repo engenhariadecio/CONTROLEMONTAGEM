@@ -670,6 +670,37 @@ CREATE TABLE IF NOT EXISTS ferr_insumos (
 );
 CREATE INDEX IF NOT EXISTS idx_ferr_insumos_datas ON ferr_insumos(data_saida, data_entrada);
 
+/* Estoque intermediário de insumos: entradas e baixas por código.
+   O saldo é calculado (entradas − baixas) agrupando pelo código, sem
+   diferenciar maiúsculas/espaços. Cada baixa guarda cópia do nome do
+   operador para o histórico sobreviver à exclusão do cadastro. */
+CREATE TABLE IF NOT EXISTS ferr_estoque_entradas (
+  id              SERIAL PRIMARY KEY,
+  codigo          VARCHAR(100) NOT NULL,
+  descricao       VARCHAR(300) NOT NULL,
+  quantidade      NUMERIC(12,3) NOT NULL,
+  data_entrada    DATE NOT NULL,
+  registrado_por  INTEGER REFERENCES users(id) ON DELETE SET NULL,
+  created_at      TIMESTAMPTZ DEFAULT NOW(),
+  updated_at      TIMESTAMPTZ DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_ferr_est_ent_cod ON ferr_estoque_entradas(UPPER(TRIM(codigo)));
+
+CREATE TABLE IF NOT EXISTS ferr_estoque_saidas (
+  id              SERIAL PRIMARY KEY,
+  codigo          VARCHAR(100) NOT NULL,
+  descricao       VARCHAR(300) NOT NULL,
+  quantidade      NUMERIC(12,3) NOT NULL,
+  colaborador_id  INTEGER REFERENCES colaboradores(id) ON DELETE SET NULL,
+  operador_nome   VARCHAR(200),
+  motivo          VARCHAR(40) NOT NULL,
+  data_saida      DATE NOT NULL,
+  registrado_por  INTEGER REFERENCES users(id) ON DELETE SET NULL,
+  created_at      TIMESTAMPTZ DEFAULT NOW(),
+  updated_at      TIMESTAMPTZ DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_ferr_est_sai_cod ON ferr_estoque_saidas(UPPER(TRIM(codigo)));
+
 /* ══════════════ FOTOS (cadastros do ProGestão + Diário de Bordo) ══════════════ */
 
 /* Uma linha por foto. (entidade, registro_id) aponta para o cadastro dono —
@@ -781,6 +812,10 @@ ALTER TABLE epi_entregas      ADD COLUMN IF NOT EXISTS qtd INTEGER DEFAULT 1;
 ALTER TABLE epi_entregas      ADD COLUMN IF NOT EXISTS dt DATE;
 ALTER TABLE epi_entregas      ADD COLUMN IF NOT EXISTS validade DATE;
 ALTER TABLE epi_entregas      ADD COLUMN IF NOT EXISTS obs TEXT;
+/* Status escolhido à mão na tela de Entregas. NULL = automático (calculado pela validade). */
+ALTER TABLE epi_entregas      ADD COLUMN IF NOT EXISTS status_manual VARCHAR(30);
+ALTER TABLE epi_entregas      ADD COLUMN IF NOT EXISTS status_obs TEXT;
+ALTER TABLE epi_entregas      ADD COLUMN IF NOT EXISTS status_em TIMESTAMPTZ;
 
 ALTER TABLE epi_checklists    ADD COLUMN IF NOT EXISTS total INTEGER DEFAULT 0;
 ALTER TABLE epi_checklists    ADD COLUMN IF NOT EXISTS conformes INTEGER DEFAULT 0;
