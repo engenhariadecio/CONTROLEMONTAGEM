@@ -194,6 +194,64 @@ a{color:var(--accent)}
 body.pcp .cel-card input,body.pcp .cel-card select,body.pcp .chave{pointer-events:none}
 @media(max-width:768px){.cel-grid{grid-template-columns:1fr}.cel-info{grid-template-columns:1fr 1fr}.kpis{grid-template-columns:1fr 1fr}.kpi .val{font-size:19px}}
 </style>
+<style>
+/* ===== Cadenciador central (células controladas pelo PC do admin) ===== */
+.cc-barra{display:flex;flex-wrap:wrap;gap:10px;align-items:center;background:var(--panel);border:1px solid var(--border);border-radius:8px;padding:12px 14px;margin-bottom:14px}
+.cc-barra .cc-todas{display:flex;gap:8px;flex:1;min-width:280px}
+.cc-barra input[type=text]{flex:1;min-width:0;background:var(--panel2);border:1px solid var(--border);color:var(--text);padding:8px 10px;border-radius:6px;font-size:13px}
+.cc-barra .cc-resumo{font-size:12px;color:var(--text2);white-space:nowrap}
+.cc-barra a{color:var(--blue);font-size:12px;font-weight:600;text-decoration:none;white-space:nowrap}
+.cc-ajuda{background:rgba(86,182,224,.08);border:1px solid rgba(86,182,224,.4);border-radius:8px;padding:10px 14px;margin-bottom:14px;font-size:13px;color:var(--text2);line-height:1.5}
+.cc-ajuda b{color:var(--text)}
+.cc-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(400px,1fr));gap:14px;margin-bottom:16px}
+.cc-card{background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:14px;display:flex;flex-direction:column;gap:11px;box-shadow:inset 3px 0 0 var(--accent)}
+.cc-card.pausada{border-color:rgba(242,109,109,.6);box-shadow:inset 3px 0 0 var(--red)}
+.cc-card.fora{box-shadow:inset 3px 0 0 var(--border)}
+.cc-cab{display:flex;align-items:center;gap:8px}
+.cc-cab strong{font-size:16px;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cc-ico{background:transparent;border:1px solid var(--border);color:var(--text2);border-radius:6px;padding:4px 8px;cursor:pointer;font-size:12px}
+.cc-ico:hover{color:var(--text);border-color:var(--text2)}
+.cc-vivo{display:grid;grid-template-columns:1fr 1.5fr 1fr;gap:6px}
+.cc-vivo div{background:var(--panel2);border-radius:6px;padding:7px 9px;font-size:10px;color:var(--text2);text-transform:uppercase;letter-spacing:.3px;min-width:0}
+.cc-vivo b{display:block;font-size:19px;color:var(--text);text-transform:none;letter-spacing:0;margin-top:2px;font-variant-numeric:tabular-nums;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cc-vivo small{display:block;font-size:10px;text-transform:none;letter-spacing:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cc-card.pausada .cc-vivo .cc-prox b{color:var(--red)}
+.cc-campos{display:grid;grid-template-columns:1.7fr 1fr .7fr;gap:8px}
+.cc-campos .form-group{min-width:0}
+.cc-campos select,.cc-campos input{width:100%;min-width:0;padding:7px 9px;font-size:13px}
+.cc-linha{display:flex;gap:6px;align-items:center}
+.cc-linha input[type=text]{flex:1;min-width:0;background:var(--panel2);border:1px solid var(--border);color:var(--text);padding:8px 10px;border-radius:6px;font-size:13px}
+.cc-linha input[type=text]:focus{border-color:var(--accent);outline:none}
+.cc-rot{font-size:11px;color:var(--text2);font-weight:600;text-transform:uppercase;letter-spacing:.3px;margin-bottom:-6px}
+.cc-frases{display:flex;flex-wrap:wrap;gap:5px}
+.cc-frases button{background:var(--panel2);border:1px solid var(--border);color:var(--text2);border-radius:99px;padding:4px 10px;font-size:11px;cursor:pointer}
+.cc-frases button:hover{color:var(--text);border-color:var(--accent)}
+.cc-acoes{display:flex;flex-wrap:wrap;gap:6px}
+.cc-tabs{display:flex;flex-wrap:wrap;gap:6px;align-items:center;border-top:1px solid var(--border);padding-top:10px;font-size:12px;color:var(--text2)}
+.cc-tab{display:inline-flex;align-items:center;gap:6px;background:var(--panel2);border:1px solid var(--border);border-radius:99px;padding:4px 6px 4px 10px;font-size:12px;color:var(--text)}
+.cc-tab i{width:8px;height:8px;border-radius:50%;background:var(--text2);display:inline-block}
+.cc-tab.on i{background:var(--accent)}
+.cc-tab.off{opacity:.6}
+.cc-tab button{background:transparent;border:none;color:var(--text2);cursor:pointer;font-size:12px;padding:0 4px}
+.cc-tab button:hover{color:var(--red)}
+.cc-vazio{grid-column:1/-1;background:var(--panel);border:1px dashed #2C5570;border-radius:10px;padding:30px;text-align:center;color:var(--text2);font-size:14px}
+.cc-log{max-height:260px;overflow:auto;font-size:12px}
+.cc-log div{display:flex;gap:10px;padding:6px 4px;border-bottom:1px solid var(--border)}
+.cc-log .h{color:var(--text2);white-space:nowrap;font-variant-numeric:tabular-nums}
+.cc-log .c{color:var(--blue);white-space:nowrap;font-weight:600}
+.cc-log .t{flex:1}
+.cc-log .auto .t{color:var(--text2)}
+.cc-modal{position:fixed;inset:0;background:rgba(4,10,15,.72);display:none;align-items:center;justify-content:center;z-index:500;padding:16px}
+.cc-modal.show{display:flex}
+.cc-modal .cx{background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:20px;width:100%;max-width:460px;display:flex;flex-direction:column;gap:12px}
+.cc-modal h3{font-size:16px;margin:0}
+.cc-modal .form-group input,.cc-modal .form-group select{width:100%}
+.cc-modal .rod{display:flex;gap:8px;justify-content:flex-end;margin-top:4px}
+.cc-tabela select,.cc-tabela input{background:var(--panel2);border:1px solid var(--border);color:var(--text);padding:6px 8px;border-radius:6px;font-size:12px}
+#tab-central{display:none}
+body.adm #tab-central{display:inline-block}
+@media(max-width:768px){.cc-grid{grid-template-columns:1fr}.cc-campos{grid-template-columns:1fr 1fr}.cc-campos .form-group:first-child{grid-column:1/-1}}
+</style>
 </head>
 <body>
 <div class="fita-marca"></div>
@@ -225,6 +283,7 @@ body.pcp .cel-card input,body.pcp .cel-card select,body.pcp .chave{pointer-event
     <div class="tabs">
       <button class="tab active" onclick="showTab('dia',event)">📅 Programação do dia</button>
       <button class="tab" onclick="showTab('historico',event)">📜 Histórico</button>
+      <button class="tab" id="tab-central" onclick="showTab('central',event)">🎛️ Cadenciador central</button>
     </div>
 
     <!-- ============ PROGRAMAÇÃO DO DIA ============ -->
@@ -270,6 +329,80 @@ body.pcp .cel-card input,body.pcp .cel-card select,body.pcp .chave{pointer-event
         <div class="kpis" id="h-kpis"></div>
         <div id="h-corpo" class="quadro"></div>
       </div>
+    </div>
+
+    <!-- ============ CADENCIADOR CENTRAL (só admin) ============ -->
+    <div class="section" id="sec-central">
+      <div class="cc-ajuda">
+        Aqui você <b>cria a célula no PC</b> (produto, turno, takt) e o <b>tablet só se conecta</b> a ela, em
+        <b>Portal › Cadenciador da Célula</b>. Tudo que você mudar aqui aparece no tablet em até 2 segundos, e o que você
+        digitar em <b>“Falar”</b> o tablet fala em voz alta. Depois de conectado, o tablet fica <b>preso à célula</b> — só sai se você liberar.
+      </div>
+
+      <div class="cc-barra">
+        <button class="btn-sm btn-accent" onclick="cadcNova()">＋ Nova célula</button>
+        <div class="cc-todas">
+          <input type="text" id="cc-todas-txt" maxlength="300" placeholder="Aviso para TODAS as células (o tablet fala em voz alta)" onkeydown="if(event.key==='Enter')cadcFalarTodas()">
+          <button class="btn-sm btn-blue" onclick="cadcFalarTodas()">📢 Falar em todas</button>
+        </div>
+        <span class="cc-resumo" id="cc-resumo">—</span>
+        <a href="/cadenciador/celula" target="_blank" rel="noopener">Abrir tela do tablet ↗</a>
+      </div>
+
+      <div class="cc-grid" id="cc-grid"><div class="cc-vazio">Carregando…</div></div>
+
+      <div class="card">
+        <div class="card-title">📱 Tablets</div>
+        <div style="overflow:auto"><table class="cc-tabela">
+          <thead><tr><th>Tablet</th><th>Situação</th><th>Som</th><th>Célula</th><th>Usuário</th><th>Ações</th></tr></thead>
+          <tbody id="cc-tablets"><tr><td colspan="6" style="color:var(--text2)">Nenhum tablet conectado ainda.</td></tr></tbody>
+        </table></div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">🗒️ Últimos avisos enviados</div>
+        <div class="cc-log" id="cc-log"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+
+<!-- Cadenciador central: nova célula -->
+<div class="cc-modal" id="cc-m-nova">
+  <div class="cx">
+    <h3>＋ Nova célula do cadenciador</h3>
+    <div class="form-group"><label>Nome da célula</label>
+      <input id="cc-n-nome" maxlength="120" list="cc-dl-celulas" placeholder="Ex.: Célula 1 — Racks" autocomplete="off">
+      <datalist id="cc-dl-celulas"></datalist></div>
+    <div class="form-group"><label>Produto</label><select id="cc-n-produto"></select></div>
+    <div class="form-group"><label>Turno</label><select id="cc-n-turno"></select></div>
+    <div class="form-group"><label>Takt (minutos) — deixe vazio para usar o do cadastro</label>
+      <input id="cc-n-takt" type="number" step="0.1" min="0.1" placeholder="do cadastro"></div>
+    <div class="rod">
+      <button class="btn-sm btn-ghost" onclick="cadcFechaModal('cc-m-nova')">Cancelar</button>
+      <button class="btn-sm btn-accent" onclick="cadcCriar()">Criar célula</button>
+    </div>
+  </div>
+</div>
+
+<!-- Cadenciador central: pausar -->
+<div class="cc-modal" id="cc-m-pausa">
+  <div class="cx">
+    <h3>⏸ Pausar <span id="cc-p-nome"></span></h3>
+    <div class="form-group"><label>Motivo</label>
+      <select id="cc-p-motivo" onchange="document.getElementById('cc-p-outro-g').style.display=this.value==='__outro'?'flex':'none'">
+        <option>Ginástica laboral</option><option>Reunião</option><option>Falta de material</option>
+        <option>Manutenção</option><option>Troca de produto</option><option>Limpeza</option>
+        <option value="__outro">Outro…</option>
+      </select></div>
+    <div class="form-group" id="cc-p-outro-g" style="display:none"><label>Qual motivo?</label><input id="cc-p-outro" maxlength="120"></div>
+    <div class="form-group"><label>Duração em minutos — vazio = até eu mandar retomar</label>
+      <input id="cc-p-min" type="number" min="1" max="600" step="1" placeholder="até retomar"></div>
+    <div style="font-size:12px;color:var(--text2)">Com duração, a linha <b>volta sozinha</b> no fim do tempo e o tablet avisa. O tempo parado empurra os ciclos seguintes.</div>
+    <div class="rod">
+      <button class="btn-sm btn-ghost" onclick="cadcFechaModal('cc-m-pausa')">Cancelar</button>
+      <button class="btn-sm btn-red" onclick="cadcPausarOk()">⏸ Pausar agora</button>
     </div>
   </div>
 </div>
@@ -329,6 +462,7 @@ function showTab(name, ev) {
   document.getElementById('sec-' + name).classList.add('show');
   if (ev) ev.target.classList.add('active');
   if (name === 'historico') carregarHistorico();
+  if (name === 'central') cadcAbrir(); else if (typeof cadcFechar === 'function') cadcFechar();
 }
 
 /* ---------- cadastros ---------- */
@@ -622,6 +756,332 @@ function exportarCSV() {
   await loadUser();
   await carregarCadastros();
   await carregarDia();
+})();
+</script>
+<script src="/js/cadc.js"></script>
+<script>
+/* ═══════════ Cadenciador central — painel do administrador ═══════════ */
+const CC = '/cadenciador-central';
+let ccVisao = null, ccCad = null, ccTimer = null, ccRelogio = null, ccAssin = '', ccPausaId = null, ccRecebido = 0;
+const CC_FRASES = ['Atenção, equipe', 'Troca de produto', 'Chamar o líder', 'Organizar a célula', 'Faltam 5 minutos para o intervalo'];
+
+function cadcFechaModal(id) { document.getElementById(id).classList.remove('show'); }
+document.addEventListener('keydown', e => { if (e.key === 'Escape') document.querySelectorAll('.cc-modal.show').forEach(m => m.classList.remove('show')); });
+
+async function cadcAbrir() {
+  if (!ccCad) {
+    try { ccCad = await api(CC + '/admin/cadastros'); }
+    catch (e) { toast(e.message, 'error'); return; }
+    document.getElementById('cc-n-produto').innerHTML = '<option value="">Selecione…</option>' +
+      ccCad.produtos.map(p => `<option value="${p.id}">${esc(p.nome)} — ${p.takt_min} min</option>`).join('');
+    document.getElementById('cc-n-turno').innerHTML = '<option value="">Selecione…</option>' +
+      ccCad.turnos.map(t => `<option value="${t.id}">${esc(t.nome)} (${String(t.hora_inicio).slice(0,5)}–${String(t.hora_fim).slice(0,5)})</option>`).join('');
+    document.getElementById('cc-dl-celulas').innerHTML = ccCad.celulas_cadastro.map(n => `<option value="${esc(n)}">`).join('');
+  }
+  await cadcAtualizar(true);
+  clearInterval(ccTimer); clearInterval(ccRelogio);
+  ccTimer = setInterval(() => cadcAtualizar(false), 2000);
+  ccRelogio = setInterval(cadcVivo, 1000);
+}
+function cadcFechar() { clearInterval(ccTimer); clearInterval(ccRelogio); ccTimer = ccRelogio = null; }
+
+async function cadcAtualizar(forcar) {
+  try {
+    ccVisao = await api(CC + '/admin/visao');
+    ccRecebido = performance.now();
+    Cadc.acertar(ccVisao.hora);
+  } catch (e) { return; }
+  cadcRender(forcar);
+}
+
+/* Só redesenha os cartões quando algo de estrutura muda — assim não atrapalha quem está digitando. */
+function cadcRender(forcar) {
+  const v = ccVisao;
+  const assin = JSON.stringify([
+    v.celulas.map(c => [c.id, c.versao]),
+    v.tablets.map(t => [t.id, t.nome, t.celula_id, t.online, t.som_ok, t.usuario])
+  ]);
+  const foco = document.activeElement;
+  const digitando = foco && foco.closest && foco.closest('#cc-grid, #cc-tablets') && /INPUT|SELECT/.test(foco.tagName);
+  if (forcar || (assin !== ccAssin && !digitando)) {
+    ccAssin = assin;
+    cadcDesenharCelulas();
+    cadcDesenharTablets();
+  }
+  cadcDesenharLog();
+  cadcVivo();
+
+  const on = v.tablets.filter(t => t.online && t.celula_id).length;
+  document.getElementById('cc-resumo').textContent =
+    `${v.celulas.length} célula${v.celulas.length === 1 ? '' : 's'} · ${on} tablet${on === 1 ? '' : 's'} online`;
+}
+
+function cadcDesenharCelulas() {
+  const g = document.getElementById('cc-grid');
+  const v = ccVisao;
+  if (!v.celulas.length) {
+    g.innerHTML = '<div class="cc-vazio">Nenhuma célula criada ainda.<br>Clique em <b>＋ Nova célula</b>, escolha o produto e o turno, e depois conecte o tablet.</div>';
+    return;
+  }
+  // Preserva o que estava digitado nos campos de texto
+  const rasc = {};
+  g.querySelectorAll('input[data-rasc]').forEach(i => { if (i.value) rasc[i.dataset.rasc] = i.value; });
+
+  g.innerHTML = v.celulas.map(c => {
+    const tabs = v.tablets.filter(t => t.celula_id === c.id);
+    const optProd = ccCad.produtos.map(p => `<option value="${p.id}"${c.produto && c.produto.id === p.id ? ' selected' : ''}>${esc(p.nome)}</option>`).join('');
+    const prodFora = c.produto && !ccCad.produtos.some(p => p.id === c.produto.id) ? `<option value="${c.produto.id}" selected>${esc(c.produto.nome)}</option>` : '';
+    const turnoFora = c.turno && !ccCad.turnos.some(t => t.id === c.turno.id) ? `<option value="${c.turno.id}" selected>${esc(c.turno.nome)}</option>` : '';
+    const optTurno = ccCad.turnos.map(t => `<option value="${t.id}"${c.turno && c.turno.id === t.id ? ' selected' : ''}>${esc(t.nome)}</option>`).join('');
+    return `
+    <div class="cc-card${c.pausada ? ' pausada' : ''}" data-id="${c.id}">
+      <div class="cc-cab">
+        <strong title="${esc(c.nome)}">${esc(c.nome)}</strong>
+        <span class="badge" id="cc-st-${c.id}">—</span>
+        <button class="cc-ico" title="Renomear" onclick="cadcRenomear(${c.id})">✏️</button>
+        <button class="cc-ico" title="Excluir célula" onclick="cadcExcluir(${c.id})">🗑️</button>
+      </div>
+
+      <div class="cc-vivo">
+        <div>Ciclo<b id="cc-ci-${c.id}">—</b></div>
+        <div class="cc-prox"><span id="cc-pr-rot-${c.id}">Próximo ciclo</span><b id="cc-pr-${c.id}">--:--</b></div>
+        <div>Tempo parado<b id="cc-tp-${c.id}">${Cadc.curto(c.tempo_parado_seg)}</b></div>
+      </div>
+
+      <div class="cc-campos">
+        <div class="form-group"><label>Produto</label>
+          <select onchange="cadcMudar(${c.id},{produto_id:Number(this.value)},'Produto alterado — o tablet já foi avisado')">
+            ${c.produto ? '' : '<option value="">Selecione…</option>'}${prodFora}${optProd}</select></div>
+        <div class="form-group"><label>Turno</label>
+          <select onchange="cadcMudar(${c.id},{turno_id:Number(this.value)},'Turno alterado')">
+            ${c.turno ? '' : '<option value="">Selecione…</option>'}${turnoFora}${optTurno}</select></div>
+        <div class="form-group"><label>Takt (min)</label>
+          <input type="number" step="0.1" min="0.1" value="${c.takt_min ?? ''}" title="${c.takt_manual ? 'Takt definido aqui. Apague para voltar ao do cadastro (' + c.takt_cadastro + ' min)' : 'Takt do cadastro do produto'}"
+                 style="${c.takt_manual ? 'border-color:var(--yellow)' : ''}"
+                 onchange="cadcMudar(${c.id},{takt_min:this.value},'Takt alterado')"></div>
+      </div>
+
+      <div class="cc-rot">🔊 Falar no tablet desta célula</div>
+      <div class="cc-linha">
+        <input type="text" maxlength="300" data-rasc="voz-${c.id}" id="cc-voz-${c.id}" value="${esc(rasc['voz-' + c.id] || '')}" placeholder="Digite e aperte Enter — o tablet fala em voz alta" onkeydown="if(event.key==='Enter')cadcFalar(${c.id})">
+        <button class="btn-sm btn-blue" onclick="cadcFalar(${c.id})">🔊 Falar</button>
+      </div>
+      <div class="cc-frases">${CC_FRASES.map(f => `<button onclick="cadcFalar(${c.id}, this.textContent)">${esc(f)}</button>`).join('')}</div>
+
+      <div class="cc-rot">📌 Mensagem fixa na tela do tablet</div>
+      <div class="cc-linha">
+        <input type="text" maxlength="200" data-rasc="msg-${c.id}" id="cc-msg-${c.id}" value="${esc(rasc['msg-' + c.id] ?? c.mensagem)}" placeholder="Ex.: OP 123456 — 40 peças" onkeydown="if(event.key==='Enter')cadcMensagem(${c.id})">
+        <button class="btn-sm btn-ghost" onclick="cadcMensagem(${c.id})">Mostrar</button>
+        ${c.mensagem ? `<button class="btn-sm btn-ghost" onclick="cadcMensagem(${c.id}, '')">Limpar</button>` : ''}
+      </div>
+
+      <div class="cc-acoes">
+        ${c.pausada
+          ? `<button class="btn-sm btn-accent" onclick="cadcRetomar(${c.id})">▶ Retomar linha</button>`
+          : `<button class="btn-sm btn-red" onclick="cadcPausar(${c.id}, true)">🤸 Pausa laboral</button>
+             <button class="btn-sm btn-ghost" onclick="cadcPausar(${c.id}, false)">⏸ Pausar…</button>`}
+        <button class="btn-sm btn-ghost" onclick="cadcMudar(${c.id},{voz_ativa:${!c.voz_ativa}},'${c.voz_ativa ? 'Avisos automáticos desligados' : 'Avisos automáticos ligados'}')"
+                title="“Ciclo finalizado”, intervalos e fim de turno">${c.voz_ativa ? '🔔 Avisos de ciclo: ligados' : '🔕 Avisos de ciclo: desligados'}</button>
+        <button class="btn-sm btn-ghost" onclick="cadcReiniciar(${c.id})" title="Zera o tempo parado e recomeça a contagem de ciclos">↺ Reiniciar contagem</button>
+      </div>
+
+      <div class="cc-tabs">
+        <span>📱 Tablets:</span>
+        ${tabs.length ? tabs.map(t => `
+          <span class="cc-tab ${t.online ? 'on' : 'off'}" title="${t.online ? 'Online' : 'Sem sinal'}${t.online && !t.som_ok ? ' — som ainda não ativado (falta um toque na tela)' : ''}">
+            <i></i>${esc(t.nome || 'Tablet')}${t.online && !t.som_ok ? ' 🔇' : ''}
+            <button title="Liberar este tablet da célula" onclick="cadcLiberar(${t.id})">✕</button>
+          </span>`).join('') : '<span>nenhum conectado — abra <b>Cadenciador da Célula</b> no tablet</span>'}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+/* Parte que anda sozinha: ciclo, contagem regressiva e situação */
+function cadcVivo() {
+  if (!ccVisao) return;
+  const agora = Cadc.agora();
+  const passou = (performance.now() - ccRecebido) / 1000;
+  for (const c of ccVisao.celulas) {
+    const st = document.getElementById('cc-st-' + c.id);
+    if (!st) continue;
+    const s = Cadc.situacao(c, agora);
+    const card = st.closest('.cc-card');
+    let rot = 'Próximo ciclo', val = '--:--', badge = ['green', 'Rodando'];
+
+    if (c.pausada) {
+      badge = ['red', 'Pausada'];
+      rot = c.pausa_motivo || 'Pausada';
+      val = c.pausa_restante_seg != null
+        ? 'volta em ' + Cadc.curto(Math.max(0, c.pausa_restante_seg - passou))
+        : 'há ' + Cadc.curto(c.pausa_decorrido_seg + passou);
+    } else if (s.fase === 'sem-config') { badge = ['yellow', 'Falta configurar']; rot = 'Defina produto e turno'; }
+    else if (s.fase === 'fora') { badge = ['blue', 'Fora do turno']; rot = s.proximo.rot; val = Cadc.curto(s.proximo.restante); }
+    else if (s.fase === 'encerrado') { badge = ['blue', 'Turno encerrado']; rot = 'Turno'; val = 'FIM'; }
+    else {
+      if (s.fase === 'intervalo') badge = ['orange', 'Intervalo'];
+      rot = s.proximo.rot; val = Cadc.curto(s.proximo.restante);
+    }
+    st.className = 'badge ' + badge[0]; st.textContent = badge[1];
+    card.classList.toggle('fora', !c.pausada && (s.fase === 'fora' || s.fase === 'encerrado' || s.fase === 'sem-config'));
+    document.getElementById('cc-ci-' + c.id).textContent = s.total ? `${s.ciclo} / ${s.total}` : '—';
+    document.getElementById('cc-pr-rot-' + c.id).textContent = rot;
+    document.getElementById('cc-pr-' + c.id).textContent = val;
+  }
+}
+
+function cadcDesenharTablets() {
+  const v = ccVisao, tb = document.getElementById('cc-tablets');
+  if (!v.tablets.length) {
+    tb.innerHTML = '<tr><td colspan="6" style="color:var(--text2)">Nenhum tablet conectado ainda. No tablet, abra o Portal e toque em <b>Cadenciador da Célula</b>.</td></tr>';
+    return;
+  }
+  tb.innerHTML = v.tablets.map(t => `
+    <tr>
+      <td><b>${esc(t.nome || 'Tablet')}</b></td>
+      <td>${t.online ? '<span class="badge green">Online</span>' : '<span class="badge red">Sem sinal</span>'}</td>
+      <td>${!t.online ? '—' : t.som_ok ? '🔊 ativo' : '<span title="Falta um toque na tela do tablet">🔇 falta um toque</span>'}</td>
+      <td><select onchange="cadcMover(${t.id}, this.value)">
+            <option value="">— livre (sem célula) —</option>
+            ${v.celulas.map(c => `<option value="${c.id}"${t.celula_id === c.id ? ' selected' : ''}>${esc(c.nome)}</option>`).join('')}
+          </select></td>
+      <td>${esc(t.usuario || '—')}</td>
+      <td style="white-space:nowrap">
+        <button class="btn-sm btn-ghost" onclick="cadcFalarTablet(${t.id})" ${t.celula_id ? '' : 'disabled'}>🔊 Falar só nele</button>
+        <button class="btn-sm btn-ghost" onclick="cadcRenomearTablet(${t.id})">✏️</button>
+        <button class="btn-sm btn-ghost" title="Recarregar a tela do tablet" onclick="cadcRecarregar(${t.id})" ${t.celula_id ? '' : 'disabled'}>↻</button>
+        <button class="btn-sm btn-ghost" title="Liberar da célula" onclick="cadcLiberar(${t.id})" ${t.celula_id ? '' : 'disabled'}>🔓 Liberar</button>
+        <button class="btn-sm btn-ghost" title="Apagar este tablet da lista" onclick="cadcEsquecer(${t.id})">🗑️</button>
+      </td>
+    </tr>`).join('');
+}
+
+function cadcDesenharLog() {
+  const v = ccVisao, el = document.getElementById('cc-log');
+  if (!v.comandos.length) { el.innerHTML = '<div style="color:var(--text2);border:none">Nenhum aviso enviado ainda.</div>'; return; }
+  el.innerHTML = v.comandos.filter(k => k.tipo === 'voz').map(k => {
+    const alvo = v.tablets.filter(t => t.celula_id === k.celula_id && (!k.tablet_id || t.id === k.tablet_id));
+    const ok = alvo.filter(t => t.ultimo_cmd >= k.id).length;
+    return `<div class="${k.origem === 'auto' ? 'auto' : ''}">
+      <span class="h">${new Date(k.criado_em).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}</span>
+      <span class="c">${esc(k.celula_nome)}${k.tablet_nome ? ' › ' + esc(k.tablet_nome) : ''}</span>
+      <span class="t">${k.origem === 'auto' ? '⚙️ ' : '🔊 '}${esc(k.texto)}</span>
+      <span class="h" title="Tablets que já receberam">${alvo.length ? `✓ ${ok}/${alvo.length}` : 'sem tablet'}</span>
+    </div>`;
+  }).join('');
+}
+
+/* ---------- ações ---------- */
+async function cadcAcao(fn, msg) {
+  try { await fn(); if (msg) toast(msg); await cadcAtualizar(true); return true; }
+  catch (e) { toast(e.message, 'error'); await cadcAtualizar(true); return false; }
+}
+const cadcCel = id => ccVisao.celulas.find(c => c.id === id);
+const cadcTab = id => ccVisao.tablets.find(t => t.id === id);
+
+function cadcNova() {
+  ['cc-n-nome', 'cc-n-produto', 'cc-n-turno', 'cc-n-takt'].forEach(i => document.getElementById(i).value = '');
+  document.getElementById('cc-m-nova').classList.add('show');
+  document.getElementById('cc-n-nome').focus();
+}
+async function cadcCriar() {
+  const corpo = {
+    nome: document.getElementById('cc-n-nome').value.trim(),
+    produto_id: Number(document.getElementById('cc-n-produto').value) || null,
+    turno_id: Number(document.getElementById('cc-n-turno').value) || null,
+    takt_min: document.getElementById('cc-n-takt').value
+  };
+  if (!corpo.nome) return toast('Dê um nome para a célula', 'warn');
+  if (!corpo.produto_id || !corpo.turno_id) return toast('Escolha o produto e o turno', 'warn');
+  if (await cadcAcao(() => api(CC + '/celulas', { method: 'POST', body: corpo }), 'Célula criada — agora conecte o tablet nela')) cadcFechaModal('cc-m-nova');
+}
+function cadcMudar(id, corpo, msg) { return cadcAcao(() => api(CC + '/celulas/' + id, { method: 'PUT', body: corpo }), msg); }
+function cadcRenomear(id) {
+  const c = cadcCel(id); const nome = prompt('Novo nome da célula:', c.nome);
+  if (nome && nome.trim() && nome.trim() !== c.nome) cadcMudar(id, { nome: nome.trim() }, 'Nome alterado');
+}
+function cadcExcluir(id) {
+  const c = cadcCel(id);
+  if (!confirm(`Excluir a célula "${c.nome}"?\nOs tablets conectados nela voltam para a tela de escolha.`)) return;
+  cadcAcao(() => api(CC + '/celulas/' + id, { method: 'DELETE' }), 'Célula excluída');
+}
+function cadcMensagem(id, valor) {
+  const txt = valor !== undefined ? valor : document.getElementById('cc-msg-' + id).value.trim();
+  const campo = document.getElementById('cc-msg-' + id); if (campo) { campo.value = txt; campo.blur(); }
+  cadcMudar(id, { mensagem: txt }, txt ? 'Mensagem na tela do tablet' : 'Mensagem removida');
+}
+async function cadcFalar(id, frase) {
+  const campo = document.getElementById('cc-voz-' + id);
+  const txt = (frase || campo.value).trim();
+  if (!txt) return toast('Digite o que o tablet deve falar', 'warn');
+  const n = ccVisao.tablets.filter(t => t.celula_id === id && t.online).length;
+  if (!frase) campo.value = '';
+  const ok = await cadcAcao(() => api(CC + '/voz', { method: 'POST', body: { celula_id: id, texto: txt } }),
+      n ? `🔊 Enviado para ${n} tablet${n === 1 ? '' : 's'}` : null);
+  if (ok && !n) toast('Aviso enviado, mas não há tablet online nesta célula', 'warn');
+  if (!ok && !frase) { const c2 = document.getElementById('cc-voz-' + id); if (c2) c2.value = txt; }
+}
+async function cadcFalarTodas() {
+  const campo = document.getElementById('cc-todas-txt'); const txt = campo.value.trim();
+  if (!txt) return toast('Digite o aviso', 'warn');
+  if (await cadcAcao(() => api(CC + '/voz', { method: 'POST', body: { todas: true, texto: txt } }), '📢 Aviso enviado para todas as células')) campo.value = '';
+}
+function cadcFalarTablet(id) {
+  const t = cadcTab(id); const txt = prompt(`O que o tablet "${t.nome}" deve falar?`);
+  if (txt && txt.trim()) cadcAcao(() => api(CC + '/voz', { method: 'POST', body: { tablet_id: id, texto: txt.trim() } }), '🔊 Enviado para ' + t.nome);
+}
+function cadcPausar(id, laboral) {
+  ccPausaId = id;
+  document.getElementById('cc-p-nome').textContent = cadcCel(id).nome;
+  document.getElementById('cc-p-motivo').value = laboral ? 'Ginástica laboral' : 'Reunião';
+  document.getElementById('cc-p-outro-g').style.display = 'none';
+  document.getElementById('cc-p-outro').value = '';
+  let min = ''; try { min = localStorage.getItem('cadc_laboral_min') || '10'; } catch (e) { min = '10'; }
+  document.getElementById('cc-p-min').value = laboral ? min : '';
+  document.getElementById('cc-m-pausa').classList.add('show');
+}
+async function cadcPausarOk() {
+  let motivo = document.getElementById('cc-p-motivo').value;
+  if (motivo === '__outro') motivo = document.getElementById('cc-p-outro').value.trim();
+  if (!motivo) return toast('Informe o motivo', 'warn');
+  const min = document.getElementById('cc-p-min').value;
+  if (motivo === 'Ginástica laboral' && min) { try { localStorage.setItem('cadc_laboral_min', min); } catch (e) {} }
+  if (await cadcAcao(() => api(CC + '/celulas/' + ccPausaId + '/pausar', { method: 'POST', body: { motivo, duracao_min: min } }), '⏸ Linha pausada — tablet avisado')) cadcFechaModal('cc-m-pausa');
+}
+function cadcRetomar(id) { cadcAcao(() => api(CC + '/celulas/' + id + '/retomar', { method: 'POST', body: {} }), '▶ Linha retomada'); }
+function cadcReiniciar(id) {
+  const agora = confirm('Reiniciar a contagem de ciclos desta célula.\n\nOK = começar a contar a partir de AGORA\nCancelar = não mexer');
+  if (!agora) return;
+  cadcAcao(() => api(CC + '/celulas/' + id + '/reiniciar', { method: 'POST', body: { de: 'agora' } }), 'Contagem reiniciada');
+}
+function cadcMover(id, celulaId) {
+  cadcAcao(() => api(CC + '/tablets/' + id, { method: 'PUT', body: { celula_id: celulaId ? Number(celulaId) : null } }),
+    celulaId ? 'Tablet movido de célula' : 'Tablet liberado');
+}
+function cadcLiberar(id) {
+  const t = cadcTab(id);
+  if (!confirm(`Liberar o tablet "${t.nome}"?\nEle sai da célula e volta para a tela de escolha.`)) return;
+  cadcMover(id, '');
+}
+function cadcRenomearTablet(id) {
+  const t = cadcTab(id); const nome = prompt('Nome do tablet:', t.nome || '');
+  if (nome && nome.trim()) cadcAcao(() => api(CC + '/tablets/' + id, { method: 'PUT', body: { nome: nome.trim() } }), 'Tablet renomeado');
+}
+function cadcRecarregar(id) { cadcAcao(() => api(CC + '/tablets/' + id + '/recarregar', { method: 'POST', body: {} }), 'Pedido de recarregar enviado'); }
+function cadcEsquecer(id) {
+  const t = cadcTab(id);
+  if (!confirm(`Apagar o tablet "${t.nome}" da lista?\nSe ele ainda estiver ligado, volta para a tela de escolha.`)) return;
+  cadcAcao(() => api(CC + '/tablets/' + id, { method: 'DELETE' }), 'Tablet apagado da lista');
+}
+
+/* A aba só existe para o administrador */
+(async () => {
+  try {
+    const eu = await api('/me');
+    if (eu.role !== 'admin') return;
+    document.body.classList.add('adm');
+    if (location.hash === '#central') document.getElementById('tab-central').click();
+  } catch (e) {}
 })();
 </script>
 </body>

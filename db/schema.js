@@ -178,6 +178,68 @@ CREATE TABLE IF NOT EXISTS cad_paradas (
 );
 CREATE INDEX IF NOT EXISTS idx_paradas_sessao ON cad_paradas(sessao_id);
 
+/* ══════════════ CADENCIADOR CENTRAL (controlado pelo PC do admin) ══════════════
+   A célula é configurada no PC (Linha de Produção › Cadenciador central) e os
+   tablets apenas se conectam a ela e espelham o que o admin define.
+   Não mexe em nada do cadenciador comum (tabelas cad_*). */
+
+CREATE TABLE IF NOT EXISTS cadc_celulas (
+  id                SERIAL PRIMARY KEY,
+  nome              VARCHAR(120) UNIQUE NOT NULL,
+  turno_id          INTEGER REFERENCES turnos(id) ON DELETE SET NULL,
+  produto_id        INTEGER REFERENCES cad_produtos(id) ON DELETE SET NULL,
+  takt_manual       NUMERIC(8,3),
+  inicio_off_seg    INTEGER NOT NULL DEFAULT 0,
+  tempo_parado_seg  INTEGER NOT NULL DEFAULT 0,
+  ref_em            TIMESTAMPTZ,
+  pausada           BOOLEAN NOT NULL DEFAULT FALSE,
+  pausa_motivo      TEXT,
+  pausa_inicio      TIMESTAMPTZ,
+  pausa_fim_prev    TIMESTAMPTZ,
+  voz_ativa         BOOLEAN NOT NULL DEFAULT TRUE,
+  mensagem          TEXT,
+  versao            INTEGER NOT NULL DEFAULT 1,
+  created_at        TIMESTAMPTZ DEFAULT NOW(),
+  updated_at        TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS cadc_tablets (
+  id            SERIAL PRIMARY KEY,
+  device_id     VARCHAR(80) UNIQUE NOT NULL,
+  nome          VARCHAR(120),
+  celula_id     INTEGER REFERENCES cadc_celulas(id) ON DELETE SET NULL,
+  usuario       VARCHAR(120),
+  som_ok        BOOLEAN DEFAULT FALSE,
+  ultimo_cmd    BIGINT DEFAULT 0,
+  conectado_em  TIMESTAMPTZ,
+  visto_em      TIMESTAMPTZ,
+  created_at    TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS cadc_comandos (
+  id          BIGSERIAL PRIMARY KEY,
+  celula_id   INTEGER NOT NULL REFERENCES cadc_celulas(id) ON DELETE CASCADE,
+  tablet_id   INTEGER REFERENCES cadc_tablets(id) ON DELETE CASCADE,
+  tipo        VARCHAR(20) NOT NULL DEFAULT 'voz',
+  texto       TEXT,
+  repetir     INTEGER DEFAULT 1,
+  origem      VARCHAR(20) DEFAULT 'admin',
+  criado_por  VARCHAR(120),
+  criado_em   TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_cadc_cmd_celula ON cadc_comandos(celula_id, id);
+
+CREATE TABLE IF NOT EXISTS cadc_paradas (
+  id           SERIAL PRIMARY KEY,
+  celula_id    INTEGER NOT NULL REFERENCES cadc_celulas(id) ON DELETE CASCADE,
+  motivo       TEXT,
+  inicio       TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  fim          TIMESTAMPTZ,
+  duracao_seg  INTEGER DEFAULT 0,
+  usuario      VARCHAR(120)
+);
+CREATE INDEX IF NOT EXISTS idx_cadc_paradas_celula ON cadc_paradas(celula_id, inicio DESC);
+
 /* ══════════════ SISTEMA 3 — PROGESTÃO ══════════════ */
 
 /* ── Ferramentas ── */

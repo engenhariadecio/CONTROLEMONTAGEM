@@ -1,0 +1,556 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="theme-color" content="#0A1620">
+<title>Cadenciador da Célula — Décio</title>
+<link rel="icon" href="/assets/favicon.png">
+<link rel="stylesheet" href="/css/decio.css">
+<style>
+html, body { height: 100%; }
+body { margin: 0; overflow: hidden; background: var(--fundo); color: var(--t1); overscroll-behavior: none; }
+
+/* ───────── Escolha da célula ───────── */
+#escolha { position: fixed; inset: 0; overflow-y: auto; padding: 4vh 5vw 6vh; display: none; }
+#escolha.ativo { display: block; }
+.esc-topo { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; margin-bottom: 3vh; }
+.esc-topo img { height: 44px; }
+.esc-topo h1 { font-family: var(--display); font-size: clamp(20px, 3vw, 30px); font-weight: 800; letter-spacing: -.02em; margin: 0; }
+.esc-topo p { margin: 2px 0 0; color: var(--t2); font-size: 14px; }
+.esc-topo .dir { margin-left: auto; display: flex; gap: 8px; }
+.esc-nome { display: flex; gap: 10px; align-items: flex-end; flex-wrap: wrap; background: var(--card); border: 1px solid var(--linha); border-radius: var(--r); padding: 14px 16px; margin-bottom: 3vh; }
+.esc-nome label { font-size: 11px; letter-spacing: .1em; text-transform: uppercase; color: var(--t3); font-weight: 700; display: block; margin-bottom: 6px; }
+.esc-nome input { background: var(--card-2); border: 1px solid var(--linha); color: var(--t1); border-radius: var(--r-sm); padding: 11px 13px; font-size: 16px; min-width: 260px; }
+.esc-nome small { color: var(--t3); font-size: 12px; flex: 1; min-width: 200px; }
+.esc-grade { display: grid; grid-template-columns: repeat(auto-fill, minmax(270px, 1fr)); gap: 16px; }
+.esc-cel { background: var(--card); border: 1px solid var(--linha); border-radius: 16px; padding: 22px 20px; text-align: left; color: inherit; cursor: pointer; font: inherit; position: relative; overflow: hidden; transition: var(--tr); }
+.esc-cel::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 4px; background: var(--fade); }
+.esc-cel:hover, .esc-cel:active { border-color: var(--verde); transform: translateY(-2px); }
+.esc-cel strong { font-family: var(--display); font-size: 22px; font-weight: 800; display: block; }
+.esc-cel .prod { margin-top: 10px; font-size: 15px; font-weight: 600; }
+.esc-cel .det { margin-top: 4px; font-size: 12px; color: var(--t2); }
+.esc-cel .tag { display: inline-block; margin-top: 14px; font-size: 11px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; padding: 4px 9px; border-radius: 99px; background: var(--ok-bg); color: var(--ok); border: 1px solid var(--ok-bd); }
+.esc-cel .tag.pausa { background: var(--alerta-bg); color: var(--alerta); border-color: var(--alerta-bd); }
+.esc-vazio { background: var(--card); border: 1px dashed var(--linha-2); border-radius: 16px; padding: 34px 24px; text-align: center; color: var(--t2); font-size: 15px; }
+
+/* ───────── Painel da célula ───────── */
+#painel { position: fixed; inset: 0; display: none; flex-direction: column; padding: 2.4vh 3vw 1.6vh; gap: 2vh; }
+#painel.ativo { display: flex; }
+.p-topo { display: flex; align-items: center; justify-content: space-between; gap: 2vw; }
+.p-cel { display: inline-block; font-size: clamp(11px, 1.3vw, 16px); font-weight: 800; letter-spacing: .14em; text-transform: uppercase; color: #06140B; background: var(--verde-clr); padding: .35em .9em; border-radius: 99px; }
+.p-produto { font-family: var(--display); font-size: clamp(22px, 4vw, 56px); font-weight: 800; letter-spacing: -.02em; line-height: 1.05; margin-top: .6vh; }
+.p-turno { font-size: clamp(11px, 1.25vw, 17px); color: var(--t2); margin-top: .6vh; letter-spacing: .08em; text-transform: uppercase; }
+.p-relogio { font-family: var(--mono); font-size: clamp(30px, 5.4vw, 80px); font-weight: 700; letter-spacing: -.03em; white-space: nowrap; }
+
+.p-msg { display: none; background: var(--info-bg); border: 1px solid var(--info-bd); color: var(--t1); border-radius: var(--r); padding: 1.2vh 1.6vw; font-size: clamp(15px, 2.2vw, 30px); font-weight: 700; text-align: center; }
+.p-msg.ativo { display: block; }
+
+.p-grade { flex: 1; min-height: 0; display: grid; grid-template-columns: 2.1fr 1fr; grid-template-rows: 1fr 1fr; gap: 2vh 2vw; }
+.p-caixa { background: var(--card); border: 1px solid var(--linha); border-radius: 20px; padding: 2vh 2vw; display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; position: relative; overflow: hidden; min-height: 0; }
+.p-caixa .r { font-size: clamp(11px, 1.3vw, 18px); letter-spacing: .14em; text-transform: uppercase; color: var(--t3); font-weight: 700; }
+.p-caixa .v { font-family: var(--mono); font-weight: 700; line-height: 1; letter-spacing: -.04em; margin-top: 1.2vh; }
+.p-prox { grid-row: 1 / -1; }
+.p-prox .v { font-size: clamp(64px, 17vw, 260px); }
+.p-prox .sub { margin-top: 1.6vh; font-size: clamp(13px, 1.7vw, 24px); color: var(--t2); font-weight: 600; min-height: 1.2em; }
+.p-barra { position: absolute; left: 0; right: 0; bottom: 0; height: 1.6vh; background: var(--card-2); }
+.p-barra i { display: block; height: 100%; width: 0; background: var(--fade); transition: width .9s linear; }
+.p-lado .v { font-size: clamp(40px, 8vw, 120px); }
+.p-lado .v small { font-size: .42em; color: var(--t3); font-weight: 600; letter-spacing: 0; }
+.p-feitos .v { color: var(--ok); }
+
+.p-prox.alerta { border-color: var(--alerta-bd); } .p-prox.alerta .v { color: var(--alerta); }
+.p-prox.pausa { border-color: var(--erro-bd); background: linear-gradient(180deg, rgba(242,109,109,.14), var(--card)); }
+.p-prox.pausa .v { color: var(--erro); }
+.p-prox.pausa .r { color: var(--erro); font-size: clamp(16px, 2.6vw, 38px); }
+.p-prox.pausa .p-barra i { background: var(--erro); }
+.p-prox.apagado .v { color: var(--t3); }
+
+.p-rodape { display: flex; align-items: center; gap: 1.4vw; font-size: clamp(11px, 1.2vw, 15px); color: var(--t2); min-height: 4.4vh; }
+.p-fala { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; background: var(--card); border: 1px solid var(--linha); border-radius: 99px; padding: .9vh 1.4vw; }
+.p-fala.nova { border-color: var(--verde); color: var(--t1); box-shadow: 0 0 0 3px var(--brilho); }
+.p-con { display: flex; align-items: center; gap: .5em; white-space: nowrap; }
+.p-con i { width: .8em; height: .8em; border-radius: 50%; background: var(--ok); display: inline-block; }
+.p-con.fora i { background: var(--erro); animation: pisca 1s infinite; }
+@keyframes pisca { 50% { opacity: .25; } }
+.p-trava { background: var(--card); border: 1px solid var(--linha); color: var(--t3); border-radius: 99px; padding: .8vh 1.2vw; font: inherit; cursor: pointer; white-space: nowrap; }
+
+/* ───────── Destaque de comando de voz do admin ───────── */
+#aviso-admin { position: fixed; left: 50%; bottom: 8.5vh; transform: translate(-50%, 30px); opacity: 0; pointer-events: none; z-index: 40; width: max-content; max-width: 94vw; background: #0d2a17; border: 2px solid var(--verde-clr); border-radius: 18px; padding: 1.6vh 3vw 2vh; text-align: center; box-shadow: var(--sombra-lg); transition: all .3s; }
+#aviso-admin.ativo { opacity: 1; transform: translate(-50%, 0); }
+#aviso-admin .r { font-size: clamp(10px, 1.1vw, 14px); letter-spacing: .14em; text-transform: uppercase; color: var(--verde-clr); font-weight: 800; }
+#aviso-admin .t { font-family: var(--display); font-size: clamp(18px, 3.2vw, 42px); font-weight: 800; margin-top: .5vh; line-height: 1.15; }
+
+/* ───────── Ativar som ───────── */
+#som { position: fixed; inset: 0; z-index: 60; background: rgba(6,14,20,.94); display: none; flex-direction: column; align-items: center; justify-content: center; text-align: center; padding: 6vw; cursor: pointer; }
+#som.ativo { display: flex; }
+#som .ic { font-size: clamp(60px, 12vw, 140px); }
+#som h2 { font-family: var(--display); font-size: clamp(26px, 5vw, 60px); font-weight: 800; margin: 2vh 0 1vh; }
+#som p { color: var(--t2); font-size: clamp(14px, 2vw, 22px); margin: 0; }
+
+#carregando { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; color: var(--t2); font-size: 16px; }
+
+@media (max-width: 760px), (orientation: portrait) {
+  .p-grade { grid-template-columns: 1fr 1fr; grid-template-rows: 2fr 1fr; }
+  .p-prox { grid-row: auto; grid-column: 1 / -1; }
+  .p-prox .v { font-size: clamp(60px, 24vw, 220px); }
+}
+</style>
+</head>
+<body>
+
+<div id="carregando">Conectando…</div>
+
+<!-- ═════════ 1. Escolher a célula (só aparece com o tablet livre) ═════════ -->
+<div id="escolha">
+  <div class="esc-topo">
+    <img src="/assets/logo-decio.png" alt="Décio">
+    <div>
+      <h1>Cadenciador da Célula</h1>
+      <p>Toque na célula onde este tablet vai ficar. Depois disso, só o administrador libera.</p>
+    </div>
+    <div class="dir">
+      <button class="btn btn-fantasma btn-sm" onclick="carregarEscolha()">↻ Atualizar</button>
+      <a class="btn btn-fantasma btn-sm" href="/">← Portal</a>
+    </div>
+  </div>
+
+  <div class="esc-nome">
+    <div>
+      <label for="nomeTablet">Nome deste tablet</label>
+      <input id="nomeTablet" maxlength="60" placeholder="Ex.: Tablet Célula 1" autocomplete="off">
+    </div>
+    <small>É com este nome que o tablet aparece na tela do administrador.</small>
+  </div>
+
+  <div class="esc-grade" id="escGrade"></div>
+</div>
+
+<!-- ═════════ 2. Painel preso à célula ═════════ -->
+<div id="painel">
+  <div class="p-topo">
+    <div style="min-width:0">
+      <span class="p-cel" id="pCel">—</span>
+      <div class="p-produto" id="pProduto">—</div>
+      <div class="p-turno" id="pTurno">—</div>
+    </div>
+    <div class="p-relogio num" id="pRelogio">--:--:--</div>
+  </div>
+
+  <div class="p-msg" id="pMsg"></div>
+
+  <div class="p-grade">
+    <div class="p-caixa p-prox" id="pProx">
+      <div class="r" id="pProxRot">Próximo ciclo</div>
+      <div class="v num" id="pProxVal">--:--</div>
+      <div class="sub" id="pProxSub"></div>
+      <div class="p-barra"><i id="pBarra"></i></div>
+    </div>
+    <div class="p-caixa p-lado">
+      <div class="r">Ciclo atual</div>
+      <div class="v num"><span id="pCiclo">0</span><small> / <span id="pTotal">0</span></small></div>
+    </div>
+    <div class="p-caixa p-lado p-feitos">
+      <div class="r">Ciclos encerrados</div>
+      <div class="v num" id="pFeitos">0</div>
+    </div>
+  </div>
+
+  <div class="p-rodape">
+    <div class="p-fala" id="pFala">🔊 Aguardando avisos…</div>
+    <div class="p-con" id="pCon"><i></i><span id="pConTxt">Conectado</span></div>
+    <button class="p-trava" id="btnTrava" title="Liberar este tablet (somente administrador)">🔒 <span id="pTabNome">Tablet</span></button>
+  </div>
+</div>
+
+<div id="aviso-admin"><div class="r">📢 Aviso</div><div class="t" id="avisoTxt"></div></div>
+
+<div id="som">
+  <div class="ic">🔊</div>
+  <h2>Toque na tela para ativar o som</h2>
+  <p>O tablet só pode falar os avisos depois de um toque.</p>
+</div>
+
+<!-- Liberar tablet -->
+<div class="modal-fundo" id="modalLiberar">
+  <div class="modal" style="max-width:440px">
+    <div class="modal-topo">
+      <div class="modal-titulo">🔒 Liberar este tablet</div>
+      <button class="modal-fechar" onclick="fecharModal('modalLiberar')">×</button>
+    </div>
+    <div class="modal-corpo">
+      <p style="margin:0 0 14px;color:var(--t2);font-size:14px">Este tablet está preso à célula <strong id="libCel"></strong>. Para soltar, é preciso a senha de um <strong>administrador</strong>.</p>
+      <div id="libCampos">
+        <div class="campo" style="margin-bottom:10px"><label>Usuário administrador</label><input id="libUsuario" autocomplete="off" autocapitalize="none"></div>
+        <div class="campo" style="margin-bottom:14px"><label>Senha</label><input id="libSenha" type="password" autocomplete="off"></div>
+      </div>
+      <div style="display:flex;gap:8px;justify-content:flex-end">
+        <button class="btn btn-fantasma" onclick="fecharModal('modalLiberar')">Cancelar</button>
+        <button class="btn btn-primario" id="btnLiberar">Liberar tablet</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="/js/core.js"></script>
+<script src="/js/cadc.js"></script>
+<script>
+/* ═══════════ Identidade do tablet ═══════════ */
+
+const guarda = {
+  ler(k) { try { return localStorage.getItem(k); } catch { return null; } },
+  por(k, v) { try { v == null ? localStorage.removeItem(k) : localStorage.setItem(k, v); } catch {} }
+};
+
+let DEVICE = guarda.ler('cadc_device');
+if (!DEVICE || !/^[A-Za-z0-9_-]{8,80}$/.test(DEVICE)) {
+  const a = new Uint8Array(12);
+  (window.crypto || {}).getRandomValues ? crypto.getRandomValues(a) : a.forEach((_, i) => a[i] = Math.random() * 256);
+  DEVICE = 'tab-' + [...a].map(b => b.toString(16).padStart(2, '0')).join('');
+  guarda.por('cadc_device', DEVICE);
+}
+
+const BASE = '/api/cadenciador-central';
+let EU = null;          // usuário logado
+let TABLET = null;      // { id, nome, celula_id }
+let CEL = null;         // estado completo da célula
+let FALAS = [];         // avisos automáticos do turno
+let depois = guarda.ler('cadc_depois');
+depois = depois != null && depois !== '' ? Number(depois) : null;
+let ultimoOff = null;   // último segundo conferido para avisos automáticos
+let pausaBase = null;   // { decorrido, restante, em } — para contar a pausa entre uma consulta e outra
+let falhas = 0;
+let somOk = false;
+
+const $ = id => document.getElementById(id);
+
+/* ═══════════ Som e voz ═══════════ */
+
+let audioCtx = null;
+function bip() {
+  try {
+    audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)();
+    if (audioCtx.state === 'suspended') audioCtx.resume();
+    const t0 = audioCtx.currentTime;
+    [880, 1175].forEach((f, i) => {
+      const o = audioCtx.createOscillator(), g = audioCtx.createGain();
+      o.type = 'sine'; o.frequency.value = f;
+      g.gain.setValueAtTime(0.0001, t0 + i * 0.18);
+      g.gain.exponentialRampToValueAtTime(0.35, t0 + i * 0.18 + 0.02);
+      g.gain.exponentialRampToValueAtTime(0.0001, t0 + i * 0.18 + 0.16);
+      o.connect(g); g.connect(audioCtx.destination);
+      o.start(t0 + i * 0.18); o.stop(t0 + i * 0.18 + 0.18);
+    });
+  } catch { /* sem áudio, segue só com a voz */ }
+}
+
+/** Fala em fila: um comando do admin nunca é cortado pelo aviso seguinte. */
+function falar(txt, vezes = 1) {
+  if (!txt || !('speechSynthesis' in window)) return;
+  for (let i = 0; i < vezes; i++) {
+    const f = new SpeechSynthesisUtterance(txt);
+    f.lang = 'pt-BR'; f.rate = 1; f.volume = 1;
+    window.speechSynthesis.speak(f);
+  }
+}
+
+function ativarSom() {
+  if (somOk) return;
+  somOk = true;
+  $('som').classList.remove('ativo');
+  try {
+    const f = new SpeechSynthesisUtterance(' ');
+    f.volume = 0; f.lang = 'pt-BR';
+    window.speechSynthesis.speak(f);
+  } catch {}
+  bip();
+  manterTelaLigada();
+  const el = document.documentElement;
+  if (TABLET && TABLET.celula_id && el.requestFullscreen && !document.fullscreenElement) {
+    el.requestFullscreen({ navigationUI: 'hide' }).catch(() => {});
+  }
+}
+document.addEventListener('pointerdown', ativarSom, { capture: true });
+document.addEventListener('keydown', ativarSom, { capture: true });
+
+function mostrarAviso(txt) {
+  $('avisoTxt').textContent = txt;
+  $('aviso-admin').classList.add('ativo');
+  clearTimeout(mostrarAviso.t);
+  mostrarAviso.t = setTimeout(() => $('aviso-admin').classList.remove('ativo'), Math.min(20000, 6000 + txt.length * 90));
+}
+
+function registrarFala(txt, doAdmin) {
+  const el = $('pFala');
+  el.textContent = `🔊 ${Cadc.agora().slice(0, 5)} — ${txt}`;
+  el.classList.toggle('nova', !!doAdmin);
+  clearTimeout(registrarFala.t);
+  registrarFala.t = setTimeout(() => el.classList.remove('nova'), 15000);
+}
+
+/* ═══════════ Telas ═══════════ */
+
+function tela(nome) {
+  $('carregando').style.display = 'none';
+  $('escolha').classList.toggle('ativo', nome === 'escolha');
+  $('painel').classList.toggle('ativo', nome === 'painel');
+  if (nome === 'painel') {
+    guarda.por('cadc_preso', '1');
+    // Sem toque nesta visita (ex.: página recarregada), o navegador não deixa falar
+    const jaTocou = navigator.userActivation ? navigator.userActivation.hasBeenActive : somOk;
+    if (!somOk && !jaTocou) $('som').classList.add('ativo');
+    else if (!somOk) ativarSom();
+  } else {
+    guarda.por('cadc_preso', null);
+    $('som').classList.remove('ativo');
+    if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
+  }
+}
+
+async function carregarEscolha() {
+  const lista = await tentar(() => API.get(BASE + '/tablet/celulas'));
+  if (!lista) return;
+  const g = $('escGrade');
+  if (!lista.length) {
+    g.innerHTML = `<div class="esc-vazio" style="grid-column:1/-1">Nenhuma célula criada ainda.<br>
+      O administrador cria as células no PC, em <strong>ProGestão › Linha de Produção › Cadenciador central</strong>.</div>`;
+    return;
+  }
+  g.innerHTML = lista.map(c => `
+    <button class="esc-cel" data-id="${c.id}">
+      <strong>${escapar(c.nome)}</strong>
+      <div class="prod">${escapar(c.produto || 'Sem produto definido')}</div>
+      <div class="det">${escapar(c.turno || 'Sem turno')}${c.takt_min ? ' · takt ' + c.takt_min + ' min' : ''}
+        · ${c.tablets_online} tablet${c.tablets_online === 1 ? '' : 's'} conectado${c.tablets_online === 1 ? '' : 's'}</div>
+      <span class="tag ${c.pausada ? 'pausa' : ''}">${c.pausada ? 'Pausada' : 'Toque para conectar'}</span>
+    </button>`).join('');
+  g.querySelectorAll('.esc-cel').forEach(b => b.onclick = () => conectar(Number(b.dataset.id)));
+}
+
+async function conectar(celulaId) {
+  const nome = $('nomeTablet').value.trim();
+  guarda.por('cadc_nome', nome || null);
+  const r = await tentar(() => API.post(BASE + '/tablet/conectar', { device_id: DEVICE, celula_id: celulaId, nome }));
+  if (!r) return;
+  TABLET = r.tablet;
+  depois = r.ultimo_comando;
+  guarda.por('cadc_depois', String(depois));
+  CEL = null;
+  const el = document.documentElement;
+  if (el.requestFullscreen && !document.fullscreenElement) el.requestFullscreen({ navigationUI: 'hide' }).catch(() => {});
+  await consultar();
+}
+
+/* ═══════════ Conversa com o servidor ═══════════ */
+
+let consultando = false;
+async function consultar() {
+  if (consultando) return;
+  consultando = true;
+  try {
+    const q = new URLSearchParams({ device_id: DEVICE, som: somOk ? '1' : '0' });
+    if (depois != null) q.set('depois', depois);
+    if (CEL) { q.set('c', CEL.id); q.set('v', CEL.versao); }
+    const r = await fetch(BASE + '/tablet/estado?' + q, { headers: { Accept: 'application/json' }, cache: 'no-store' });
+    if (r.status === 401) { location.href = '/login'; return; }
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    aplicar(await r.json());
+    falhas = 0;
+  } catch {
+    falhas++;
+  } finally {
+    consultando = false;
+    const fora = falhas >= 3;
+    $('pCon').classList.toggle('fora', fora);
+    $('pConTxt').textContent = fora ? 'Sem conexão — seguindo com os últimos dados' : 'Conectado';
+  }
+}
+
+function aplicar(r) {
+  Cadc.acertar(r.hora);
+  TABLET = r.tablet;
+
+  if (!r.celula) {
+    const estavaPreso = !!CEL;
+    CEL = null; FALAS = []; ultimoOff = null;
+    if (!$('escolha').classList.contains('ativo')) {
+      tela('escolha');
+      carregarEscolha();
+      if (estavaPreso) aviso('Tablet liberado pelo administrador.', 'info', 6000);
+    }
+    return;
+  }
+
+  const c = r.celula;
+  if (c.igual && CEL && CEL.id === c.id) {
+    CEL = { ...CEL, ...c, ciclos: CEL.ciclos, turno: CEL.turno };
+  } else {
+    const trocouCelula = CEL && CEL.id !== c.id;
+    CEL = c;
+    FALAS = Cadc.falasAutomaticas(CEL);
+    ultimoOff = null;
+    if (trocouCelula) aviso('Este tablet foi movido para ' + c.nome + '.', 'info', 6000);
+  }
+  pausaBase = CEL.pausada
+    ? { decorrido: CEL.pausa_decorrido_seg, restante: CEL.pausa_restante_seg, em: performance.now() }
+    : null;
+
+  if (r.ultimo_comando != null && r.ultimo_comando !== depois) {
+    depois = r.ultimo_comando;
+    guarda.por('cadc_depois', String(depois));
+  }
+  for (const k of (r.comandos || [])) executar(k);
+
+  if (!$('painel').classList.contains('ativo')) tela('painel');
+  pintarFixos();
+  tique();
+}
+
+function executar(k) {
+  if (k.tipo === 'recarregar') { setTimeout(() => location.reload(), 300); return; }
+  if (k.tipo !== 'voz' || !k.texto) return;
+  const doAdmin = k.origem !== 'auto';
+  bip();
+  setTimeout(() => falar(k.texto, k.repetir || 1), 450);
+  mostrarAviso(k.texto);
+  registrarFala(k.texto, doAdmin);
+}
+
+/* ═══════════ Painel ═══════════ */
+
+function pintarFixos() {
+  $('pCel').textContent = CEL.nome;
+  $('pProduto').textContent = CEL.produto ? CEL.produto.nome : 'Aguardando produto';
+  $('pTurno').textContent = CEL.turno
+    ? `${CEL.turno.nome} · ${horaCurta(CEL.turno.hora_inicio)}–${horaCurta(CEL.turno.hora_fim)}` +
+      (CEL.takt_min ? ` · takt ${CEL.takt_min} min` : '')
+    : 'Aguardando turno';
+  $('pMsg').textContent = CEL.mensagem || '';
+  $('pMsg').classList.toggle('ativo', !!CEL.mensagem);
+  $('pTabNome').textContent = (TABLET && TABLET.nome) || 'Tablet';
+  document.title = CEL.nome + ' — Cadenciador';
+}
+
+function tique() {
+  if (!CEL) return;
+  const agora = Cadc.agora();
+  $('pRelogio').textContent = agora;
+
+  const s = Cadc.situacao(CEL, agora);
+  const caixa = $('pProx');
+  caixa.classList.remove('pausa', 'alerta', 'apagado');
+  $('pTotal').textContent = s.total;
+  $('pCiclo').textContent = s.ciclo;
+  $('pFeitos').textContent = s.feitos;
+
+  if (CEL.pausada) {
+    const passou = pausaBase ? (performance.now() - pausaBase.em) / 1000 : 0;
+    caixa.classList.add('pausa');
+    $('pProxRot').textContent = 'Linha pausada';
+    if (pausaBase && pausaBase.restante != null) {
+      const rest = Math.max(0, pausaBase.restante - passou);
+      $('pProxVal').textContent = Cadc.curto(rest);
+      $('pProxSub').textContent = (CEL.pausa_motivo || 'Pausa') + ' · volta em';
+      const tot = pausaBase.decorrido + pausaBase.restante;
+      $('pBarra').style.width = (tot > 0 ? Math.min(100, (1 - rest / tot) * 100) : 0) + '%';
+    } else {
+      $('pProxVal').textContent = Cadc.curto((pausaBase ? pausaBase.decorrido : 0) + passou);
+      $('pProxSub').textContent = (CEL.pausa_motivo || 'Pausa') + ' · tempo parado';
+      $('pBarra').style.width = '100%';
+    }
+    ultimoOff = null;
+    return;
+  }
+
+  if (s.fase === 'sem-config') {
+    caixa.classList.add('apagado');
+    $('pProxRot').textContent = 'Aguardando';
+    $('pProxVal').textContent = '--:--';
+    $('pProxSub').textContent = 'O administrador ainda não definiu produto e turno';
+    $('pBarra').style.width = '0%';
+    return;
+  }
+  if (s.fase === 'encerrado') {
+    caixa.classList.add('apagado');
+    $('pProxRot').textContent = 'Turno';
+    $('pProxVal').textContent = 'FIM';
+    $('pProxSub').textContent = 'Turno finalizado';
+    $('pBarra').style.width = '100%';
+  } else {
+    const p = s.proximo;
+    if (s.fase === 'fora') caixa.classList.add('apagado');
+    else if (s.fase === 'rodando' && p.rot === 'Próximo ciclo' && p.restante <= 30) caixa.classList.add('alerta');
+    $('pProxRot').textContent = p.rot;
+    $('pProxVal').textContent = Cadc.curto(p.restante);
+    $('pProxSub').textContent = s.fase === 'fora' ? 'Fora do horário do turno'
+      : s.fase === 'intervalo' ? 'Intervalo: ' + s.intervalo : '';
+    $('pBarra').style.width = Math.min(100, Math.max(0, (1 - p.restante / p.janela) * 100)) + '%';
+  }
+
+  avisosAutomaticos(agora);
+}
+
+/** "Ciclo finalizado", intervalos e fim de turno — mesmo comportamento do cadenciador comum. */
+function avisosAutomaticos(agora) {
+  if (!CEL.turno) return;
+  const o = Cadc.off(agora, CEL.turno);
+  const antes = ultimoOff;
+  ultimoOff = o;
+  if (antes == null || o <= antes || o - antes > 5) return;      // primeira leitura ou salto de relógio
+  if (!CEL.voz_ativa) return;
+
+  const cand = FALAS.filter(f => f.off > antes && f.off <= o);
+  if (!cand.length) return;
+  const f = cand.sort((a, b) => b.prio - a.prio)[0];
+  falar(f.fala);
+  registrarFala(f.fala, false);
+}
+
+/* ═══════════ Liberar (somente administrador) ═══════════ */
+
+$('btnTrava').onclick = () => {
+  $('libCel').textContent = CEL ? CEL.nome : '';
+  $('libCampos').classList.toggle('oculto', !!(EU && EU.role === 'admin'));
+  $('libUsuario').value = ''; $('libSenha').value = '';
+  abrirModal('modalLiberar');
+};
+$('btnLiberar').onclick = async () => {
+  const corpo = { device_id: DEVICE };
+  if (!(EU && EU.role === 'admin')) {
+    corpo.usuario = $('libUsuario').value.trim();
+    corpo.senha = $('libSenha').value;
+    if (!corpo.usuario || !corpo.senha) { avisoErro('Informe usuário e senha do administrador.'); return; }
+  }
+  const r = await tentar(() => API.post(BASE + '/tablet/liberar', corpo));
+  if (!r) return;
+  fecharModal('modalLiberar');
+  CEL = null; FALAS = [];
+  tela('escolha');
+  carregarEscolha();
+  avisoOk('Tablet liberado.');
+};
+
+/* Enquanto preso, o botão "voltar" do tablet não tira do painel */
+history.pushState({ cadc: 1 }, '');
+window.addEventListener('popstate', () => {
+  if (CEL) history.pushState({ cadc: 1 }, '');
+  else history.back();
+});
+
+/* ═══════════ Início ═══════════ */
+
+(async function iniciar() {
+  try { EU = await API.get('/api/me'); } catch { return; }
+  $('nomeTablet').value = guarda.ler('cadc_nome') || '';
+
+  await consultar();
+  if (!CEL && !$('escolha').classList.contains('ativo')) { tela('escolha'); carregarEscolha(); }
+
+  setInterval(tique, 1000);
+  setInterval(consultar, 2000);
+  setInterval(() => { if ($('escolha').classList.contains('ativo')) carregarEscolha(); }, 8000);
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) consultar(); });
+})();
+</script>
+</body>
+</html>

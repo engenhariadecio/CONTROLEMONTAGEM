@@ -125,6 +125,26 @@ Os sistemas eram independentes e guardavam dados em lugares diferentes. Agora co
 
 ---
 
+## Cadenciador central (célula criada no PC, tablet só conecta)
+
+Forma adicional do cadenciador. O **Cadenciador comum** (`/cadenciador`) continua igual.
+
+- **No PC do administrador:** ProGestão › Linha de Produção › aba **🎛️ Cadenciador central**
+  (só aparece para o perfil admin). Ali se cria a célula (nome, produto, turno, takt) e se controla tudo:
+  trocar produto/turno/takt, pausa laboral (com ou sem tempo para voltar sozinha), retomar,
+  digitar um texto para o tablet **falar em voz alta** (uma célula, um tablet ou todas),
+  mensagem fixa na tela, ligar/desligar os avisos de ciclo, mover ou liberar tablets.
+- **No tablet:** Portal › **Cadenciador da Célula** (`/cadenciador/celula`). Toca na célula e pronto.
+  O tablet fica **preso à célula**: recarregar ou voltar ao Portal devolve para o painel. Só sai se o
+  admin liberar pelo PC, ou com usuário e senha de administrador no cadeado do próprio tablet.
+- O tablet consulta o servidor a cada 2 s. Sem internet, segue com os últimos dados e avisa "Sem conexão".
+- Depois de recarregar a página, o navegador pode pedir **um toque na tela** para voltar a falar
+  (regra do navegador). O admin vê "🔇 falta um toque" na lista de tablets.
+- Horário da fábrica no servidor: `America/Sao_Paulo`. Para outro fuso, variável `TZ_FABRICA`.
+
+Arquivos: `routes/cadenciador-central.js`, `public/cadenciador-celula.html`, `public/js/cadc.js`,
+tabelas `cadc_*` em `db/schema.js` (criadas sozinhas ao iniciar).
+
 ## Subir no GitHub
 
 ```bash

@@ -74,6 +74,11 @@
 .faixa-admin h3 { font-size: 15px; font-weight: 700; }
 .faixa-admin p { font-size: 12.5px; color: var(--t3); margin-top: 3px; }
 </style>
+<script>
+/* Tablet preso a uma célula do Cadenciador central: o Portal devolve para o painel dela.
+   Só o administrador libera (no PC ou com a senha, no próprio tablet). */
+try { if (localStorage.getItem('cadc_preso') === '1') location.replace('/cadenciador/celula'); } catch (e) {}
+</script>
 </head>
 <body>
 <header id="topo"></header>
@@ -117,6 +122,19 @@
       <div class="sistema-rodape">
         <span class="sistema-abrir">Abrir sistema →</span>
         <span class="sistema-stat" id="statCad">—</span>
+      </div>
+    </a>
+
+    <a class="sistema" href="/cadenciador/celula">
+      <span class="sistema-num">SISTEMA 02 · TABLET</span>
+      <h2>Cadenciador da Célula</h2>
+      <p>Para o tablet do chão de fábrica: conecta em uma célula criada pelo administrador e fala os avisos. Produto, pausas e comandos de voz vêm do PC central.</p>
+      <div class="sistema-itens">
+        <span>Controlado pelo admin</span><span>Comandos de voz</span><span>Tablet preso à célula</span>
+      </div>
+      <div class="sistema-rodape">
+        <span class="sistema-abrir">Conectar tablet →</span>
+        <span class="sistema-stat" id="statCadc">—</span>
       </div>
     </a>
 
@@ -177,6 +195,10 @@
 
   API.get('/api/cadenciador/produtos')
     .then(p => { document.getElementById('statCad').textContent = `${p.length} produtos`; })
+    .catch(() => {});
+
+  API.get('/api/cadenciador-central/tablet/celulas')
+    .then(c => { document.getElementById('statCadc').textContent = `${c.length} célula${c.length === 1 ? '' : 's'}`; })
     .catch(() => {});
 
   API.get('/api/colaboradores?status=Ativo')

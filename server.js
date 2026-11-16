@@ -63,6 +63,7 @@ app.use('/api/config', require('./routes/config'));
 app.use('/api/colaboradores', require('./routes/colaboradores'));
 app.use('/api/ponto', require('./routes/ponto'));
 app.use('/api/cadenciador', require('./routes/cadenciador'));
+app.use('/api/cadenciador-central', require('./routes/cadenciador-central'));
 app.use('/api/ferramentas', require('./routes/ferramentas'));
 app.use('/api/epis', require('./routes/epis'));
 app.use('/api', require('./routes/banco-horas'));
@@ -91,6 +92,8 @@ app.get('/admin', requireAdmin, (_req, res) => res.sendFile(pagina('admin.html')
 // Sistema 1 e 2
 app.get('/ponto', requireAuth, (_req, res) => res.sendFile(pagina('ponto.html')));
 app.get('/cadenciador', requireAuth, (_req, res) => res.sendFile(pagina('cadenciador.html')));
+// Cadenciador central — tela do tablet, presa à célula criada no PC do admin
+app.get('/cadenciador/celula', requireAuth, (_req, res) => res.sendFile(pagina('cadenciador-celula.html')));
 
 // Sistema 3 — ProGestão
 const MODULOS_PROGESTAO = [
