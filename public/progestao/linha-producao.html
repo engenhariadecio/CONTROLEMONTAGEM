@@ -248,6 +248,26 @@ body.pcp .cel-card input,body.pcp .cel-card select,body.pcp .chave{pointer-event
 .cc-modal .form-group input,.cc-modal .form-group select{width:100%}
 .cc-modal .rod{display:flex;gap:8px;justify-content:flex-end;margin-top:4px}
 .cc-tabela select,.cc-tabela input{background:var(--panel2);border:1px solid var(--border);color:var(--text);padding:6px 8px;border-radius:6px;font-size:12px}
+.cc-modal .cx.larga{max-width:980px;max-height:92vh}
+.cc-ci-topo{display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end}
+.cc-ci-topo h3{flex:1;min-width:200px}
+.cc-ci-topo select,.cc-ci-topo input{background:var(--panel2);border:1px solid var(--border);color:var(--text);padding:7px 10px;border-radius:6px;font-size:13px}
+.cc-ci-res{display:flex;flex-wrap:wrap;gap:8px;font-size:12px;color:var(--text2);align-items:center}
+.cc-ci-res label{display:inline-flex;gap:6px;align-items:center;cursor:pointer;margin-left:auto}
+.cc-ci-corpo{overflow:auto;border:1px solid var(--border);border-radius:8px;min-height:120px}
+.cc-ci-corpo table{width:100%;border-collapse:collapse;font-size:13px}
+.cc-ci-corpo th{position:sticky;top:0;z-index:1}
+.cc-ci-corpo td{padding:6px 8px;border-bottom:1px solid var(--border);vertical-align:middle}
+.cc-ci-corpo td.n{font-variant-numeric:tabular-nums;font-weight:700;white-space:nowrap}
+.cc-ci-corpo tr.nok{background:rgba(242,109,109,.08)}
+.cc-ci-corpo tr.andamento{background:rgba(38,178,71,.1)}
+.cc-ci-corpo tr.futuro{opacity:.45}
+.cc-ci-corpo tr.grupo td{background:var(--panel2);font-size:11px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.3px}
+.cc-ci-corpo input[type=text]{width:100%;min-width:180px;background:var(--panel2);border:1px solid var(--border);color:var(--text);padding:6px 8px;border-radius:6px;font-size:13px}
+.cc-ci-corpo input[type=text]:focus{border-color:var(--accent);outline:none}
+.cc-ci-corpo input.falta{border-color:var(--yellow)}
+.cc-ci-corpo label{display:inline-flex;gap:8px;align-items:center;cursor:pointer;white-space:nowrap}
+.cc-ci-corpo input[type=checkbox]{width:17px;height:17px;accent-color:var(--accent)}
 #tab-central{display:none}
 body.adm #tab-central{display:inline-block}
 @media(max-width:768px){.cc-grid{grid-template-columns:1fr}.cc-campos{grid-template-columns:1fr 1fr}.cc-campos .form-group:first-child{grid-column:1/-1}}
@@ -383,6 +403,32 @@ body.adm #tab-central{display:inline-block}
       <button class="btn-sm btn-ghost" onclick="cadcFechaModal('cc-m-nova')">Cancelar</button>
       <button class="btn-sm btn-accent" onclick="cadcCriar()">Criar célula</button>
     </div>
+  </div>
+</div>
+
+<!-- Cadenciador central: histórico de ciclos -->
+<div class="cc-modal" id="cc-m-ciclos">
+  <div class="cx larga">
+    <div class="cc-ci-topo">
+      <h3>📋 Ciclos — <span id="cc-ci-nome"></span></h3>
+      <div class="form-group"><label>Dia</label><select id="cc-ci-dia" onchange="cadcCiclosCarregar(true)"></select></div>
+      <button class="btn-sm btn-blue" onclick="cadcCiclosCSV()">📥 Exportar CSV</button>
+      <button class="btn-sm btn-ghost" onclick="cadcCiclosLimpar()">Limpar marcações</button>
+      <button class="btn-sm btn-ghost" onclick="cadcCiclosFechar()">Fechar</button>
+    </div>
+    <div class="cc-ci-res">
+      <span class="badge green" id="cc-ci-ok">0 concluídos</span>
+      <span class="badge red" id="cc-ci-nok">0 não concluídos</span>
+      <span id="cc-ci-info"></span>
+      <label><input type="checkbox" id="cc-ci-so-nok" onchange="cadcCiclosRender()"> Mostrar só os não concluídos</label>
+    </div>
+    <div class="cc-ci-corpo" id="cc-ci-corpo"></div>
+    <div style="font-size:12px;color:var(--text2)">Desmarque <b>Concluído</b> nos ciclos que não fecharam e escreva o <b>motivo</b>. Salva sozinho e aparece no histórico do tablet.</div>
+    <datalist id="cc-dl-motivos">
+      <option value="Falta de material"><option value="Falta de operador"><option value="Problema de qualidade">
+      <option value="Retrabalho"><option value="Manutenção / máquina parada"><option value="Troca de produto (setup)">
+      <option value="Falta de embalagem"><option value="Reunião / treinamento"><option value="Aguardando peça da pintura">
+    </datalist>
   </div>
 </div>
 
@@ -843,7 +889,7 @@ function cadcDesenharCelulas() {
       </div>
 
       <div class="cc-vivo">
-        <div>Ciclo<b id="cc-ci-${c.id}">—</b></div>
+        <div>Ciclo<b id="cc-ci-${c.id}">—</b><small id="cc-ok-${c.id}"></small></div>
         <div class="cc-prox"><span id="cc-pr-rot-${c.id}">Próximo ciclo</span><b id="cc-pr-${c.id}">--:--</b></div>
         <div>Tempo parado<b id="cc-tp-${c.id}">${Cadc.curto(c.tempo_parado_seg)}</b></div>
       </div>
@@ -876,6 +922,7 @@ function cadcDesenharCelulas() {
       </div>
 
       <div class="cc-acoes">
+        <button class="btn-sm btn-blue" onclick="cadcCiclos(${c.id})" title="Ver e editar todos os ciclos: concluído / não concluído e o motivo">📋 Ciclos e motivos</button>
         ${c.pausada
           ? `<button class="btn-sm btn-accent" onclick="cadcRetomar(${c.id})">▶ Retomar linha</button>`
           : `<button class="btn-sm btn-red" onclick="cadcPausar(${c.id}, true)">🤸 Pausa laboral</button>
@@ -925,6 +972,10 @@ function cadcVivo() {
     st.className = 'badge ' + badge[0]; st.textContent = badge[1];
     card.classList.toggle('fora', !c.pausada && (s.fase === 'fora' || s.fase === 'encerrado' || s.fase === 'sem-config'));
     document.getElementById('cc-ci-' + c.id).textContent = s.total ? `${s.ciclo} / ${s.total}` : '—';
+    const hh = Cadc.historico(c, agora);
+    const okEl = document.getElementById('cc-ok-' + c.id);
+    okEl.textContent = `✓ ${hh.ok} concl. · ✕ ${hh.nok} não`;
+    okEl.style.color = hh.nok ? 'var(--red)' : 'var(--text2)';
     document.getElementById('cc-pr-rot-' + c.id).textContent = rot;
     document.getElementById('cc-pr-' + c.id).textContent = val;
   }
@@ -1072,6 +1123,113 @@ function cadcEsquecer(id) {
   const t = cadcTab(id);
   if (!confirm(`Apagar o tablet "${t.nome}" da lista?\nSe ele ainda estiver ligado, volta para a tela de escolha.`)) return;
   cadcAcao(() => api(CC + '/tablets/' + id, { method: 'DELETE' }), 'Tablet apagado da lista');
+}
+
+/* ---------- histórico de ciclos (concluído / não concluído + motivo) ---------- */
+let ccCi = null, ccCiId = null, ccCiTimer = null;
+
+async function cadcCiclos(id) {
+  ccCiId = id; ccCi = null;
+  document.getElementById('cc-ci-nome').textContent = cadcCel(id).nome;
+  document.getElementById('cc-ci-dia').innerHTML = '';
+  document.getElementById('cc-ci-so-nok').checked = false;
+  document.getElementById('cc-ci-corpo').innerHTML = '<div style="padding:20px;color:var(--text2)">Carregando…</div>';
+  document.getElementById('cc-m-ciclos').classList.add('show');
+  await cadcCiclosCarregar(true);
+  clearInterval(ccCiTimer);
+  ccCiTimer = setInterval(() => {
+    if (!document.getElementById('cc-m-ciclos').classList.contains('show')) return cadcCiclosFechar();
+    const f = document.activeElement;
+    if (f && f.closest && f.closest('#cc-ci-corpo')) return;      // não mexe enquanto digita
+    cadcCiclosCarregar(false);
+  }, 5000);
+}
+function cadcCiclosFechar() { clearInterval(ccCiTimer); ccCiTimer = null; cadcFechaModal('cc-m-ciclos'); }
+
+async function cadcCiclosCarregar(rolar) {
+  const sel = document.getElementById('cc-ci-dia');
+  try { ccCi = await api(`${CC}/celulas/${ccCiId}/ciclos` + (sel.value ? '?data=' + sel.value : '')); }
+  catch (e) { toast(e.message, 'error'); return; }
+  sel.innerHTML = ccCi.dias.map(d => `<option value="${d}"${d === ccCi.data ? ' selected' : ''}>${fmtData(d)}${d === ccCi.hoje ? ' (hoje)' : ''}</option>`).join('');
+  cadcCiclosRender(rolar);
+}
+
+function cadcCiclosRender(rolar) {
+  if (!ccCi) return;
+  const corpo = document.getElementById('cc-ci-corpo');
+  const enc = ccCi.linhas.filter(l => l.estado === 'encerrado');
+  const nok = enc.filter(l => !l.concluido).length;
+  document.getElementById('cc-ci-ok').textContent = `${enc.length - nok} concluídos`;
+  document.getElementById('cc-ci-nok').textContent = `${nok} não concluídos`;
+  const semMotivo = enc.filter(l => !l.concluido && !l.observacao).length;
+  document.getElementById('cc-ci-info').textContent = semMotivo ? `⚠ ${semMotivo} sem motivo informado` : '';
+
+  const soNok = document.getElementById('cc-ci-so-nok').checked;
+  const linhas = soNok ? ccCi.linhas.filter(l => l.estado === 'encerrado' && !l.concluido) : ccCi.linhas;
+  if (!linhas.length) {
+    corpo.innerHTML = `<div style="padding:24px;color:var(--text2);text-align:center">${soNok ? 'Nenhum ciclo não concluído neste dia. 👍' : 'Nenhum ciclo neste dia.'}</div>`;
+    return;
+  }
+  const topo = corpo.scrollTop;
+  let rodadaAnt = null;
+  corpo.innerHTML = `<table><thead><tr><th style="width:70px">Ciclo</th><th style="width:80px">Horário</th><th style="width:190px">Situação</th><th>Motivo / observação</th></tr></thead><tbody>` +
+    linhas.map(l => {
+      let grupo = '';
+      if (l.rodada !== rodadaAnt) { rodadaAnt = l.rodada; grupo = `<tr class="grupo"><td colspan="4">📦 ${esc(l.produto || 'Produto')}${l.atual ? ' — contagem atual' : ''}</td></tr>`; }
+      const k = `${l.rodada}-${l.numero}`;
+      const sit = l.estado === 'encerrado'
+        ? `<label><input type="checkbox" ${l.concluido ? 'checked' : ''} onchange="cadcCicloSalvar(${l.rodada},${l.numero},{concluido:this.checked})">
+             <span class="badge ${l.concluido ? 'green' : 'red'}">${l.concluido ? 'Concluído' : 'Não concluído'}</span></label>`
+        : `<span class="badge ${l.estado === 'andamento' ? 'blue' : ''}" style="${l.estado === 'futuro' ? 'color:var(--text2)' : ''}">${l.estado === 'andamento' ? 'Em andamento' : 'A fazer'}</span>`;
+      const cls = l.estado !== 'encerrado' ? l.estado : (l.concluido ? '' : 'nok');
+      return grupo + `<tr class="${cls}" id="cc-ci-l-${k}">
+        <td class="n">#${l.numero}</td><td class="n">${String(l.hora).slice(0, 5)}</td><td>${sit}</td>
+        <td>${l.estado === 'futuro' ? '' : `<input type="text" maxlength="500" list="cc-dl-motivos" value="${esc(l.observacao)}"
+              class="${l.estado === 'encerrado' && !l.concluido && !l.observacao ? 'falta' : ''}"
+              placeholder="${l.estado === 'encerrado' && !l.concluido ? 'Informe o motivo' : ''}"
+              onchange="cadcCicloSalvar(${l.rodada},${l.numero},{observacao:this.value})">`}</td></tr>`;
+    }).join('') + '</tbody></table>';
+  if (rolar) { const a = corpo.querySelector('tr.andamento'); if (a) a.scrollIntoView({ block: 'center' }); }
+  else corpo.scrollTop = topo;
+}
+
+async function cadcCicloSalvar(rodada, numero, dados) {
+  const l = ccCi.linhas.find(x => x.rodada === rodada && x.numero === numero);
+  try {
+    await api(`${CC}/celulas/${ccCiId}/ciclos`, { method: 'PUT', body: { rodada, numero, ...dados } });
+    if (l) Object.assign(l, dados);
+    if ('concluido' in dados) {
+      cadcCiclosRender(false);
+      if (!dados.concluido) { const i = document.querySelector(`#cc-ci-l-${rodada}-${numero} input[type=text]`); if (i) i.focus(); }
+    } else {
+      const i = document.querySelector(`#cc-ci-l-${rodada}-${numero} input[type=text]`);
+      if (i) i.classList.toggle('falta', l && !l.concluido && !l.observacao);
+      const falta = ccCi.linhas.filter(x => x.estado === 'encerrado' && !x.concluido && !x.observacao).length;
+      document.getElementById('cc-ci-info').textContent = falta ? `⚠ ${falta} sem motivo informado` : '';
+      toast('Motivo salvo');
+    }
+  } catch (e) { toast('Não foi possível salvar: ' + e.message, 'error'); }
+}
+
+async function cadcCiclosLimpar() {
+  if (!ccCi) return;
+  if (!confirm(`Limpar as marcações do dia ${fmtData(ccCi.data)}?\nTodos os ciclos voltam para "Concluído" e os motivos são apagados.`)) return;
+  try { await api(`${CC}/celulas/${ccCiId}/ciclos/limpar`, { method: 'POST', body: { data: ccCi.data } }); toast('Marcações limpas'); }
+  catch (e) { toast(e.message, 'error'); }
+  cadcCiclosCarregar(false);
+}
+
+function cadcCiclosCSV() {
+  if (!ccCi) return;
+  const lin = ccCi.linhas.filter(l => l.estado === 'encerrado');
+  if (!lin.length) return toast('Nenhum ciclo encerrado para exportar', 'warn');
+  const cab = ['Data', 'Célula', 'Produto', 'Ciclo', 'Horário', 'Situação', 'Motivo / observação'];
+  const dados = lin.map(l => [fmtData(ccCi.data), ccCi.celula.nome, l.produto || '', l.numero, String(l.hora).slice(0, 5), l.concluido ? 'Concluído' : 'Não concluído', (l.observacao || '').replace(/[\r\n]/g, ' ')]);
+  const csv = [cab, ...dados].map(r => r.map(c => `"${String(c).replace(/"/g, '""')}"`).join(';')).join('\n');
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8' }));
+  a.download = `ciclos_${ccCi.celula.nome.normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^\w-]+/g, '_')}_${ccCi.data}.csv`; a.click();
+  toast('CSV exportado!');
 }
 
 /* A aba só existe para o administrador */

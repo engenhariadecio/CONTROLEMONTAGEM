@@ -137,13 +137,18 @@ Forma adicional do cadenciador. O **Cadenciador comum** (`/cadenciador`) continu
 - **No tablet:** Portal › **Cadenciador da Célula** (`/cadenciador/celula`). Toca na célula e pronto.
   O tablet fica **preso à célula**: recarregar ou voltar ao Portal devolve para o painel. Só sai se o
   admin liberar pelo PC, ou com usuário e senha de administrador no cadeado do próprio tablet.
+- **Histórico de ciclos:** botão **📋 Ciclos e motivos** em cada célula. Lista todos os ciclos do dia;
+  o admin desmarca "Concluído" e escreve o motivo (salva sozinho), filtra só os não concluídos,
+  consulta dias anteriores e exporta CSV. O tablet mostra o mesmo histórico (concluídos, não concluídos e motivo).
+  Ao trocar de produto, os ciclos já feitos ficam guardados no histórico do dia.
+- A tela do tablet se ajusta a qualquer tamanho (deitado ou em pé); o número grande nunca é cortado.
 - O tablet consulta o servidor a cada 2 s. Sem internet, segue com os últimos dados e avisa "Sem conexão".
 - Depois de recarregar a página, o navegador pode pedir **um toque na tela** para voltar a falar
   (regra do navegador). O admin vê "🔇 falta um toque" na lista de tablets.
 - Horário da fábrica no servidor: `America/Sao_Paulo`. Para outro fuso, variável `TZ_FABRICA`.
 
 Arquivos: `routes/cadenciador-central.js`, `public/cadenciador-celula.html`, `public/js/cadc.js`,
-tabelas `cadc_*` em `db/schema.js` (criadas sozinhas ao iniciar).
+tabelas `cadc_*` (inclui `cadc_ciclos`) em `db/schema.js` (criadas sozinhas ao iniciar).
 
 ## Subir no GitHub
 

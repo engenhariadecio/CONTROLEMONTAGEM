@@ -18,7 +18,6 @@ const { listarTurnos, calcularCiclos, paraSegundos, duracaoTurnoSeg } = require(
 const FUSO = process.env.TZ_FABRICA || 'America/Sao_Paulo';
 const ONLINE_SEG = 10;            // tablet sem dar sinal há mais que isso = offline
 const VALIDADE_CMD_SEG = 120;     // comando de voz mais velho que isso não é mais falado
-const ZERA_APOS_H = 12;           // tempo parado / reinício de contagem valem só para o turno em curso
 
 /** Hora da fábrica (HH:MM:SS), independente do fuso do servidor (o Railway roda em UTC). */
 function horaFabrica(d = new Date()) {
@@ -31,6 +30,17 @@ function offsetNoTurno(hms, turno) {
   let o = paraSegundos(hms) - paraSegundos(turno.hora_inicio);
   if (o < 0) o += 86400;
   return o;
+}
+
+/** Data da fábrica (AAAA-MM-DD). */
+function dataFabrica(d = new Date()) {
+  return new Intl.DateTimeFormat('en-CA', { timeZone: FUSO, year: 'numeric', month: '2-digit', day: '2-digit' }).format(d);
+}
+
+/** Dia a que o turno em curso pertence: o dia em que ele abriu (turno da noite não "vira" à meia-noite). */
+function dataDoTurno(turno) {
+  if (!turno) return dataFabrica();
+  return dataFabrica(new Date(Date.now() - offsetNoTurno(horaFabrica(), turno) * 1000));
 }
 
 const quem = req => req.session.nome || req.session.username || 'admin';
@@ -64,7 +74,7 @@ const SQL_CELULA = `
          COALESCE(tt.takt_min, p.takt_min)::float AS takt_cadastro,
          EXTRACT(EPOCH FROM (NOW() - c.pausa_inicio))::int AS pausa_decorrido_seg,
          EXTRACT(EPOCH FROM (c.pausa_fim_prev - NOW()))::int AS pausa_restante_seg,
-         EXTRACT(EPOCH FROM (NOW() - c.ref_em))::int AS ref_idade_seg
+         to_char(c.rodada_data, 'YYYY-MM-DD') AS rodada_dia
   FROM cadc_celulas c
   LEFT JOIN cad_produtos p ON p.id = c.produto_id
   LEFT JOIN cad_takt_turno tt ON tt.produto_id = c.produto_id AND tt.turno_id = c.turno_id`;
@@ -123,6 +133,7 @@ async function carregarCelulas(filtroId = null) {
 
   let linhas = await ler();
   let mudou = false;
+  const limite = await limiteCiclos();
 
   for (const c of linhas) {
     const turno = porId.get(c.turno_id);
@@ -130,18 +141,80 @@ async function carregarCelulas(filtroId = null) {
       await fecharPausa(c, turno, { noPrevisto: true });
       await comando(c.id, { texto: 'Pausa encerrada. Ciclo iniciado.', origem: 'auto' });
       mudou = true;
-    } else if (!c.pausada && (c.tempo_parado_seg > 0 || c.inicio_off_seg > 0)
-               && (c.ref_idade_seg == null || c.ref_idade_seg > ZERA_APOS_H * 3600)) {
-      await pool.query(
-        `UPDATE cadc_celulas SET tempo_parado_seg=0, inicio_off_seg=0, ref_em=NULL,
-                versao=versao+1, updated_at=NOW() WHERE id=$1`, [c.id]);
-      mudou = true;
+    } else if (!c.pausada) {
+      // Virou o dia de turno: guarda os ciclos de ontem no histórico e começa uma contagem nova
+      const dia = dataDoTurno(turno);
+      if (!c.rodada_dia) {
+        await pool.query('UPDATE cadc_celulas SET rodada_data=$2 WHERE id=$1', [c.id, dia]);
+        mudou = true;
+      } else if (c.rodada_dia !== dia) {
+        await arquivarRodada(c, turno, limite, { todos: true });
+        await pool.query(
+          `UPDATE cadc_celulas SET tempo_parado_seg=0, inicio_off_seg=0, ref_em=NULL,
+                  rodada=rodada+1, rodada_data=$2, versao=versao+1, updated_at=NOW() WHERE id=$1`, [c.id, dia]);
+        mudou = true;
+      }
     }
   }
   if (mudou) linhas = await ler();
 
-  const limite = await limiteCiclos();
-  return linhas.map(c => montarEstado(c, porId.get(c.turno_id), limite));
+  // Marcações (concluído / não concluído + motivo) da contagem atual e contagens anteriores do mesmo dia
+  const ids = linhas.map(c => c.id);
+  const marcas = new Map(), anteriores = new Map();
+  if (ids.length) {
+    const r = await pool.query(
+      `SELECT k.celula_id, k.rodada, k.numero, to_char(k.hora_prevista,'HH24:MI:SS') AS hora, k.produto_nome,
+              k.concluido, k.observacao, (k.rodada = c.rodada) AS atual
+         FROM cadc_ciclos k JOIN cadc_celulas c ON c.id = k.celula_id
+        WHERE k.celula_id = ANY($1::int[]) AND (k.rodada = c.rodada OR k.data = c.rodada_data)
+        ORDER BY k.rodada, k.numero`, [ids]);
+    for (const k of r.rows) {
+      if (k.atual) {
+        if (!marcas.has(k.celula_id)) marcas.set(k.celula_id, {});
+        marcas.get(k.celula_id)[k.numero] = { c: k.concluido, o: k.observacao || '' };
+      } else {
+        if (!anteriores.has(k.celula_id)) anteriores.set(k.celula_id, []);
+        anteriores.get(k.celula_id).push({ rodada: k.rodada, numero: k.numero, hora: k.hora,
+          produto: k.produto_nome, concluido: k.concluido, observacao: k.observacao || '' });
+      }
+    }
+  }
+
+  return linhas.map(c => ({
+    ...montarEstado(c, porId.get(c.turno_id), limite),
+    marcas: marcas.get(c.id) || {},
+    anteriores: anteriores.get(c.id) || []
+  }));
+}
+
+/**
+ * Guarda no histórico os ciclos já encerrados da contagem atual (antes de ela ser reiniciada).
+ * Marcações que o admin já fez são preservadas.
+ */
+async function arquivarRodada(c, turno, limite, { todos = false } = {}) {
+  const e = montarEstado(c, turno, limite);
+  if (!e.pronto || !e.ciclos.length || !c.rodada_dia) return;
+  let encerrados = e.ciclos.map((hora, i) => ({ numero: i + 1, hora }));
+  if (!todos) {
+    const o = offsetNoTurno(horaFabrica(), turno);
+    if (o <= duracaoTurnoSeg(turno)) encerrados = encerrados.filter(x => offsetNoTurno(x.hora, turno) <= o);
+  }
+  if (!encerrados.length) return;
+  await pool.query(
+    `INSERT INTO cadc_ciclos (celula_id, rodada, numero, data, hora_prevista, produto_nome)
+     SELECT $1, $2, x.numero, $3::date, x.hora::time, $4
+       FROM unnest($5::int[], $6::text[]) AS x(numero, hora)
+     ON CONFLICT (celula_id, rodada, numero) DO UPDATE
+        SET hora_prevista = EXCLUDED.hora_prevista, produto_nome = EXCLUDED.produto_nome`,
+    [c.id, c.rodada, c.rodada_dia, c.produto_nome, encerrados.map(x => x.numero), encerrados.map(x => x.hora)]);
+}
+
+/** Arquiva a contagem atual de uma célula (usado antes de trocar produto/takt ou reiniciar). */
+async function arquivarAtual(id) {
+  const c = (await pool.query(SQL_CELULA + ' WHERE c.id=$1', [id])).rows[0];
+  if (!c) return;
+  const turno = (await listarTurnos()).find(t => t.id === c.turno_id);
+  if (turno) await arquivarRodada(c, turno, await limiteCiclos());
 }
 
 function montarEstado(c, turno, limite) {
@@ -156,6 +229,8 @@ function montarEstado(c, turno, limite) {
     id: c.id,
     nome: c.nome,
     versao: c.versao,
+    rodada: c.rodada,
+    dia: c.rodada_dia,
     pronto,
     produto: c.produto_id ? { id: c.produto_id, nome: c.produto_nome, cod_decio: c.cod_decio } : null,
     turno: turno ? {
@@ -287,9 +362,11 @@ router.put('/celulas/:id', requireAdmin, async (req, res) => {
         const o = offsetNoTurno(horaFabrica(), turno);
         if (o < duracaoTurnoSeg(turno)) off = o;
       }
+      await arquivarAtual(req.params.id);      // os ciclos já feitos ficam no histórico
       set('inicio_off_seg', off);
       set('tempo_parado_seg', 0);
       sets.push('ref_em = NOW()');
+      sets.push('rodada = rodada + 1');
     }
 
     if (!sets.length) return res.json(antes);
@@ -378,10 +455,94 @@ router.post('/celulas/:id/reiniciar', requireAdmin, async (req, res) => {
       const o = offsetNoTurno(horaFabrica(), cel.turno);
       if (o < duracaoTurnoSeg(cel.turno)) off = o;
     }
+    await arquivarAtual(cel.id);
     await pool.query(
-      `UPDATE cadc_celulas SET inicio_off_seg=$2, tempo_parado_seg=0, ref_em=NOW(),
+      `UPDATE cadc_celulas SET inicio_off_seg=$2, tempo_parado_seg=0, ref_em=NOW(), rodada=rodada+1,
               versao=versao+1, updated_at=NOW() WHERE id=$1`, [cel.id, off]);
     res.json(await umaCelula(cel.id));
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+/* ─────────────── histórico de ciclos (igual ao do cadenciador comum) ─────────────── */
+
+/* GET /celulas/:id/ciclos?data=AAAA-MM-DD — todos os ciclos do dia, com situação e motivo */
+router.get('/celulas/:id/ciclos', requireAdmin, async (req, res) => {
+  try {
+    const cel = await umaCelula(req.params.id);
+    if (!cel) return res.status(404).json({ error: 'Célula não encontrada' });
+    const dia = /^\d{4}-\d{2}-\d{2}$/.test(req.query.data || '') ? req.query.data : cel.dia;
+
+    const linhas = (await pool.query(
+      `SELECT rodada, numero, to_char(hora_prevista,'HH24:MI:SS') AS hora, produto_nome AS produto,
+              concluido, observacao
+         FROM cadc_ciclos WHERE celula_id=$1 AND data=$2 AND rodada <> $3 ORDER BY rodada, numero`,
+      [cel.id, dia, cel.rodada])).rows.map(k => ({ ...k, observacao: k.observacao || '', estado: 'encerrado', atual: false }));
+
+    if (dia === cel.dia && cel.pronto) {
+      const o = offsetNoTurno(horaFabrica(), cel.turno);
+      const fora = o > duracaoTurnoSeg(cel.turno);
+      let achouAtual = false;
+      cel.ciclos.forEach((hora, i) => {
+        const m = cel.marcas[i + 1];
+        let estado = 'encerrado';
+        if (!fora && offsetNoTurno(hora, cel.turno) > o) { estado = achouAtual ? 'futuro' : 'andamento'; achouAtual = true; }
+        linhas.push({ rodada: cel.rodada, numero: i + 1, hora, produto: cel.produto.nome,
+                      concluido: m ? m.c : true, observacao: m ? m.o : '', estado, atual: true });
+      });
+    }
+
+    const dias = (await pool.query(
+      `SELECT DISTINCT to_char(data,'YYYY-MM-DD') AS d FROM cadc_ciclos WHERE celula_id=$1 ORDER BY 1 DESC LIMIT 90`,
+      [cel.id])).rows.map(r => r.d);
+    if (cel.dia && !dias.includes(cel.dia)) dias.unshift(cel.dia);
+
+    res.json({ celula: { id: cel.id, nome: cel.nome }, data: dia, hoje: cel.dia, rodada_atual: cel.rodada, dias, linhas });
+  } catch (e) { console.error('cadc ciclos', e); res.status(500).json({ error: e.message }); }
+});
+
+/* PUT /celulas/:id/ciclos  body: { rodada, numero, concluido?, observacao? } */
+router.put('/celulas/:id/ciclos', requireAdmin, async (req, res) => {
+  try {
+    const cel = await umaCelula(req.params.id);
+    if (!cel) return res.status(404).json({ error: 'Célula não encontrada' });
+    const rodada = Number(req.body.rodada), numero = Number(req.body.numero);
+    const concl = typeof req.body.concluido === 'boolean' ? req.body.concluido : null;
+    const obs = req.body.observacao !== undefined ? String(req.body.observacao).trim().slice(0, 500) : null;
+
+    if (rodada === cel.rodada) {
+      const hora = cel.ciclos[numero - 1];
+      if (!hora) return res.status(404).json({ error: 'Ciclo não encontrado' });
+      await pool.query(
+        `INSERT INTO cadc_ciclos (celula_id, rodada, numero, data, hora_prevista, produto_nome, concluido, observacao, usuario)
+         VALUES ($1,$2,$3,$4,$5,$6,COALESCE($7,TRUE),$8,$9)
+         ON CONFLICT (celula_id, rodada, numero) DO UPDATE SET
+           hora_prevista = EXCLUDED.hora_prevista, produto_nome = EXCLUDED.produto_nome,
+           concluido = COALESCE($7, cadc_ciclos.concluido),
+           observacao = CASE WHEN $10 THEN $8 ELSE cadc_ciclos.observacao END,
+           usuario = EXCLUDED.usuario, updated_at = NOW()`,
+        [cel.id, rodada, numero, cel.dia, hora, cel.produto.nome, concl, obs, quem(req), obs !== null]);
+    } else {
+      const r = await pool.query(
+        `UPDATE cadc_ciclos SET concluido = COALESCE($4, concluido),
+                observacao = CASE WHEN $6 THEN $5 ELSE observacao END, usuario=$7, updated_at=NOW()
+          WHERE celula_id=$1 AND rodada=$2 AND numero=$3`,
+        [cel.id, rodada, numero, concl, obs, obs !== null, quem(req)]);
+      if (!r.rowCount) return res.status(404).json({ error: 'Ciclo não encontrado' });
+    }
+    await pool.query('UPDATE cadc_celulas SET versao=versao+1, updated_at=NOW() WHERE id=$1', [cel.id]);
+    res.json({ success: true });
+  } catch (e) { console.error('cadc ciclo', e); res.status(500).json({ error: e.message }); }
+});
+
+/* POST /celulas/:id/ciclos/limpar  body: { data } — volta tudo para "Concluído", sem observação */
+router.post('/celulas/:id/ciclos/limpar', requireAdmin, async (req, res) => {
+  try {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(req.body.data || '')) return res.status(400).json({ error: 'Informe o dia' });
+    await pool.query(
+      'UPDATE cadc_ciclos SET concluido=TRUE, observacao=NULL, updated_at=NOW() WHERE celula_id=$1 AND data=$2',
+      [req.params.id, req.body.data]);
+    await pool.query('UPDATE cadc_celulas SET versao=versao+1, updated_at=NOW() WHERE id=$1', [req.params.id]);
+    res.json({ success: true });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
@@ -555,7 +716,7 @@ router.get('/tablet/estado', requireAuth, async (req, res) => {
 
     // Grade de ciclos é a parte pesada: só vai quando algo mudou
     if (req.query.v && Number(req.query.v) === cel.versao && Number(req.query.c) === cel.id) {
-      delete cel.ciclos; delete cel.turno; cel.igual = true;
+      delete cel.ciclos; delete cel.turno; delete cel.marcas; delete cel.anteriores; cel.igual = true;
     }
     res.json({ hora: horaFabrica(), tablet: tb, celula: cel, comandos, ultimo_comando: ultimo });
   } catch (e) { console.error('cadc estado', e); res.status(500).json({ error: e.message }); }

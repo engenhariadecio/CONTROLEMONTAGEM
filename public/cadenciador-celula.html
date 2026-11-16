@@ -34,46 +34,93 @@ body { margin: 0; overflow: hidden; background: var(--fundo); color: var(--t1); 
 .esc-cel .tag.pausa { background: var(--alerta-bg); color: var(--alerta); border-color: var(--alerta-bd); }
 .esc-vazio { background: var(--card); border: 1px dashed var(--linha-2); border-radius: 16px; padding: 34px 24px; text-align: center; color: var(--t2); font-size: 15px; }
 
-/* ───────── Painel da célula ───────── */
-#painel { position: fixed; inset: 0; display: none; flex-direction: column; padding: 2.4vh 3vw 1.6vh; gap: 2vh; }
+/* ───────── Painel da célula ─────────
+   Tudo é dimensionado pela largura E pela altura da tela (min(vw, vh)),
+   e o número grande é ajustado por script para nunca ser cortado. */
+#painel { position: fixed; inset: 0; height: 100vh; height: 100dvh; display: none; flex-direction: column; padding: 2vh 2.4vw 1.4vh; gap: 1.6vh; box-sizing: border-box; }
 #painel.ativo { display: flex; }
-.p-topo { display: flex; align-items: center; justify-content: space-between; gap: 2vw; }
-.p-cel { display: inline-block; font-size: clamp(11px, 1.3vw, 16px); font-weight: 800; letter-spacing: .14em; text-transform: uppercase; color: #06140B; background: var(--verde-clr); padding: .35em .9em; border-radius: 99px; }
-.p-produto { font-family: var(--display); font-size: clamp(22px, 4vw, 56px); font-weight: 800; letter-spacing: -.02em; line-height: 1.05; margin-top: .6vh; }
-.p-turno { font-size: clamp(11px, 1.25vw, 17px); color: var(--t2); margin-top: .6vh; letter-spacing: .08em; text-transform: uppercase; }
-.p-relogio { font-family: var(--mono); font-size: clamp(30px, 5.4vw, 80px); font-weight: 700; letter-spacing: -.03em; white-space: nowrap; }
+.p-topo { display: flex; align-items: center; justify-content: space-between; gap: 2vw; flex: none; }
+.p-topo > div:first-child { min-width: 0; }
+.p-cel { display: inline-block; font-size: clamp(10px, min(1.3vw, 2.2vh), 16px); font-weight: 800; letter-spacing: .14em; text-transform: uppercase; color: #06140B; background: var(--verde-clr); padding: .35em .9em; border-radius: 99px; }
+.p-produto { font-family: var(--display); font-size: clamp(18px, min(3.6vw, 6vh), 54px); font-weight: 800; letter-spacing: -.02em; line-height: 1.05; margin-top: .5vh; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+.p-turno { font-size: clamp(10px, min(1.2vw, 2.1vh), 16px); color: var(--t2); margin-top: .5vh; letter-spacing: .08em; text-transform: uppercase; }
+.p-relogio { font-family: var(--mono); font-size: clamp(24px, min(4.6vw, 8vh), 76px); font-weight: 700; letter-spacing: -.03em; white-space: nowrap; flex: none; }
 
-.p-msg { display: none; background: var(--info-bg); border: 1px solid var(--info-bd); color: var(--t1); border-radius: var(--r); padding: 1.2vh 1.6vw; font-size: clamp(15px, 2.2vw, 30px); font-weight: 700; text-align: center; }
+.p-msg { display: none; flex: none; background: var(--info-bg); border: 1px solid var(--info-bd); color: var(--t1); border-radius: var(--r); padding: 1vh 1.6vw; font-size: clamp(14px, min(2.1vw, 3.6vh), 30px); font-weight: 700; text-align: center; }
 .p-msg.ativo { display: block; }
 
-.p-grade { flex: 1; min-height: 0; display: grid; grid-template-columns: 2.1fr 1fr; grid-template-rows: 1fr 1fr; gap: 2vh 2vw; }
-.p-caixa { background: var(--card); border: 1px solid var(--linha); border-radius: 20px; padding: 2vh 2vw; display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; position: relative; overflow: hidden; min-height: 0; }
-.p-caixa .r { font-size: clamp(11px, 1.3vw, 18px); letter-spacing: .14em; text-transform: uppercase; color: var(--t3); font-weight: 700; }
-.p-caixa .v { font-family: var(--mono); font-weight: 700; line-height: 1; letter-spacing: -.04em; margin-top: 1.2vh; }
-.p-prox { grid-row: 1 / -1; }
-.p-prox .v { font-size: clamp(64px, 17vw, 260px); }
-.p-prox .sub { margin-top: 1.6vh; font-size: clamp(13px, 1.7vw, 24px); color: var(--t2); font-weight: 600; min-height: 1.2em; }
-.p-barra { position: absolute; left: 0; right: 0; bottom: 0; height: 1.6vh; background: var(--card-2); }
+.p-grade { flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(0, 1.55fr) minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr); gap: 1.6vh 1.6vw; }
+.p-caixa { background: var(--card); border: 1px solid var(--linha); border-radius: 18px; position: relative; overflow: hidden; min-width: 0; min-height: 0; }
+.p-caixa .r { font-size: clamp(10px, min(1.2vw, 2.1vh), 17px); letter-spacing: .12em; text-transform: uppercase; color: var(--t3); font-weight: 700; }
+
+.p-prox { grid-row: 1 / -1; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; padding: 1.6vh 1.6vw 3.2vh; }
+.p-prox .v { font-family: var(--mono); font-weight: 700; line-height: 1; letter-spacing: -.04em; white-space: nowrap; font-size: 60px; margin: 1vh 0; }
+.p-prox .sub { font-size: clamp(12px, min(1.7vw, 3vh), 24px); color: var(--t2); font-weight: 600; min-height: 1.2em; }
+.p-barra { position: absolute; left: 0; right: 0; bottom: 0; height: 1.4vh; background: var(--card-2); }
 .p-barra i { display: block; height: 100%; width: 0; background: var(--fade); transition: width .9s linear; }
-.p-lado .v { font-size: clamp(40px, 8vw, 120px); }
-.p-lado .v small { font-size: .42em; color: var(--t3); font-weight: 600; letter-spacing: 0; }
-.p-feitos .v { color: var(--ok); }
+
+.p-nums { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1.2vw; }
+.p-num { text-align: center; padding: 1.4vh .6vw 1.6vh; }
+.p-num .v { font-family: var(--mono); font-weight: 700; line-height: 1; letter-spacing: -.04em; white-space: nowrap; margin-top: .9vh; font-size: clamp(22px, min(4.2vw, 8vh), 80px); }
+.p-num .v small { font-size: .45em; color: var(--t3); font-weight: 600; letter-spacing: 0; }
+.p-num.ok .v { color: var(--ok); }
+.p-num.nok .v { color: var(--t3); }
+.p-num.nok.tem .v { color: var(--erro); }
+.p-num.nok.tem { border-color: var(--erro-bd); }
+
+.p-hist { display: flex; flex-direction: column; }
+.p-hist .r { padding: 1.3vh 1.2vw 1vh; border-bottom: 1px solid var(--linha); flex: none; }
+.p-hist-lista { flex: 1; min-height: 0; overflow-y: auto; -webkit-overflow-scrolling: touch; }
+.p-h { display: grid; grid-template-columns: auto auto minmax(0, 1fr); gap: 0 1vw; align-items: baseline; padding: 1vh 1.2vw; border-bottom: 1px solid var(--linha); font-size: clamp(12px, min(1.55vw, 2.7vh), 21px); }
+.p-h .n { font-family: var(--mono); font-weight: 700; color: var(--t2); min-width: 2.6em; }
+.p-h .h { font-family: var(--mono); color: var(--t2); }
+.p-h .s { font-weight: 700; color: var(--ok); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.p-h.nok { background: rgba(242,109,109,.09); }
+.p-h.nok .s { color: var(--erro); }
+.p-h .o { grid-column: 1 / -1; color: var(--t1); font-size: .9em; margin-top: .3vh; overflow-wrap: anywhere; }
+.p-h .o.falta { color: var(--alerta); }
+.p-h .pr { grid-column: 1 / -1; color: var(--t3); font-size: .78em; }
+.p-hist-vazio { padding: 2.4vh 1.2vw; color: var(--t3); font-size: clamp(12px, min(1.5vw, 2.6vh), 18px); text-align: center; }
 
 .p-prox.alerta { border-color: var(--alerta-bd); } .p-prox.alerta .v { color: var(--alerta); }
 .p-prox.pausa { border-color: var(--erro-bd); background: linear-gradient(180deg, rgba(242,109,109,.14), var(--card)); }
 .p-prox.pausa .v { color: var(--erro); }
-.p-prox.pausa .r { color: var(--erro); font-size: clamp(16px, 2.6vw, 38px); }
+.p-prox.pausa .r { color: var(--erro); font-size: clamp(14px, min(2.4vw, 4.2vh), 36px); }
 .p-prox.pausa .p-barra i { background: var(--erro); }
 .p-prox.apagado .v { color: var(--t3); }
 
-.p-rodape { display: flex; align-items: center; gap: 1.4vw; font-size: clamp(11px, 1.2vw, 15px); color: var(--t2); min-height: 4.4vh; }
-.p-fala { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; background: var(--card); border: 1px solid var(--linha); border-radius: 99px; padding: .9vh 1.4vw; }
+.p-rodape { display: flex; align-items: center; gap: 1.2vw; font-size: clamp(10px, min(1.2vw, 2.2vh), 15px); color: var(--t2); flex: none; }
+.p-fala { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; background: var(--card); border: 1px solid var(--linha); border-radius: 99px; padding: .8vh 1.4vw; }
 .p-fala.nova { border-color: var(--verde); color: var(--t1); box-shadow: 0 0 0 3px var(--brilho); }
 .p-con { display: flex; align-items: center; gap: .5em; white-space: nowrap; }
 .p-con i { width: .8em; height: .8em; border-radius: 50%; background: var(--ok); display: inline-block; }
 .p-con.fora i { background: var(--erro); animation: pisca 1s infinite; }
 @keyframes pisca { 50% { opacity: .25; } }
-.p-trava { background: var(--card); border: 1px solid var(--linha); color: var(--t3); border-radius: 99px; padding: .8vh 1.2vw; font: inherit; cursor: pointer; white-space: nowrap; }
+.p-trava { background: var(--card); border: 1px solid var(--linha); color: var(--t3); border-radius: 99px; padding: .7vh 1.2vw; font: inherit; cursor: pointer; white-space: nowrap; max-width: 30vw; overflow: hidden; text-overflow: ellipsis; }
+
+/* Tablet em pé ou tela estreita: tudo empilhado */
+@media (orientation: portrait), (max-width: 700px) {
+  #painel { padding: 1.4vh 3vw 1.2vh; gap: 1.2vh; }
+  .p-grade { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1.25fr) auto minmax(0, 1fr); gap: 1.2vh; }
+  .p-prox { grid-row: auto; }
+  .p-nums { gap: 2vw; }
+  .p-cel { font-size: clamp(10px, 2.6vw, 16px); }
+  .p-produto { font-size: clamp(18px, min(5.6vw, 4.4vh), 46px); }
+  .p-turno { font-size: clamp(10px, 2.3vw, 15px); }
+  .p-relogio { font-size: clamp(20px, min(6.4vw, 4.6vh), 60px); }
+  .p-caixa .r { font-size: clamp(10px, 2.3vw, 16px); }
+  .p-num .v { font-size: clamp(22px, min(8.5vw, 5.5vh), 72px); }
+  .p-prox .sub { font-size: clamp(12px, 3vw, 22px); }
+  .p-h { font-size: clamp(12px, min(3.2vw, 2.2vh), 20px); gap: 0 2.4vw; padding: .9vh 3vw; }
+  .p-hist .r { padding: 1.1vh 3vw .9vh; }
+  .p-rodape { font-size: clamp(10px, 2.3vw, 14px); gap: 2vw; }
+  .p-con span { display: none; }
+}
+/* Tela muito baixa (tablet deitado com barra do navegador): enxuga o topo */
+@media (orientation: landscape) and (max-height: 520px) {
+  .p-turno { display: none; }
+  .p-prox .sub:empty { display: none; }
+}
 
 /* ───────── Destaque de comando de voz do admin ───────── */
 #aviso-admin { position: fixed; left: 50%; bottom: 8.5vh; transform: translate(-50%, 30px); opacity: 0; pointer-events: none; z-index: 40; width: max-content; max-width: 94vw; background: #0d2a17; border: 2px solid var(--verde-clr); border-radius: 18px; padding: 1.6vh 3vw 2vh; text-align: center; box-shadow: var(--sombra-lg); transition: all .3s; }
@@ -90,11 +137,6 @@ body { margin: 0; overflow: hidden; background: var(--fundo); color: var(--t1); 
 
 #carregando { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; color: var(--t2); font-size: 16px; }
 
-@media (max-width: 760px), (orientation: portrait) {
-  .p-grade { grid-template-columns: 1fr 1fr; grid-template-rows: 2fr 1fr; }
-  .p-prox { grid-row: auto; grid-column: 1 / -1; }
-  .p-prox .v { font-size: clamp(60px, 24vw, 220px); }
-}
 </style>
 </head>
 <body>
@@ -146,13 +188,16 @@ body { margin: 0; overflow: hidden; background: var(--fundo); color: var(--t1); 
       <div class="sub" id="pProxSub"></div>
       <div class="p-barra"><i id="pBarra"></i></div>
     </div>
-    <div class="p-caixa p-lado">
-      <div class="r">Ciclo atual</div>
-      <div class="v num"><span id="pCiclo">0</span><small> / <span id="pTotal">0</span></small></div>
+
+    <div class="p-nums">
+      <div class="p-caixa p-num"><div class="r">Ciclo</div><div class="v num"><span id="pCiclo">0</span><small>/<span id="pTotal">0</span></small></div></div>
+      <div class="p-caixa p-num ok"><div class="r">Concluídos</div><div class="v num" id="pOk">0</div></div>
+      <div class="p-caixa p-num nok" id="pNokCx"><div class="r">Não concl.</div><div class="v num" id="pNok">0</div></div>
     </div>
-    <div class="p-caixa p-lado p-feitos">
-      <div class="r">Ciclos encerrados</div>
-      <div class="v num" id="pFeitos">0</div>
+
+    <div class="p-caixa p-hist">
+      <div class="r">Histórico de ciclos</div>
+      <div class="p-hist-lista" id="pHist"><div class="p-hist-vazio">Nenhum ciclo encerrado ainda.</div></div>
     </div>
   </div>
 
@@ -383,7 +428,7 @@ function aplicar(r) {
 
   const c = r.celula;
   if (c.igual && CEL && CEL.id === c.id) {
-    CEL = { ...CEL, ...c, ciclos: CEL.ciclos, turno: CEL.turno };
+    CEL = { ...CEL, ...c, ciclos: CEL.ciclos, turno: CEL.turno, marcas: CEL.marcas, anteriores: CEL.anteriores };
   } else {
     const trocouCelula = CEL && CEL.id !== c.id;
     CEL = c;
@@ -441,7 +486,8 @@ function tique() {
   caixa.classList.remove('pausa', 'alerta', 'apagado');
   $('pTotal').textContent = s.total;
   $('pCiclo').textContent = s.ciclo;
-  $('pFeitos').textContent = s.feitos;
+  pintarHistorico(agora);
+  requestAnimationFrame(ajustarNumero);
 
   if (CEL.pausada) {
     const passou = pausaBase ? (performance.now() - pausaBase.em) / 1000 : 0;
@@ -489,6 +535,50 @@ function tique() {
 
   avisosAutomaticos(agora);
 }
+
+/* Histórico de ciclos encerrados: o que o admin marcar (não concluído + motivo) aparece aqui. */
+let histAssin = '';
+function pintarHistorico(agora) {
+  const h = Cadc.historico(CEL, agora);
+  $('pOk').textContent = h.ok;
+  $('pNok').textContent = h.nok;
+  $('pNokCx').classList.toggle('tem', h.nok > 0);
+  const assin = CEL.id + ':' + CEL.versao + ':' + h.lista.length;
+  if (assin === histAssin) return;
+  histAssin = assin;
+  const el = $('pHist');
+  if (!h.lista.length) { el.innerHTML = '<div class="p-hist-vazio">Nenhum ciclo encerrado ainda.</div>'; return; }
+  const prodAtual = CEL.produto ? CEL.produto.nome : '';
+  el.innerHTML = h.lista.slice(0, 150).map(c => `
+    <div class="p-h ${c.concluido ? '' : 'nok'}">
+      <span class="n">#${c.numero}</span><span class="h">${horaCurta(c.hora)}</span>
+      <span class="s">${c.concluido ? '✓ Concluído' : '✕ Não concluído'}</span>
+      ${c.observacao ? `<span class="o">${escapar(c.observacao)}</span>` : (c.concluido ? '' : '<span class="o falta">Motivo não informado</span>')}
+      ${c.produto && c.produto !== prodAtual ? `<span class="pr">${escapar(c.produto)}</span>` : ''}
+    </div>`).join('');
+  el.scrollTop = 0;
+}
+
+/* O número grande ocupa o máximo da caixa sem nunca cortar — em qualquer tablet, deitado ou em pé. */
+let ajusteChave = '';
+function ajustarNumero() {
+  const cx = $('pProx'), v = $('pProxVal');
+  if (!cx.clientWidth || !$('painel').classList.contains('ativo')) return;
+  const chave = [cx.clientWidth, cx.clientHeight, v.textContent.length, $('pProxSub').textContent.length > 0, $('pProxRot').offsetHeight].join('x');
+  if (chave === ajusteChave) return;
+  ajusteChave = chave;
+  const est = getComputedStyle(cx);
+  const largura = cx.clientWidth - parseFloat(est.paddingLeft) - parseFloat(est.paddingRight);
+  const altura = cx.clientHeight - parseFloat(est.paddingTop) - parseFloat(est.paddingBottom)
+               - $('pProxRot').offsetHeight - $('pProxSub').offsetHeight;
+  v.style.fontSize = '100px';
+  const porPx = v.getBoundingClientRect().width / 100;          // largura do texto para cada 1px de fonte
+  const tam = Math.max(28, Math.floor(Math.min(largura * 0.94 / porPx, altura * 0.86)));
+  v.style.fontSize = tam + 'px';
+}
+window.addEventListener('resize', () => { ajusteChave = ''; ajustarNumero(); });
+window.addEventListener('orientationchange', () => setTimeout(() => { ajusteChave = ''; ajustarNumero(); }, 300));
+if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => { ajusteChave = ''; ajustarNumero(); });
 
 /** "Ciclo finalizado", intervalos e fim de turno — mesmo comportamento do cadenciador comum. */
 function avisosAutomaticos(agora) {

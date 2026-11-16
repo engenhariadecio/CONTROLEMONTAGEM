@@ -240,6 +240,26 @@ CREATE TABLE IF NOT EXISTS cadc_paradas (
 );
 CREATE INDEX IF NOT EXISTS idx_cadc_paradas_celula ON cadc_paradas(celula_id, inicio DESC);
 
+/* Histórico de ciclos do cadenciador central. "rodada" = uma contagem de ciclos
+   (muda a cada dia de turno e a cada troca de produto ou reinício de contagem). */
+CREATE TABLE IF NOT EXISTS cadc_ciclos (
+  id             SERIAL PRIMARY KEY,
+  celula_id      INTEGER NOT NULL REFERENCES cadc_celulas(id) ON DELETE CASCADE,
+  rodada         INTEGER NOT NULL,
+  numero         INTEGER NOT NULL,
+  data           DATE NOT NULL,
+  hora_prevista  TIME NOT NULL,
+  produto_nome   VARCHAR(200),
+  concluido      BOOLEAN NOT NULL DEFAULT TRUE,
+  observacao     TEXT,
+  usuario        VARCHAR(120),
+  updated_at     TIMESTAMPTZ DEFAULT NOW(),
+  CONSTRAINT uq_cadc_ciclo UNIQUE (celula_id, rodada, numero)
+);
+CREATE INDEX IF NOT EXISTS idx_cadc_ciclos_dia ON cadc_ciclos(celula_id, data);
+ALTER TABLE cadc_celulas ADD COLUMN IF NOT EXISTS rodada INTEGER NOT NULL DEFAULT 1;
+ALTER TABLE cadc_celulas ADD COLUMN IF NOT EXISTS rodada_data DATE;
+
 /* ══════════════ SISTEMA 3 — PROGESTÃO ══════════════ */
 
 /* ── Ferramentas ── */

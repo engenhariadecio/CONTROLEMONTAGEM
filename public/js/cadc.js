@@ -96,6 +96,30 @@ const Cadc = {
     };
   },
 
+  /**
+   * Ciclos já encerrados (mais recente primeiro), com a marcação do admin:
+   * [{ numero, hora, produto, concluido, observacao }] + totais ok / nok.
+   * Inclui contagens anteriores do mesmo dia (ex.: antes de uma troca de produto).
+   */
+  historico(cel, agoraHMS) {
+    const lista = [];
+    if (!cel) return { lista, ok: 0, nok: 0 };
+    for (const a of (cel.anteriores || [])) lista.push({ ...a });
+    if (cel.pronto && cel.turno && cel.ciclos) {
+      const t = cel.turno, o = Cadc.off(agoraHMS, t), fora = o > Cadc.dur(t);
+      const marcas = cel.marcas || {};
+      cel.ciclos.forEach((h, i) => {
+        if (!fora && Cadc.off(h, t) > o) return;
+        const m = marcas[i + 1];
+        lista.push({ numero: i + 1, hora: h, produto: cel.produto ? cel.produto.nome : '',
+                     concluido: m ? m.c : true, observacao: m ? m.o : '' });
+      });
+    }
+    lista.reverse();
+    const nok = lista.filter(x => !x.concluido).length;
+    return { lista, ok: lista.length - nok, nok };
+  },
+
   /** Avisos automáticos de voz (iguais aos do cadenciador comum), em offset no turno. */
   falasAutomaticas(cel) {
     if (!cel || !cel.pronto || !cel.turno || !cel.ciclos) return [];
