@@ -385,8 +385,8 @@ async function carregarEscolha() {
   g.innerHTML = lista.map(c => `
     <button class="esc-cel" data-id="${c.id}">
       <strong>${escapar(c.nome)}</strong>
-      <div class="prod">${escapar(c.produto || 'Sem produto definido')}</div>
-      <div class="det">${escapar(c.turno || 'Sem turno')}${c.takt_min ? ' · takt ' + c.takt_min + ' min' : ''}
+      <div class="prod">${escapar(c.produto || (c.ociosa ? 'Sem programação agora' : 'Sem produto definido'))}</div>
+      <div class="det">${escapar(c.turno || (c.proxima ? 'Próxima: ' + (c.proxima.produto || '') + ' · ' + c.proxima.dia.slice(8, 10) + '/' + c.proxima.dia.slice(5, 7) + ' às ' + (c.proxima.hora || '') : 'Aguardando programação'))}${c.takt_min ? ' · takt ' + c.takt_min + ' min' : ''}
         · ${c.tablets_online} tablet${c.tablets_online === 1 ? '' : 's'} conectado${c.tablets_online === 1 ? '' : 's'}</div>
       <span class="tag ${c.pausada ? 'pausa' : ''}">${c.pausada ? 'Pausada' : 'Toque para conectar'}</span>
     </button>`).join('');
@@ -488,11 +488,20 @@ function executar(k) {
 
 function pintarFixos() {
   $('pCel').textContent = CEL.nome;
-  $('pProduto').textContent = CEL.produto ? CEL.produto.nome : 'Aguardando produto';
-  $('pTurno').textContent = CEL.turno
-    ? `${CEL.turno.nome} · ${horaCurta(CEL.turno.hora_inicio)}–${horaCurta(CEL.turno.hora_fim)}` +
-      (CEL.takt_min ? ` · takt ${CEL.takt_min} min` : '')
-    : 'Aguardando turno';
+  const od = CEL.ordem;
+  if (CEL.ociosa) {
+    $('pProduto').textContent = 'Sem programação';
+    $('pTurno').textContent = CEL.proxima
+      ? `Próxima: ${CEL.proxima.produto || ''} · ${CEL.proxima.dia.slice(8, 10)}/${CEL.proxima.dia.slice(5, 7)} · ${CEL.proxima.turno || ''} às ${CEL.proxima.hora || ''}`
+      : 'Aguardando o administrador programar a célula';
+  } else {
+    $('pProduto').textContent = CEL.produto ? CEL.produto.nome : 'Aguardando produto';
+    $('pTurno').textContent = (CEL.turno
+      ? `${CEL.turno.nome} · ${horaCurta(CEL.turno.hora_inicio)}–${horaCurta(CEL.turno.hora_fim)}` +
+        (CEL.takt_min ? ` · takt ${CEL.takt_min} min` : '')
+      : 'Aguardando turno') +
+      (od && od.num_op ? ` · OP ${od.num_op}` : '') + (od && od.meta ? ` · meta ${od.meta} pç` : '');
+  }
   $('pMsg').textContent = CEL.mensagem || '';
   $('pMsg').classList.toggle('ativo', !!CEL.mensagem);
   $('pTabNome').textContent = (TABLET && TABLET.nome) || 'Tablet';
@@ -531,17 +540,19 @@ function tique() {
 
   if (s.fase === 'sem-config') {
     caixa.classList.add('apagado');
-    $('pProxRot').textContent = 'Aguardando';
+    $('pProxRot').textContent = CEL.ociosa ? 'Sem programação' : 'Aguardando';
     $('pProxVal').textContent = '--:--';
-    $('pProxSub').textContent = 'O administrador ainda não definiu produto e turno';
+    $('pProxSub').textContent = CEL.ociosa
+      ? (CEL.proxima ? 'A próxima programação começa sozinha na hora do turno' : 'Aguardando o administrador programar a célula')
+      : 'O administrador ainda não definiu produto e turno';
     $('pBarra').style.width = '0%';
     return;
   }
-  if (s.fase === 'encerrado') {
+  if (s.fase === 'encerrado' || s.fase === 'fora') {
     caixa.classList.add('apagado');
-    $('pProxRot').textContent = 'Turno';
+    $('pProxRot').textContent = 'Turno encerrado';
     $('pProxVal').textContent = 'FIM';
-    $('pProxSub').textContent = 'Turno finalizado';
+    $('pProxSub').textContent = 'Produção do turno encerrada';
     $('pBarra').style.width = '100%';
   } else {
     const p = s.proximo;

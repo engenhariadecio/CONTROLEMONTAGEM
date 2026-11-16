@@ -283,6 +283,49 @@ body.pcp .cel-card input,body.pcp .cel-card select,body.pcp .chave{pointer-event
 .cc-ci-corpo input.falta{border-color:var(--yellow)}
 .cc-ci-corpo label{display:inline-flex;gap:8px;align-items:center;cursor:pointer;white-space:nowrap}
 .cc-ci-corpo input[type=checkbox]{width:17px;height:17px;accent-color:var(--accent)}
+/* --- programação: vistas, pendentes, programadas --- */
+.cc-vistas{display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap}
+.cc-vista{background:var(--panel);border:1px solid var(--border);color:var(--text2);border-radius:8px;padding:10px 18px;font-size:14px;font-weight:700;cursor:pointer;display:inline-flex;align-items:center;gap:8px}
+.cc-vista b{background:var(--panel2);border-radius:99px;padding:1px 9px;font-size:12px;color:var(--text)}
+.cc-vista:hover{color:var(--text)}
+.cc-vista.on{background:rgba(38,178,71,.14);border-color:var(--accent);color:var(--text)}
+.cc-vista.on b{background:var(--accent);color:#06140B}
+.cc-prog-l{background:var(--panel2);border-radius:8px;padding:8px 10px;font-size:12px;color:var(--text2);line-height:1.6;display:flex;gap:8px;align-items:flex-start}
+.cc-prog-l>div{flex:1;min-width:0}
+.cc-prog-l b{color:var(--text);font-variant-numeric:tabular-nums}
+.cc-prog-l .sem{color:var(--yellow)}
+.cc-fim-aviso{display:none;background:rgba(38,178,71,.12);border:1px solid var(--accent);border-radius:8px;padding:10px 12px;font-size:13px;align-items:center;gap:10px;flex-wrap:wrap}
+.cc-fim-aviso span{flex:1;min-width:160px}
+.cc-card.fim .cc-fim-aviso{display:flex}
+.cc-pend{background:rgba(242,109,109,.08);border:1px solid rgba(242,109,109,.5);border-radius:10px;padding:12px 14px;margin-bottom:14px}
+.cc-pend h4{font-size:13px;margin:0 0 8px;color:var(--red)}
+.cc-pend .it{display:flex;flex-wrap:wrap;gap:10px;align-items:center;padding:8px 0;border-top:1px solid rgba(242,109,109,.25);font-size:13px}
+.cc-pend .it:first-of-type{border-top:none}
+.cc-pend .it div{flex:1;min-width:220px;color:var(--text2)}
+.cc-pend .it div b{color:var(--text)}
+.cc-ociosas{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:10px;margin-bottom:16px}
+.cc-oc{background:var(--panel);border:1px dashed #2C5570;border-radius:10px;padding:12px;display:flex;flex-direction:column;gap:8px;font-size:12px;color:var(--text2)}
+.cc-oc .cc-cab strong{font-size:14px;color:var(--text)}
+.cc-oc .cc-tabs{border-top:none;padding-top:0}
+.cc-sec-t{font-size:12px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.4px;margin:4px 0 8px}
+.cc-prog-tab td,.cc-prog-tab th{white-space:nowrap}
+.cc-prog-tab td.q{white-space:normal;min-width:150px}
+.cc-prog-tab tr.hoje td:first-child{box-shadow:inset 3px 0 0 var(--accent)}
+.cc-modal .cx.media{max-width:640px;max-height:94vh;overflow:auto}
+.cc-g2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.cc-g3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px}
+.cc-chips{display:flex;flex-wrap:wrap;gap:6px}
+.cc-chips button{background:var(--panel2);border:1px solid var(--border);color:var(--text);border-radius:99px;padding:5px 12px;font-size:12px;cursor:pointer}
+.cc-chips button:hover{border-color:var(--accent)}
+.cc-dica{font-size:12px;color:var(--text2);min-height:16px}
+.cc-dica b{color:var(--text)}
+.cc-dica.ok{color:var(--accent)}
+.cc-dica.av{color:var(--yellow)}
+.cc-sub{font-size:11px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.4px;border-top:1px solid var(--border);padding-top:10px;margin-top:2px}
+.cc-modal input[readonly],.cc-modal select:disabled,.cc-modal input:disabled{opacity:.6}
+.cc-check{display:flex;gap:8px;align-items:flex-start;font-size:13px;cursor:pointer;line-height:1.4}
+.cc-check input{margin-top:2px;width:16px;height:16px;accent-color:var(--accent)}
+@media(max-width:640px){.cc-g2,.cc-g3{grid-template-columns:1fr}}
 #tab-central{display:none}
 body.adm #tab-central{display:inline-block}
 @media(max-width:768px){.cc-grid{grid-template-columns:1fr}.cc-campos{grid-template-columns:1fr 1fr}.cc-campos .form-group:first-child{grid-column:1/-1}}
@@ -316,42 +359,12 @@ body.adm #tab-central{display:inline-block}
     <div class="pcp-aviso">👁 Perfil <strong>PCP</strong>: acesso somente para visualização da Linha de Produção.</div>
 
     <div class="tabs">
-      <button class="tab active" onclick="showTab('dia',event)">📅 Programação do dia</button>
-      <button class="tab" onclick="showTab('historico',event)">📜 Histórico</button>
       <button class="tab" id="tab-central" onclick="showTab('central',event)">🎛️ Cadenciador central</button>
-    </div>
-
-    <!-- ============ PROGRAMAÇÃO DO DIA ============ -->
-    <div class="section show" id="sec-dia">
-      <div class="dia-barra">
-        <div class="dia-nome" id="dia-nome">—</div>
-        <button class="btn-sm btn-ghost" onclick="mudarDia(-1)" title="Dia anterior">◀</button>
-        <input type="date" id="dia" onchange="trocarDia()">
-        <button class="btn-sm btn-ghost" onclick="mudarDia(1)" title="Próximo dia">▶</button>
-        <button class="btn-sm btn-ghost" onclick="irHoje()">Hoje</button>
-      </div>
-
-      <div class="kpis" id="dia-kpis"></div>
-      <div class="dia-aviso" id="dia-aviso"></div>
-
-      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px" class="so-edicao">
-        <button class="btn-sm btn-ghost" onclick="marcarTodas(true)">✓ Todas funcionando</button>
-        <button class="btn-sm btn-ghost" onclick="marcarTodas(false)">✕ Nenhuma</button>
-        <button class="btn-sm btn-ghost" onclick="copiarUltimoDia()">⧉ Copiar do último dia programado</button>
-      </div>
-
-      <div class="cel-grid" id="cel-grid"></div>
-
-      <div class="barra-salvar so-edicao">
-        <button class="btn-sm btn-accent" id="btn-salvar" onclick="salvarDia()">💾 Salvar programação do dia</button>
-        <button class="btn-sm btn-ghost" onclick="carregarDia()">↺ Descartar alterações</button>
-        <button class="btn-sm btn-red" onclick="apagarDia()">🗑️ Apagar programação do dia</button>
-        <span class="resumo" id="resumo-salvar"></span>
-      </div>
+      <button class="tab active" id="tab-historico" onclick="showTab('historico',event)">📜 Histórico</button>
     </div>
 
     <!-- ============ HISTÓRICO ============ -->
-    <div class="section" id="sec-historico">
+    <div class="section show" id="sec-historico">
       <div class="card">
         <div class="hist-filtros">
           <div class="form-group"><label>De</label><input type="date" id="h-de" onchange="carregarHistorico()"></div>
@@ -368,14 +381,10 @@ body.adm #tab-central{display:inline-block}
 
     <!-- ============ CADENCIADOR CENTRAL (só admin) ============ -->
     <div class="section" id="sec-central">
-      <div class="cc-ajuda">
-        Aqui você <b>cria a célula no PC</b> (produto, turno, takt) e o <b>tablet só se conecta</b> a ela, em
-        <b>Portal › Cadenciador da Célula</b>. Tudo que você mudar aqui aparece no tablet em até 2 segundos, e o que você
-        digitar em <b>“Falar”</b> o tablet fala em voz alta. Depois de conectado, o tablet fica <b>preso à célula</b> — só sai se você liberar.
-      </div>
+      <div class="kpis" id="cc-kpis"></div>
 
       <div class="cc-barra">
-        <button class="btn-sm btn-accent" onclick="cadcNova()">＋ Nova célula</button>
+        <button class="btn-sm btn-accent" onclick="cadcProgramar()">＋ Programar célula</button>
         <div class="cc-todas">
           <input type="text" id="cc-todas-txt" maxlength="300" placeholder="Aviso para TODAS as células (o tablet fala em voz alta)" onkeydown="if(event.key==='Enter')cadcFalarTodas()">
           <button class="btn-sm btn-blue" onclick="cadcFalarTodas()">📢 Falar em todas</button>
@@ -385,7 +394,35 @@ body.adm #tab-central{display:inline-block}
         <a href="/cadenciador/celula" target="_blank" rel="noopener">Abrir tela do tablet ↗</a>
       </div>
 
-      <div class="cc-grid" id="cc-grid"><div class="cc-vazio">Carregando…</div></div>
+      <div class="cc-vistas">
+        <button class="cc-vista on" id="cc-bt-ativas" onclick="cadcVista('ativas')">▶ Células ativas <b id="cc-n-ativas">0</b></button>
+        <button class="cc-vista" id="cc-bt-prog" onclick="cadcVista('prog')">🗓 Programadas <b id="cc-n-prog">0</b></button>
+      </div>
+
+      <!-- ── células ativas ── -->
+      <div id="cc-v-ativas">
+        <div id="cc-pend"></div>
+        <div class="cc-grid" id="cc-grid"><div class="cc-vazio">Carregando…</div></div>
+        <div id="cc-ociosas-box"></div>
+        <div class="card" id="cc-env-card" style="display:none">
+          <div class="card-title">✅ Últimos envios ao Plano de Produção <a href="/progestao/producao" target="_blank" style="font-size:12px;font-weight:600;margin-left:8px">abrir o Plano ↗</a></div>
+          <div style="overflow:auto"><table><thead><tr><th>Dia</th><th>Célula</th><th>Produto</th><th>OP</th><th>Série inicial</th><th>Última série</th><th>Realizado</th><th>Enviado</th></tr></thead><tbody id="cc-env"></tbody></table></div>
+        </div>
+      </div>
+
+      <!-- ── programadas ── -->
+      <div id="cc-v-prog" style="display:none">
+        <div class="cc-ajuda">
+          Aqui ficam as células <b>programadas para começar depois</b> (próximo turno, amanhã, outro dia). Quando chega o dia e a hora do turno,
+          a célula <b>começa a rodar sozinha</b> e passa para “Células ativas” — o tablet que já estiver nela muda junto.
+        </div>
+        <div class="card">
+          <div style="overflow:auto"><table class="cc-prog-tab">
+            <thead><tr><th>Começa em</th><th>Célula</th><th>Produto</th><th>Takt</th><th>OP</th><th>Séries</th><th>Oper.</th><th>Meta</th><th>Ações</th></tr></thead>
+            <tbody id="cc-prog"></tbody>
+          </table></div>
+        </div>
+      </div>
 
       <div class="card">
         <div class="card-title">📱 Tablets</div>
@@ -404,20 +441,90 @@ body.adm #tab-central{display:inline-block}
 </div>
 
 
-<!-- Cadenciador central: nova célula -->
-<div class="cc-modal" id="cc-m-nova">
-  <div class="cx">
-    <h3>＋ Nova célula do cadenciador</h3>
-    <div class="form-group"><label>Nome da célula</label>
-      <input id="cc-n-nome" maxlength="120" list="cc-dl-celulas" placeholder="Ex.: Célula 1 — Racks" autocomplete="off">
-      <datalist id="cc-dl-celulas"></datalist></div>
-    <div class="form-group"><label>Produto</label><select id="cc-n-produto"></select></div>
-    <div class="form-group"><label>Turno</label><select id="cc-n-turno"></select></div>
-    <div class="form-group"><label>Takt (minutos) — deixe vazio para usar o do cadastro</label>
-      <input id="cc-n-takt" type="number" step="0.1" min="0.1" placeholder="do cadastro"></div>
+<!-- Cadenciador central: programar célula (nova programação ou edição) -->
+<div class="cc-modal" id="cc-m-prog">
+  <div class="cx media">
+    <h3 id="cc-o-titulo">＋ Programar célula</h3>
+
+    <div id="cc-o-bloco-cad">
+      <div class="cc-g2">
+        <div class="form-group"><label>Célula</label>
+          <input id="cc-o-celula" maxlength="50" list="cc-dl-celulas" placeholder="Escolha ou digite" autocomplete="off" onchange="cadcProgCelula()">
+          <datalist id="cc-dl-celulas"></datalist></div>
+        <div class="form-group"><label>Produto</label><select id="cc-o-produto" onchange="cadcProgDica()"></select></div>
+      </div>
+      <div class="form-group" style="margin-top:10px"><label>Quando começa a rodar</label>
+        <div class="cc-chips">
+          <button type="button" onclick="cadcProgQuando('agora')">▶ Agora</button>
+          <button type="button" onclick="cadcProgQuando('proximo')">⏭ Próximo turno</button>
+          <button type="button" onclick="cadcProgQuando('amanha')">📅 Amanhã</button>
+        </div></div>
+      <div class="cc-g3" style="margin-top:8px">
+        <div class="form-group"><label>Dia</label><input type="date" id="cc-o-data" onchange="cadcProgDica()"></div>
+        <div class="form-group"><label>Turno</label><select id="cc-o-turno" onchange="cadcProgDica()"></select></div>
+        <div class="form-group"><label>Takt (min)</label><input id="cc-o-takt" type="number" step="0.1" min="0.1" placeholder="do cadastro"></div>
+      </div>
+      <div class="cc-dica" id="cc-o-quando-dica"></div>
+    </div>
+
+    <div class="cc-sub">Ordem de produção e números de série</div>
+    <div class="cc-g3">
+      <div class="form-group"><label>N° OP (8 dígitos)</label>
+        <input id="cc-o-op" maxlength="8" inputmode="numeric" list="cc-dl-ops" placeholder="opcional" autocomplete="off" oninput="this.value=this.value.replace(/\D/g,'');cadcProgDica()">
+        <datalist id="cc-dl-ops"></datalist></div>
+      <div class="form-group"><label>N° série inicial</label>
+        <input id="cc-o-si" maxlength="13" placeholder="13 caracteres" autocomplete="off" oninput="this.value=this.value.toUpperCase().replace(/[^A-Z0-9]/g,'');cadcProgDica()"></div>
+      <div class="form-group"><label>N° série final</label>
+        <input id="cc-o-sf" maxlength="13" placeholder="13 caracteres" autocomplete="off" oninput="this.value=this.value.toUpperCase().replace(/[^A-Z0-9]/g,'');cadcProgDica()"></div>
+    </div>
+    <div class="cc-dica" id="cc-o-op-dica"></div>
+
+    <div class="cc-sub">Equipe e meta do dia</div>
+    <div class="cc-g3">
+      <div class="form-group"><label>Operadores</label><input id="cc-o-oper" type="number" min="0" step="1" oninput="cadcProgDica()"></div>
+      <div class="form-group"><label>Horas por operador</label><input id="cc-o-horas" type="number" min="0" step="0.5" oninput="cadcProgDica()"></div>
+      <div class="form-group"><label>Meta do dia (pç)</label><input id="cc-o-meta" type="number" min="0" step="1" placeholder="opcional"></div>
+    </div>
+    <div class="cc-dica" id="cc-o-cap-dica"></div>
+    <div class="form-group"><label>Observação</label><input id="cc-o-obs" maxlength="500" placeholder="Ex.: aguardando material, setup às 9h…"></div>
+    <label class="cc-check"><input type="checkbox" id="cc-o-rep"> <span>Repetir todo dia útil (segunda a sexta), no mesmo turno, até eu parar</span></label>
+
     <div class="rod">
-      <button class="btn-sm btn-ghost" onclick="cadcFechaModal('cc-m-nova')">Cancelar</button>
-      <button class="btn-sm btn-accent" onclick="cadcCriar()">Criar célula</button>
+      <button class="btn-sm btn-ghost" onclick="cadcFechaModal('cc-m-prog')">Cancelar</button>
+      <button class="btn-sm btn-accent" id="cc-o-salvar" onclick="cadcProgSalvar()">Programar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Cadenciador central: finalizar e enviar ao Plano de Produção -->
+<div class="cc-modal" id="cc-m-fim">
+  <div class="cx media">
+    <h3>✅ Finalizar e enviar ao Plano de Produção</h3>
+    <div class="cc-dica" id="cc-f-info"></div>
+    <div class="cc-g3">
+      <div class="form-group"><label>Dia da produção</label><input type="date" id="cc-f-data"></div>
+      <div class="form-group"><label>N° OP (8 dígitos)</label>
+        <input id="cc-f-op" maxlength="8" inputmode="numeric" list="cc-dl-ops" autocomplete="off" oninput="this.value=this.value.replace(/\D/g,'');cadcFimDica()"></div>
+      <div class="form-group"><label>Meta do dia (pç)</label><input id="cc-f-meta" type="number" min="0" step="1"></div>
+    </div>
+    <div class="cc-g2">
+      <div class="form-group"><label>N° série inicial</label>
+        <input id="cc-f-si" maxlength="13" autocomplete="off" oninput="this.value=this.value.toUpperCase().replace(/[^A-Z0-9]/g,'');cadcFimSeries()"></div>
+      <div class="form-group"><label>Último n° de série PRODUZIDO</label>
+        <input id="cc-f-sf" maxlength="13" autocomplete="off" style="border-color:var(--accent)" oninput="this.value=this.value.toUpperCase().replace(/[^A-Z0-9]/g,'');cadcFimSeries()"></div>
+    </div>
+    <div class="cc-dica" id="cc-f-serie-dica"></div>
+    <div class="cc-g2">
+      <div class="form-group"><label>Quantidade realizada (pç)</label><input id="cc-f-qtd" type="number" min="0" step="1" oninput="ccFimQtdManual=true;cadcFimDica()"></div>
+      <div class="form-group"><label>Observações</label><input id="cc-f-obs" maxlength="500"></div>
+    </div>
+    <div class="cc-dica" id="cc-f-qtd-dica"></div>
+    <label class="cc-check" id="cc-f-cont-l"><input type="checkbox" id="cc-f-cont"> <span id="cc-f-cont-t">Programar o que faltou para o próximo dia útil</span></label>
+    <div class="cc-dica" id="cc-f-plano-dica"></div>
+    <div class="rod">
+      <button class="btn-sm btn-ghost" onclick="cadcFechaModal('cc-m-fim')">Cancelar</button>
+      <button class="btn-sm btn-ghost" id="cc-f-so-enc" onclick="cadcFimEnviar(false)" title="Para a célula agora e deixa o envio para depois (fica em Pendentes de envio)">Só encerrar, enviar depois</button>
+      <button class="btn-sm btn-accent" id="cc-f-enviar" onclick="cadcFimEnviar(true)">✅ Enviar ao Plano de Produção</button>
     </div>
   </div>
 </div>
@@ -469,15 +576,10 @@ body.adm #tab-central{display:inline-block}
   </div>
 </div>
 
-<datalist id="dl-produtos"></datalist>
 <div id="toast"></div>
 
 <script>
-let usuarioAtual = null, celulas = [], produtos = [], planos = [], resumoEst = {};
-let programado = [];     // linhas salvas do dia
-let estado = {};         // { nomeCelula: { funcionando, cod_decio, num_op, turno, operadores, horas_operador, meta, obs } }
-let apontDia = [];       // apontamentos do dia (Plano de Produção)
-let sujo = false;
+let usuarioAtual = null;
 let historico = [];
 
 /* ---------- utilidades ---------- */
@@ -525,216 +627,6 @@ function showTab(name, ev) {
   if (ev) ev.target.classList.add('active');
   if (name === 'historico') carregarHistorico();
   if (name === 'central') cadcAbrir(); else if (typeof cadcFechar === 'function') cadcFechar();
-}
-
-/* ---------- cadastros ---------- */
-async function carregarCadastros() {
-  [celulas, produtos, planos, resumoEst] = await Promise.all([
-    api('/prod-celulas').catch(() => []),
-    api('/prod-produtos').catch(() => []),
-    api('/prod-planos').catch(() => []),
-    api('/prod-estrutura-resumo').catch(() => ({}))
-  ]);
-  document.getElementById('dl-produtos').innerHTML = produtos.map(p => `<option value="${esc(p.cod_decio)}">${esc(p.descricao || '')}${p.cod_intelbras ? ' · ' + esc(p.cod_intelbras) : ''}</option>`).join('');
-}
-const produtoDe = cod => produtos.find(p => p.cod_decio === cod);
-const celulaDe = nome => celulas.find(c => c.nome === nome);
-
-/* ---------- programação do dia ---------- */
-function diaAtual() { return document.getElementById('dia').value; }
-function mudarDia(n) { if (!confirmarSair()) return; document.getElementById('dia').value = addDias(diaAtual() || isoHoje(), n); carregarDia(true); }
-function irHoje() { if (!confirmarSair()) return; document.getElementById('dia').value = isoHoje(); carregarDia(true); }
-let diaCarregado = '';
-function trocarDia() { if (!confirmarSair()) { document.getElementById('dia').value = diaCarregado; return; } carregarDia(); }
-function confirmarSair() { return !sujo || confirm('Há alterações não salvas neste dia. Descartar?'); }
-window.addEventListener('beforeunload', e => { if (sujo) { e.preventDefault(); e.returnValue = ''; } });
-
-/* células que aparecem no dia: ativas + as que já têm programação salva nesse dia */
-function celulasDoDia() {
-  const nomes = celulas.filter(c => c.ativa !== false).map(c => c.nome);
-  programado.forEach(l => { if (!nomes.includes(l.celula_nome)) nomes.push(l.celula_nome); });
-  return nomes.sort((a, b) => a.localeCompare(b, 'pt-BR', { numeric:true }));
-}
-
-function estadoPadrao(nome) {
-  const c = celulaDe(nome) || {};
-  return { funcionando:false, cod_decio:'', num_op:'', turno: c.turno || '', operadores: c.operadores ?? 0, horas_operador: parseFloat(c.horas_operador) || 7, meta:'', obs:'' };
-}
-function estadoDeLinha(l) {
-  const c = celulaDe(l.celula_nome) || {};
-  return { funcionando: !!l.funcionando, cod_decio: l.cod_decio || '', num_op: l.num_op || '', turno: l.turno || '',
-           operadores: l.operadores ?? c.operadores ?? 0, horas_operador: parseFloat(l.horas_operador) || parseFloat(c.horas_operador) || 7,
-           meta: l.meta != null ? Number(l.meta) : '', obs: l.obs || '' };
-}
-
-async function carregarDia() {
-  const dia = diaAtual(); if (!dia) return;
-  diaCarregado = dia;
-  document.getElementById('dia-nome').innerHTML = `${diaSemana(dia)}, ${fmtData(dia)}<small>${dia === isoHoje() ? 'hoje' : dia < isoHoje() ? 'dia passado' : 'programação futura'}</small>`;
-  try {
-    [programado, apontDia] = await Promise.all([
-      api('/linha-producao?data=' + dia),
-      api(`/prod-apontamentos-detalhados?data_ini=${dia}&data_fim=${dia}`).catch(() => [])
-    ]);
-  } catch (e) { toast('Erro ao carregar o dia: ' + e.message, 'error'); programado = []; apontDia = []; }
-  estado = {};
-  celulasDoDia().forEach(nome => {
-    const l = programado.find(x => x.celula_nome === nome);
-    estado[nome] = l ? estadoDeLinha(l) : estadoPadrao(nome);
-  });
-  sujo = false;
-  renderDia();
-}
-
-function apontadoDe(nome) {
-  const ap = apontDia.filter(a => a.celula === nome);
-  return { qtd: ap.reduce((s, a) => s + (parseFloat(a.realizado) || 0), 0), horas: ap.reduce((s, a) => s + (parseFloat(a.hora_reportada_total) || 0), 0), n: ap.length,
-           produtos: [...new Set(ap.map(a => a.cod_decio).filter(Boolean))] };
-}
-
-function opsDoProduto(cod) {
-  return [...new Set(planos.filter(p => p.cod_decio === cod && p.num_op).map(p => p.num_op))];
-}
-
-function linkEstrutura(p) {
-  const r = resumoEst[p.id] || {};
-  const al = r.alertas_ativos ? `<a href="/progestao/produto-estrutura?id=${p.id}#alerta" target="_blank" style="color:var(--red);font-weight:700;margin-left:6px;text-decoration:none">⚠ ${r.alertas_ativos} alerta(s) da qualidade</a>` : '';
-  return al + ` <a href="/progestao/produto-estrutura?id=${p.id}" target="_blank" style="margin-left:6px;font-size:11px">🧩 estrutura</a>`;
-}
-function cardHTML(nome) {
-  const e = estado[nome], c = celulaDe(nome) || {};
-  const id = 'c' + btoa(unescape(encodeURIComponent(nome))).replace(/[^a-zA-Z0-9]/g, '');
-  const p = produtoDe(e.cod_decio);
-  const horasDisp = (parseFloat(e.operadores) || 0) * (parseFloat(e.horas_operador) || 0);
-  const capacidade = p && Number(p.hora_reportado) > 0 ? horasDisp / Number(p.hora_reportado) : null;
-  const ap = apontadoDe(nome);
-  const ops = e.cod_decio ? opsDoProduto(e.cod_decio) : [];
-  const turnoTxt = e.turno ? e.turno + 'º turno' : 'todos os turnos';
-  const info = `<div class="cel-info">
-      <div>Horas disp.<b>${fmtH(horasDisp)}</b></div>
-      <div title="Horas disponíveis ÷ hora reportada do produto">Capacidade<b>${capacidade === null ? '—' : fmtNum(Math.floor(capacidade)) + ' pç'}</b></div>
-      <div title="Apontado no Plano de Produção para esta célula neste dia">Apontado<b>${ap.n ? fmtNum(ap.qtd) + ' pç' : '—'}</b></div>
-    </div>`;
-  return `<div class="cel-card ${e.funcionando ? 'on' : 'off'}" data-nome="${esc(nome)}">
-    <div class="cel-cab">
-      <div class="nm"><strong>${esc(nome)}</strong><span>${esc(c.categoria || 'sem categoria')} · ${turnoTxt}${c.id ? '' : ' · <span style="color:var(--yellow)">célula não cadastrada</span>'}${c.ativa === false ? ' · inativa' : ''}</span></div>
-      <label class="chave"><input type="checkbox" ${e.funcionando ? 'checked' : ''} onchange="alterar(this,'funcionando',this.checked)"><span class="trilho"></span><span class="rot">${e.funcionando ? 'Funcionando' : 'Parada'}</span></label>
-    </div>
-    ${e.funcionando ? `
-    <div class="cel-campos">
-      <div class="form-group full"><label>Produto rodando (Cód. Décio)</label>
-        <input list="dl-produtos" value="${esc(e.cod_decio)}" placeholder="Digite o código ou escolha…" onchange="alterar(this,'cod_decio',this.value.trim(),true)" autocomplete="off"></div>
-      <div class="cel-desc full ${e.cod_decio && !p ? 'erro' : ''}">${e.cod_decio ? (p ? esc(p.descricao || '') + (p.cod_intelbras ? ' · Intelbras ' + esc(p.cod_intelbras) : '') + (p.categoria ? ' · ' + esc(p.categoria) : '') : '⚠ Código não encontrado no cadastro de Produtos') : 'Nenhum produto escolhido'}${p ? linkEstrutura(p) : ''}</div>
-      <div class="form-group"><label>N° OP (opcional)</label>
-        <input value="${esc(e.num_op)}" maxlength="8" inputmode="numeric" list="dl-op-${id}" placeholder="8 dígitos" oninput="this.value=this.value.replace(/\\D/g,'')" onchange="alterar(this,'num_op',this.value)">
-        <datalist id="dl-op-${id}">${ops.map(o => `<option value="${esc(o)}">`).join('')}</datalist></div>
-      <div class="form-group"><label>Turno</label>
-        <select onchange="alterar(this,'turno',this.value,true)"><option value="">Todos</option>${['1','2','3'].map(t => `<option value="${t}" ${e.turno === t ? 'selected' : ''}>${t}º Turno</option>`).join('')}</select></div>
-      <div class="form-group"><label>Operadores no dia</label><input type="number" min="0" step="1" value="${esc(e.operadores)}" onchange="alterar(this,'operadores',this.value,true)"></div>
-      <div class="form-group"><label>Meta do dia (pç)</label><input type="number" min="0" step="1" value="${esc(e.meta)}" placeholder="${capacidade ? 'cap. ' + Math.floor(capacidade) : 'opcional'}" onchange="alterar(this,'meta',this.value)"></div>
-      <div class="form-group full"><label>Observação</label><input value="${esc(e.obs)}" placeholder="Ex: aguardando material, setup às 9h…" onchange="alterar(this,'obs',this.value)"></div>
-    </div>
-    ${info}` : `
-    <div class="cel-off-msg">Célula parada neste dia.${ap.n ? ' <span style="color:var(--yellow)">Mas há ' + ap.n + ' apontamento(s) nela (' + fmtNum(ap.qtd) + ' pç).</span>' : ''}</div>
-    <div class="cel-campos"><div class="form-group full"><label>Motivo / observação</label><input value="${esc(e.obs)}" placeholder="Ex: sem demanda, manutenção, falta de pessoal…" onchange="alterar(this,'obs',this.value)"></div></div>`}
-  </div>`;
-}
-
-function alterar(el, campo, valor, rerender) {
-  const nome = el.closest('.cel-card').dataset.nome;
-  estado[nome][campo] = valor;
-  sujo = true;
-  if (campo === 'funcionando' || rerender) renderDia(); else renderResumo();
-}
-
-function marcarTodas(on) {
-  Object.values(estado).forEach(e => { e.funcionando = on; });
-  sujo = true; renderDia();
-}
-
-function renderDia() {
-  const nomes = Object.keys(estado);
-  const grid = document.getElementById('cel-grid');
-  if (!nomes.length) {
-    grid.innerHTML = '<div class="card" style="grid-column:1/-1;color:var(--text2)">Nenhuma célula ativa cadastrada. Cadastre as células em <a href="/progestao/producao">Plano de Produção › Células</a>.</div>';
-  } else grid.innerHTML = nomes.map(cardHTML).join('');
-  if (ehPcp()) grid.querySelectorAll('input,select').forEach(i => i.disabled = true);
-  renderResumo();
-}
-
-function renderResumo() {
-  const lista = Object.entries(estado);
-  const on = lista.filter(([, e]) => e.funcionando);
-  const oper = on.reduce((s, [, e]) => s + (parseInt(e.operadores) || 0), 0);
-  const horas = on.reduce((s, [, e]) => s + (parseFloat(e.operadores) || 0) * (parseFloat(e.horas_operador) || 0), 0);
-  const prods = new Set(on.map(([, e]) => e.cod_decio).filter(Boolean));
-  const meta = on.reduce((s, [, e]) => s + (parseFloat(e.meta) || 0), 0);
-  const apont = apontDia.reduce((s, a) => s + (parseFloat(a.realizado) || 0), 0);
-  const semProduto = on.filter(([, e]) => !e.cod_decio).length;
-  document.getElementById('dia-kpis').innerHTML = [
-    { lbl:'Células funcionando', val: `${on.length} / ${lista.length}`, cor:'green' },
-    { lbl:'Operadores', val: oper, cor:'blue' },
-    { lbl:'Horas disponíveis', val: fmtH(horas), cor:'blue' },
-    { lbl:'Produtos rodando', val: prods.size, cor:'orange', sub: semProduto ? `⚠ ${semProduto} célula(s) sem produto` : '', alerta:true },
-    { lbl:'Meta do dia', val: meta ? fmtNum(meta) : '—', cor:'yellow' },
-    { lbl:'Apontado no dia', val: fmtNum(apont), cor:'green', sub: apontDia.length + ' apontamento(s)' }
-  ].map(k => `<div class="kpi ${k.cor}"><div class="lbl">${k.lbl}</div><div class="val">${k.val}</div>${k.sub ? `<div style="font-size:10px;color:${k.alerta ? 'var(--yellow)' : 'var(--text2)'};margin-top:4px">${k.sub}</div>` : ''}</div>`).join('');
-
-  const aviso = document.getElementById('dia-aviso');
-  if (sujo) { aviso.className = 'dia-aviso sujo'; aviso.innerHTML = '✏️ Alterações ainda não salvas.'; }
-  else if (programado.length) {
-    const ult = programado.reduce((a, b) => (a.updated_at || '') > (b.updated_at || '') ? a : b);
-    aviso.className = 'dia-aviso salvo';
-    aviso.innerHTML = `✓ Dia programado${ult.registrado_por_nome ? ' por <strong>' + esc(ult.registrado_por_nome) + '</strong>' : ''}${ult.updated_at ? ' em ' + new Date(ult.updated_at).toLocaleString('pt-BR', { day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit' }) : ''}.`;
-  } else {
-    aviso.className = 'dia-aviso';
-    aviso.innerHTML = ehPcp() ? 'Este dia ainda não foi programado.' : '📅 Este dia ainda não foi programado. Ligue as células que vão funcionar e escolha o produto de cada uma — ou copie do último dia programado.';
-  }
-  document.getElementById('resumo-salvar').textContent = `${on.length} célula(s) funcionando · ${prods.size} produto(s)`;
-}
-
-async function salvarDia() {
-  const dia = diaAtual(); if (!dia) return toast('Escolha o dia', 'error');
-  const lista = Object.entries(estado).map(([nome, e]) => ({ celula_nome: nome, ...e }));
-  for (const l of lista) {
-    if (l.num_op && !/^\d{8}$/.test(l.num_op)) return toast(`${l.celula_nome}: N° OP deve ter 8 dígitos (ou ficar em branco)`, 'error');
-  }
-  const semProd = lista.filter(l => l.funcionando && !l.cod_decio).map(l => l.celula_nome);
-  if (semProd.length && !confirm(`Sem produto escolhido em: ${semProd.join(', ')}.\nSalvar assim mesmo?`)) return;
-  const btn = document.getElementById('btn-salvar'); btn.disabled = true; btn.textContent = 'Salvando…';
-  try {
-    await api('/linha-producao/dia/' + dia, { method:'PUT', body:{ celulas: lista } });
-    toast('✅ Programação de ' + fmtData(dia) + ' salva');
-    sujo = false;
-    await carregarDia();
-  } catch (e) { toast('Erro: ' + e.message, 'error'); }
-  finally { btn.disabled = false; btn.textContent = '💾 Salvar programação do dia'; }
-}
-
-async function apagarDia() {
-  const dia = diaAtual();
-  if (!programado.length) { if (sujo) return carregarDia(); return toast('Este dia não tem programação salva', 'warn'); }
-  if (!confirm('Apagar toda a programação de ' + fmtData(dia) + '?')) return;
-  try { await api('/linha-producao/dia/' + dia, { method:'DELETE' }); toast('Programação apagada'); sujo = false; await carregarDia(); }
-  catch (e) { toast('Erro: ' + e.message, 'error'); }
-}
-
-/* traz a programação do último dia salvo antes deste (até 60 dias para trás) */
-async function copiarUltimoDia() {
-  const dia = diaAtual();
-  try {
-    const dias = await api(`/linha-producao/dias?de=${addDias(dia, -60)}&ate=${addDias(dia, -1)}`);
-    if (!dias.length) return toast('Nenhum dia programado nos últimos 60 dias', 'warn');
-    const origem = dias[dias.length - 1].data;
-    const linhas = await api('/linha-producao?data=' + origem);
-    linhas.forEach(l => {
-      if (!estado[l.celula_nome] && !celulaDe(l.celula_nome)) return;   // célula que não existe mais
-      if (!estado[l.celula_nome]) return;                                  // célula inativa hoje: não traz
-      estado[l.celula_nome] = { ...estadoDeLinha(l) };
-    });
-    sujo = true; renderDia();
-    toast('Copiado de ' + diaSemana(origem).toLowerCase() + ', ' + fmtData(origem) + ' — confira e salve');
-  } catch (e) { toast('Erro: ' + e.message, 'error'); }
 }
 
 /* ---------- histórico ---------- */
@@ -812,12 +704,10 @@ function exportarCSV() {
 /* ---------- início ---------- */
 (async () => {
   const hoje = isoHoje();
-  document.getElementById('dia').value = hoje;
   document.getElementById('h-de').value = addDias(hoje, -13);
   document.getElementById('h-ate').value = addDias(hoje, 7);
   await loadUser();
-  await carregarCadastros();
-  await carregarDia();
+  await carregarHistorico();
 })();
 </script>
 <script src="/js/cadc.js?v=3"></script>
@@ -832,13 +722,8 @@ document.addEventListener('keydown', e => { if (e.key === 'Escape') document.que
 
 async function cadcAbrir() {
   if (!ccCad) {
-    try { ccCad = await api(CC + '/admin/cadastros'); }
-    catch (e) { toast(e.message, 'error'); return; }
-    document.getElementById('cc-n-produto').innerHTML = '<option value="">Selecione…</option>' +
-      ccCad.produtos.map(p => `<option value="${p.id}">${esc(p.nome)} — ${p.takt_min} min</option>`).join('');
-    document.getElementById('cc-n-turno').innerHTML = '<option value="">Selecione…</option>' +
-      ccCad.turnos.map(t => `<option value="${t.id}">${esc(t.nome)} (${String(t.hora_inicio).slice(0,5)}–${String(t.hora_fim).slice(0,5)})</option>`).join('');
-    document.getElementById('cc-dl-celulas').innerHTML = ccCad.celulas_cadastro.map(n => `<option value="${esc(n)}">`).join('');
+    await ccRecarregarCadastros();
+    if (!ccCad) { toast('Não foi possível carregar os cadastros', 'error'); return; }
   }
   await cadcAtualizar(true);
   cadcFechar();
@@ -869,30 +754,38 @@ function cadcRender(forcar) {
   const v = ccVisao;
   const assin = JSON.stringify([
     v.celulas.map(c => [c.id, c.sinal || c.versao]),
-    v.tablets.map(t => [t.id, t.nome, t.celula_id, t.online, t.som_ok, t.usuario])
+    v.tablets.map(t => [t.id, t.nome, t.celula_id, t.online, t.som_ok, t.usuario]),
+    v.programadas.map(o => [o.id, o.updated_at]), v.pendentes.map(o => [o.id, o.updated_at, o.ciclos_ok, o.ciclos_nok]),
+    v.enviadas.map(o => o.id), v.hoje
   ]);
   const foco = document.activeElement;
   // Lista aberta ou takt sendo digitado: espera. Campo de texto não segura (o texto e o cursor são preservados).
-  const digitando = foco && foco.closest && foco.closest('#cc-grid, #cc-tablets') &&
+  const digitando = foco && foco.closest && foco.closest('#cc-grid, #cc-tablets, #cc-ociosas-box') &&
     (foco.tagName === 'SELECT' || (foco.tagName === 'INPUT' && foco.type === 'number'));
   if (forcar || (assin !== ccAssin && !digitando)) {
     ccAssin = assin;
+    cadcDesenharPend();
     cadcDesenharCelulas();
+    cadcDesenharOciosas();
+    cadcDesenharProg();
+    cadcDesenharEnv();
     cadcDesenharTablets();
   }
+  cadcKpis();
   cadcDesenharLog();
   cadcVivo();
 
   const on = v.tablets.filter(t => t.online && t.celula_id).length;
-  document.getElementById('cc-resumo').textContent =
-    `${v.celulas.length} célula${v.celulas.length === 1 ? '' : 's'} · ${on} tablet${on === 1 ? '' : 's'} online`;
+  document.getElementById('cc-resumo').textContent = `${on} tablet${on === 1 ? '' : 's'} online`;
 }
 
 function cadcDesenharCelulas() {
   const g = document.getElementById('cc-grid');
   const v = ccVisao;
-  if (!v.celulas.length) {
-    g.innerHTML = '<div class="cc-vazio">Nenhuma célula criada ainda.<br>Clique em <b>＋ Nova célula</b>, escolha o produto e o turno, e depois conecte o tablet.</div>';
+  const ativas = v.celulas.filter(c => !c.ociosa);
+  if (!ativas.length) {
+    g.innerHTML = '<div class="cc-vazio">Nenhuma célula rodando agora.<br>Clique em <b>＋ Programar célula</b>: escolha a célula, o produto, o turno, a OP e os números de série.' +
+      (v.programadas.length ? `<br><br>Há <b>${v.programadas.length}</b> programada(s) esperando a hora — veja em <b>🗓 Programadas</b>.` : '') + '</div>';
     return;
   }
   // Preserva o que estava digitado nos campos de texto
@@ -901,8 +794,7 @@ function cadcDesenharCelulas() {
   const foco = document.activeElement && g.contains(document.activeElement) && document.activeElement.id
     ? { id: document.activeElement.id, a: document.activeElement.selectionStart, b: document.activeElement.selectionEnd } : null;
 
-  g.innerHTML = v.celulas.map(c => {
-    const tabs = v.tablets.filter(t => t.celula_id === c.id);
+  g.innerHTML = ativas.map(c => {
     const optProd = ccCad.produtos.map(p => `<option value="${p.id}"${c.produto && c.produto.id === p.id ? ' selected' : ''}>${esc(p.nome)}</option>`).join('');
     const prodFora = c.produto && !ccCad.produtos.some(p => p.id === c.produto.id) ? `<option value="${c.produto.id}" selected>${esc(c.produto.nome)}</option>` : '';
     const turnoFora = c.turno && !ccCad.turnos.some(t => t.id === c.turno.id) ? `<option value="${c.turno.id}" selected>${esc(c.turno.nome)}</option>` : '';
@@ -911,10 +803,15 @@ function cadcDesenharCelulas() {
     <div class="cc-card${c.pausada ? ' pausada' : ''}" data-id="${c.id}">
       <div class="cc-cab">
         <strong title="${esc(c.nome)}">${esc(c.nome)}</strong>
+        ${c.ordem && c.ordem.repetir ? '<span class="badge blue" title="Repete todo dia útil, no mesmo turno">🔁 repete</span>' : ''}
         <span class="badge" id="cc-st-${c.id}">—</span>
         <button class="cc-ico" title="Renomear" onclick="cadcRenomear(${c.id})">✏️</button>
         <button class="cc-ico" title="Excluir célula" onclick="cadcExcluir(${c.id})">🗑️</button>
       </div>
+
+      <div class="cc-fim-aviso"><span>🏁 <b>Turno encerrado.</b> Confira o último n° de série produzido e envie a produção ao Plano.</span>
+        <button class="btn-sm btn-accent" onclick="cadcFinalizar(${c.ordem.id})">✅ Finalizar e enviar</button></div>
+      ${ccProgLinha(c)}
 
       <div class="cc-vivo">
         <div class="cc-prox" title="Mesmo tempo que aparece no tablet desta célula">
@@ -961,28 +858,10 @@ function cadcDesenharCelulas() {
         <button class="btn-sm btn-ghost" onclick="cadcMudar(${c.id},{voz_ativa:${!c.voz_ativa}},'${c.voz_ativa ? 'Avisos automáticos desligados' : 'Avisos automáticos ligados'}')"
                 title="“Ciclo finalizado”, intervalos e fim de turno">${c.voz_ativa ? '🔔 Avisos de ciclo: ligados' : '🔕 Avisos de ciclo: desligados'}</button>
         <button class="btn-sm btn-ghost" onclick="cadcReiniciar(${c.id})" title="Zera o tempo parado e recomeça a contagem de ciclos">↺ Reiniciar contagem</button>
+        <button class="btn-sm btn-accent" onclick="cadcFinalizar(${c.ordem.id})" title="Encerra a célula e envia a produção ao Plano de Produção (Apontamento Diário)">✅ Finalizar e enviar ao Plano</button>
       </div>
 
-      <div class="cc-tabs">
-        <span>📱 Tablets:</span>
-        ${tabs.length ? tabs.map(t => `
-          <span class="cc-tab ${t.online ? 'on' : 'off'}" title="${t.online ? 'Online' : 'Sem sinal'}${t.online && !t.som_ok ? ' — som ainda não ativado (falta um toque na tela)' : ''}">
-            <i></i>${esc(t.nome || 'Tablet')}${t.online && !t.som_ok ? ' 🔇' : ''}
-            <select title="Trocar este tablet de célula" onchange="cadcMover(${t.id}, this.value)">
-              <option value="" selected disabled>⇄ trocar</option>
-              ${v.celulas.filter(x => x.id !== c.id).map(x => `<option value="${x.id}">→ ${esc(x.nome)}</option>`).join('')}
-              <option value="livre">🔓 Liberar (sem célula)</option>
-            </select>
-          </span>`).join('') : '<span>nenhum</span>'}
-        ${(() => {
-          const outros = v.tablets.filter(t => t.celula_id !== c.id);
-          if (!outros.length) return tabs.length ? '' : '<span>— abra <b>Cadenciador da Célula</b> no tablet</span>';
-          return `<select class="cc-traz" title="Colocar um tablet nesta célula, daqui do PC" onchange="cadcMover(Number(this.value), ${c.id})">
-            <option value="" selected disabled>＋ Trazer tablet para cá</option>
-            ${outros.map(t => `<option value="${t.id}">${t.online ? '🟢' : '⚪'} ${esc(t.nome || 'Tablet')} — ${t.celula_id ? 'está em ' + esc((v.celulas.find(x => x.id === t.celula_id) || {}).nome || '?') : 'livre'}</option>`).join('')}
-          </select>`;
-        })()}
-      </div>
+      ${ccTabsHTML(c)}
     </div>`;
   }).join('');
 
@@ -1014,8 +893,7 @@ function cadcVivo() {
           pct = pz.total > 0 ? (1 - pz.restante / pz.total) * 100 : 0;
         } else { rot = (c.pausa_motivo || 'Pausada') + ' · parada há'; val = Cadc.curto(pz.decorrido); pct = 100; }
       } else if (s.fase === 'sem-config') { badge = ['yellow', 'Falta configurar']; rot = 'Defina produto e turno'; }
-      else if (s.fase === 'fora') { badge = ['blue', 'Fora do turno']; rot = s.proximo.rot; val = Cadc.curto(s.proximo.restante); }
-      else if (s.fase === 'encerrado') { badge = ['blue', 'Turno encerrado']; rot = 'Turno'; val = 'FIM'; pct = 100; }
+      else if (s.fase === 'fora' || s.fase === 'encerrado') { badge = ['blue', 'Turno encerrado']; rot = 'Turno encerrado'; val = 'FIM'; pct = 100; }
       else {
         if (s.fase === 'intervalo') badge = ['orange', 'Intervalo'];
         rot = s.proximo.rot; val = Cadc.curto(s.proximo.restante);
@@ -1025,6 +903,7 @@ function cadcVivo() {
       st.className = 'badge ' + badge[0]; st.textContent = badge[1];
       card.classList.toggle('fora', !c.pausada && (s.fase === 'fora' || s.fase === 'encerrado' || s.fase === 'sem-config'));
       card.classList.toggle('alerta', alerta);
+      card.classList.toggle('fim', !c.pausada && (s.fase === 'fora' || s.fase === 'encerrado'));
       document.getElementById('cc-ci-' + c.id).textContent = s.total ? `${s.ciclo} / ${s.total}` : '—';
       document.getElementById('cc-pr-rot-' + c.id).textContent = rot;
       const pr = document.getElementById('cc-pr-' + c.id);
@@ -1087,22 +966,445 @@ async function cadcAcao(fn, msg) {
 const cadcCel = id => ccVisao.celulas.find(c => c.id === id);
 const cadcTab = id => ccVisao.tablets.find(t => t.id === id);
 
-function cadcNova() {
-  ['cc-n-nome', 'cc-n-produto', 'cc-n-turno', 'cc-n-takt'].forEach(i => document.getElementById(i).value = '');
-  document.getElementById('cc-m-nova').classList.add('show');
-  document.getElementById('cc-n-nome').focus();
+/* ═══════════ Programação: células ativas × programadas, OP e séries, envio ao Plano ═══════════ */
+let ccVistaAtual = 'ativas', ccOrdemEdit = null, ccFim = null, ccFimQtdManual = false;
+
+function cadcVista(v) {
+  ccVistaAtual = v;
+  document.getElementById('cc-v-ativas').style.display = v === 'ativas' ? '' : 'none';
+  document.getElementById('cc-v-prog').style.display = v === 'prog' ? '' : 'none';
+  document.getElementById('cc-bt-ativas').classList.toggle('on', v === 'ativas');
+  document.getElementById('cc-bt-prog').classList.toggle('on', v === 'prog');
 }
-async function cadcCriar() {
+
+/* Quantas peças entre duas séries (inclusive) e qual a série seguinte — mesma conta do servidor */
+function ccQtdSeries(a, b) {
+  const x = /^(.*?)(\d+)$/.exec(a || ''), y = /^(.*?)(\d+)$/.exec(b || '');
+  if (!x || !y) return null;
+  const casas = Math.min(x[2].length, y[2].length, 15);
+  if (a.slice(0, a.length - casas) !== b.slice(0, b.length - casas)) return null;
+  const n = Number(b.slice(-casas)) - Number(a.slice(-casas)) + 1;
+  return Number.isFinite(n) ? n : null;
+}
+function ccProxSerie(s) {
+  const m = /^(.*?)(\d+)$/.exec(s || ''); if (!m) return null;
+  const casas = Math.min(m[2].length, 15);
+  const p = String(Number(s.slice(-casas)) + 1);
+  return p.length > casas ? null : s.slice(0, s.length - casas) + p.padStart(casas, '0');
+}
+const ccSerieOk = s => /^[A-Z0-9]{13}$/.test(s || '');
+function ccDiaTxt(d) {
+  const h = ccVisao ? ccVisao.hoje : isoHoje();
+  return (d === h ? 'Hoje' : d === addDias(h, 1) ? 'Amanhã' : diaSemana(d).split('-')[0]) + ' · ' + fmtData(d).slice(0, 5);
+}
+const ccPlano = op => (ccCad.planos || []).find(p => p.num_op === op);
+
+/** Programação por id, de onde ela estiver (programada, pendente ou rodando em uma célula). */
+function ccOrdemDe(id) {
+  const v = ccVisao;
+  let o = v.programadas.find(x => x.id === id) || v.pendentes.find(x => x.id === id);
+  if (o) return o;
+  const c = v.celulas.find(x => x.ordem && x.ordem.id === id);
+  if (!c) return null;
+  return { ...c.ordem, status: 'ativa', celula_nome: c.nome, celula_id: c.id, turno_id: c.turno ? c.turno.id : null,
+           turno_nome: c.turno ? c.turno.nome : '', produto_id: c.produto ? c.produto.id : null,
+           prod_nome: c.produto ? c.produto.nome : '', takt_min: c.takt_min, _cel: c };
+}
+
+function cadcKpis() {
+  const v = ccVisao;
+  const at = v.celulas.filter(c => !c.ociosa);
+  const oper = at.reduce((s, c) => s + (c.ordem.operadores || 0), 0);
+  const horas = at.reduce((s, c) => s + (c.ordem.operadores || 0) * (c.ordem.horas_operador || 0), 0);
+  const prods = new Set(at.map(c => c.produto && c.produto.nome).filter(Boolean));
+  const meta = at.reduce((s, c) => s + (c.ordem.meta || 0), 0);
+  const semOp = at.filter(c => !c.ordem.num_op).length;
+  const k = [
+    { lbl: 'Células rodando', val: `${at.length} / ${v.celulas.length}`, cor: 'green' },
+    { lbl: 'Operadores', val: oper, cor: 'blue' },
+    { lbl: 'Horas disponíveis', val: fmtH(horas), cor: 'blue' },
+    { lbl: 'Produtos rodando', val: prods.size, cor: 'orange', sub: semOp ? `⚠ ${semOp} célula(s) sem OP` : '', alerta: true },
+    { lbl: 'Meta do dia', val: meta ? fmtNum(meta) : '—', cor: 'yellow' },
+    { lbl: 'Apontado no dia', val: fmtNum(v.apontado.qtd), cor: 'green', sub: v.apontado.n + ' apontamento(s)' }
+  ];
+  if (v.pendentes.length) k.push({ lbl: 'Pendentes de envio', val: v.pendentes.length, cor: 'red', sub: 'falta enviar ao Plano', alerta: true });
+  document.getElementById('cc-kpis').innerHTML = k.map(x => `<div class="kpi ${x.cor}"><div class="lbl">${x.lbl}</div><div class="val">${x.val}</div>${x.sub ? `<div style="font-size:10px;color:${x.alerta ? 'var(--yellow)' : 'var(--text2)'};margin-top:4px">${x.sub}</div>` : ''}</div>`).join('');
+  document.getElementById('cc-n-ativas').textContent = at.length;
+  document.getElementById('cc-n-prog').textContent = v.programadas.length;
+}
+
+/* Linha "o que está rodando": OP, séries, meta, equipe — o que antes era digitado dia a dia */
+function ccProgLinha(c) {
+  const o = c.ordem; if (!o) return '';
+  const qtd = o.serie_inicial && o.serie_final ? ccQtdSeries(o.serie_inicial, o.serie_final) : null;
+  const horas = (o.operadores || 0) * (o.horas_operador || 0);
+  const hp = o.cod_decio ? (ccCad.horas_por_peca || {})[o.cod_decio] : null;
+  const cap = hp && horas ? Math.floor(horas / hp) : null;
+  const l1 = [
+    o.num_op ? `OP <b>${esc(o.num_op)}</b>` : '<span class="sem">sem OP</span>',
+    o.serie_inicial || o.serie_final
+      ? `Séries <b>${esc(o.serie_inicial || '?')}</b> → <b>${esc(o.serie_final || '?')}</b>${qtd > 0 ? ` (${qtd} pç)` : ''}`
+      : '<span class="sem">sem n° de série</span>'
+  ];
+  const l2 = [];
+  if (o.meta != null) l2.push(`Meta <b>${fmtNum(o.meta)} pç</b>`);
+  if (o.operadores != null) l2.push(`👷 <b>${o.operadores}</b> oper.${o.horas_operador ? ` × ${fmtNum(o.horas_operador)} h = <b>${fmtH(horas)}</b>` : ''}`);
+  if (cap != null) l2.push(`capacidade <b>${fmtNum(cap)} pç</b>`);
+  if (o.cod_decio) l2.push(`cód. <b>${esc(o.cod_decio)}</b>`);
+  return `<div class="cc-prog-l"><div>📋 ${l1.join(' · ')}${l2.length ? '<br>' + l2.join(' · ') : ''}${o.obs ? '<br>💬 ' + esc(o.obs) : ''}</div>
+    <button class="cc-ico" title="Editar OP, séries, meta e equipe" onclick="cadcProgEditar(${o.id})">✏️</button></div>`;
+}
+
+function ccTabsHTML(c) {
+  const v = ccVisao;
+  const tabs = v.tablets.filter(t => t.celula_id === c.id);
+  const outros = v.tablets.filter(t => t.celula_id !== c.id);
+  return `<div class="cc-tabs">
+    <span>📱 Tablets:</span>
+    ${tabs.length ? tabs.map(t => `
+      <span class="cc-tab ${t.online ? 'on' : 'off'}" title="${t.online ? 'Online' : 'Sem sinal'}${t.online && !t.som_ok ? ' — som ainda não ativado (falta um toque na tela)' : ''}">
+        <i></i>${esc(t.nome || 'Tablet')}${t.online && !t.som_ok ? ' 🔇' : ''}
+        <select title="Trocar este tablet de célula" onchange="cadcMover(${t.id}, this.value)">
+          <option value="" selected disabled>⇄ trocar</option>
+          ${v.celulas.filter(x => x.id !== c.id).map(x => `<option value="${x.id}">→ ${esc(x.nome)}</option>`).join('')}
+          <option value="livre">🔓 Liberar (sem célula)</option>
+        </select>
+      </span>`).join('') : '<span>nenhum</span>'}
+    ${outros.length ? `<select class="cc-traz" title="Colocar um tablet nesta célula, daqui do PC" onchange="cadcMover(Number(this.value), ${c.id})">
+        <option value="" selected disabled>＋ Trazer tablet para cá</option>
+        ${outros.map(t => `<option value="${t.id}">${t.online ? '🟢' : '⚪'} ${esc(t.nome || 'Tablet')} — ${t.celula_id ? 'está em ' + esc((v.celulas.find(x => x.id === t.celula_id) || {}).nome || '?') : 'livre'}</option>`).join('')}
+      </select>` : (tabs.length ? '' : '<span>— abra <b>Cadenciador da Célula</b> no tablet</span>')}
+  </div>`;
+}
+
+function cadcDesenharPend() {
+  const v = ccVisao, el = document.getElementById('cc-pend');
+  if (!v.pendentes.length) { el.innerHTML = ''; return; }
+  el.innerHTML = `<div class="cc-pend"><h4>⚠ ${v.pendentes.length} produção(ões) encerrada(s) aguardando envio ao Plano de Produção</h4>` +
+    v.pendentes.map(o => `<div class="it">
+      <div><b>${esc(o.celula_nome)}</b> · ${fmtData(o.dia)} · ${esc(o.turno_nome || '')} · <b>${esc(o.prod_nome || '')}</b><br>
+        ${o.num_op ? 'OP ' + esc(o.num_op) : '<span style="color:var(--yellow)">sem OP</span>'} · Séries ${esc(o.serie_inicial || '?')} → ${esc(o.serie_final || '?')}
+        · ${o.ciclos_ok || 0} ciclo(s) concluído(s)${o.ciclos_nok ? ', ' + o.ciclos_nok + ' não' : ''}</div>
+      <button class="btn-sm btn-accent" onclick="cadcFinalizar(${o.id})">✅ Finalizar e enviar</button>
+      <button class="btn-sm btn-ghost" onclick="cadcOrdemDescartar(${o.id})">Descartar</button>
+    </div>`).join('') + '</div>';
+}
+
+function cadcDesenharOciosas() {
+  const v = ccVisao, box = document.getElementById('cc-ociosas-box');
+  const oc = v.celulas.filter(c => c.ociosa);
+  if (!oc.length) { box.innerHTML = ''; return; }
+  box.innerHTML = `<div class="cc-sec-t">Células sem programação rodando (${oc.length})</div><div class="cc-ociosas">` + oc.map(c => `
+    <div class="cc-oc" data-id="${c.id}">
+      <div class="cc-cab"><strong title="${esc(c.nome)}">${esc(c.nome)}</strong>
+        <button class="cc-ico" title="Renomear" onclick="cadcRenomear(${c.id})">✏️</button>
+        <button class="cc-ico" title="Excluir célula" onclick="cadcExcluir(${c.id})">🗑️</button></div>
+      <div>${c.proxima
+        ? `🗓 Próxima: <b style="color:var(--text)">${esc(c.proxima.produto || '')}</b> — ${ccDiaTxt(c.proxima.dia)}, ${esc(c.proxima.turno || '')} às ${esc(c.proxima.hora || '')} <span style="color:var(--accent)">(começa sozinha)</span>`
+        : 'Nada programado para esta célula.'}</div>
+      <div><button class="btn-sm btn-accent" data-cel="${esc(c.nome)}" onclick="cadcProgramar(this.dataset.cel)">＋ Programar esta célula</button></div>
+      ${ccTabsHTML(c)}
+    </div>`).join('') + '</div>';
+}
+
+function cadcDesenharProg() {
+  const v = ccVisao, tb = document.getElementById('cc-prog');
+  if (!v.programadas.length) {
+    tb.innerHTML = '<tr><td colspan="9" style="color:var(--text2);padding:22px;text-align:center">Nenhuma célula programada. Clique em <b>＋ Programar célula</b> e escolha “Próximo turno”, “Amanhã” ou outro dia.</td></tr>';
+    return;
+  }
+  tb.innerHTML = v.programadas.map(o => {
+    const qtd = o.serie_inicial && o.serie_final ? ccQtdSeries(o.serie_inicial, o.serie_final) : null;
+    return `<tr class="${o.dia === v.hoje ? 'hoje' : ''}" title="${esc(o.obs || '')}">
+      <td><b>${ccDiaTxt(o.dia)}</b><div style="font-size:11px;color:var(--text2)">${esc(o.turno_nome || '')} · ${esc(o.turno_inicio || '')}–${esc(o.turno_fim || '')}</div></td>
+      <td><b>${esc(o.celula_nome)}</b>${o.repetir ? ' <span class="badge blue" title="Repete todo dia útil">🔁</span>' : ''}</td>
+      <td>${esc(o.prod_nome || '—')}</td><td>${o.takt_min != null ? fmtNum(o.takt_min) + ' min' : '—'}</td>
+      <td>${o.num_op ? esc(o.num_op) : '<span style="color:var(--text2)">—</span>'}</td>
+      <td class="q">${o.serie_inicial || o.serie_final ? esc(o.serie_inicial || '?') + ' → ' + esc(o.serie_final || '?') + (qtd > 0 ? ` <span style="color:var(--text2)">(${qtd} pç)</span>` : '') : '<span style="color:var(--text2)">—</span>'}</td>
+      <td>${o.operadores ?? '—'}</td><td>${o.meta != null ? fmtNum(o.meta) : '—'}</td>
+      <td><button class="btn-sm btn-ghost" title="Começar agora, sem esperar" onclick="cadcOrdemIniciar(${o.id})">▶ Iniciar agora</button>
+          <button class="btn-sm btn-ghost" onclick="cadcProgEditar(${o.id})">✏️ Editar</button>
+          <button class="btn-sm btn-ghost" onclick="cadcOrdemCancelar(${o.id})">🗑️</button></td></tr>`;
+  }).join('');
+}
+
+function cadcDesenharEnv() {
+  const v = ccVisao;
+  document.getElementById('cc-env-card').style.display = v.enviadas.length ? '' : 'none';
+  document.getElementById('cc-env').innerHTML = v.enviadas.map(o => `<tr>
+    <td>${fmtData(o.dia)}</td><td><b>${esc(o.celula_nome)}</b></td><td>${esc(o.prod_nome || '')}</td><td>${esc(o.num_op || '')}</td>
+    <td>${esc(o.serie_inicial || '')}</td><td>${esc(o.serie_final_real || '')}</td><td><b>${fmtNum(o.realizado)}</b>${o.meta ? ' / ' + fmtNum(o.meta) : ''}</td>
+    <td>${o.enviada_em ? new Date(o.enviada_em).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : ''}</td></tr>`).join('');
+}
+
+/* ---------- programar / editar ---------- */
+async function ccRecarregarCadastros() {
+  try { ccCad = await api(CC + '/admin/cadastros'); } catch (e) { return; }
+  const nomes = [...new Set([...(ccCad.celulas_cadastro || []), ...(ccVisao ? ccVisao.celulas.map(c => c.nome) : [])])];
+  document.getElementById('cc-dl-celulas').innerHTML = nomes.map(n => `<option value="${esc(n)}">`).join('');
+  document.getElementById('cc-dl-ops').innerHTML = (ccCad.planos || []).map(p =>
+    `<option value="${esc(p.num_op)}">${esc((p.descricao || '').slice(0, 40))} — ${fmtNum(p.realizado)}/${fmtNum(p.meta)}${p.status === 'concluido' ? ' (concluído)' : ''}</option>`).join('');
+  const sp = document.getElementById('cc-o-produto'), st = document.getElementById('cc-o-turno'), vp = sp.value, vt = st.value;
+  sp.innerHTML = '<option value="">Selecione…</option>' + ccCad.produtos.map(p => `<option value="${p.id}">${esc(p.nome)} — ${p.takt_min} min</option>`).join('');
+  st.innerHTML = ccCad.turnos.map(t => `<option value="${t.id}">${esc(t.nome)} (${String(t.hora_inicio).slice(0, 5)}–${String(t.hora_fim).slice(0, 5)})</option>`).join('');
+  sp.value = vp; if (vt) st.value = vt;
+}
+const ccV = id => document.getElementById(id).value.trim();
+const ccS = (id, v) => { document.getElementById(id).value = v == null ? '' : v; };
+
+/** Turno que está rodando agora (ou null) e o próximo a começar. */
+function ccTurnosAgora() {
+  const agora = Cadc.agoraSeg();
+  let rodando = null, proximo = null, espera = Infinity;
+  for (const t of ccCad.turnos) {
+    const o = Cadc.off(Cadc.hms(agora), t);
+    if (o <= Cadc.dur(t)) { if (!rodando) rodando = t; continue; }
+    if (86400 - o < espera) { espera = 86400 - o; proximo = t; }
+  }
+  return { rodando, proximo, espera, viraDia: proximo ? Cadc.seg(proximo.hora_inicio) <= agora : false };
+}
+
+async function cadcProgramar(celNome) {
+  await ccRecarregarCadastros();
+  ccOrdemEdit = null;
+  ['cc-o-celula', 'cc-o-produto', 'cc-o-takt', 'cc-o-op', 'cc-o-si', 'cc-o-sf', 'cc-o-oper', 'cc-o-horas', 'cc-o-meta', 'cc-o-obs'].forEach(i => ccS(i, ''));
+  document.getElementById('cc-o-rep').checked = false;
+  document.getElementById('cc-o-titulo').textContent = '＋ Programar célula';
+  document.getElementById('cc-o-salvar').textContent = 'Programar';
+  document.getElementById('cc-o-bloco-cad').style.display = '';
+  const t = ccTurnosAgora();
+  ccS('cc-o-data', ccVisao.hoje);
+  if (t.rodando || t.proximo) ccS('cc-o-turno', (t.rodando || t.proximo).id);
+  if (typeof celNome === 'string' && celNome) { ccS('cc-o-celula', celNome); cadcProgCelula(); }
+  cadcProgDica();
+  document.getElementById('cc-m-prog').classList.add('show');
+  document.getElementById(celNome ? 'cc-o-produto' : 'cc-o-celula').focus();
+}
+
+async function cadcProgEditar(id) {
+  await ccRecarregarCadastros();
+  const o = ccOrdemDe(id); if (!o) return toast('Programação não encontrada', 'error');
+  ccOrdemEdit = o;
+  const rodando = o.status === 'ativa';
+  document.getElementById('cc-o-titulo').textContent = (rodando ? '✏️ ' + o.celula_nome + ' — OP, séries, meta e equipe' : '✏️ Editar programação — ' + o.celula_nome);
+  document.getElementById('cc-o-salvar').textContent = 'Salvar';
+  document.getElementById('cc-o-bloco-cad').style.display = rodando ? 'none' : '';
+  ccS('cc-o-celula', o.celula_nome); ccS('cc-o-produto', o.produto_id); ccS('cc-o-data', o.dia); ccS('cc-o-turno', o.turno_id);
+  ccS('cc-o-takt', o.takt_manual != null ? Number(o.takt_manual) : '');
+  ccS('cc-o-op', o.num_op); ccS('cc-o-si', o.serie_inicial); ccS('cc-o-sf', o.serie_final);
+  ccS('cc-o-oper', o.operadores); ccS('cc-o-horas', o.horas_operador); ccS('cc-o-meta', o.meta); ccS('cc-o-obs', o.obs);
+  document.getElementById('cc-o-rep').checked = !!o.repetir;
+  cadcProgDica();
+  document.getElementById('cc-m-prog').classList.add('show');
+}
+
+/* escolheu a célula: traz operadores e horas do cadastro dela */
+function cadcProgCelula() {
+  const c = (ccCad.celulas || []).find(x => x.nome.toLowerCase() === ccV('cc-o-celula').toLowerCase());
+  if (c) {
+    if (!ccV('cc-o-oper') && c.operadores) ccS('cc-o-oper', c.operadores);
+    if (!ccV('cc-o-horas') && c.horas_operador) ccS('cc-o-horas', c.horas_operador);
+  }
+  cadcProgDica();
+}
+
+function cadcProgQuando(tipo) {
+  const t = ccTurnosAgora(), hoje = ccVisao.hoje;
+  if (tipo === 'agora') {
+    ccS('cc-o-data', hoje);
+    if (t.rodando) ccS('cc-o-turno', t.rodando.id);
+    else toast('Nenhum turno em andamento agora — ficará para o início do turno escolhido', 'warn');
+  } else if (tipo === 'proximo') {
+    if (!t.proximo) return toast('Não há outro turno ativo cadastrado', 'warn');
+    ccS('cc-o-turno', t.proximo.id);
+    ccS('cc-o-data', t.viraDia ? addDias(hoje, 1) : hoje);
+  } else ccS('cc-o-data', addDias(hoje, 1));
+  cadcProgDica();
+}
+
+function cadcProgDica() {
+  // quando
+  const dq = document.getElementById('cc-o-quando-dica');
+  const turno = ccCad.turnos.find(t => String(t.id) === ccV('cc-o-turno'));
+  const dia = ccV('cc-o-data');
+  if (turno && dia && !(ccOrdemEdit && ccOrdemEdit.status === 'ativa')) {
+    const o = Cadc.off(Cadc.agora(), turno), emAndamento = o <= Cadc.dur(turno);
+    const hoje = ccVisao.hoje;
+    if (dia <= hoje && emAndamento) { dq.className = 'cc-dica ok'; dq.innerHTML = `▶ O <b>${esc(turno.nome)}</b> está em andamento: a célula <b>começa a rodar agora</b>.`; }
+    else {
+      const ini = String(turno.hora_inicio).slice(0, 5);
+      const quando = dia > hoje ? dia : (Cadc.seg(turno.hora_inicio) > Cadc.agoraSeg() ? hoje : addDias(hoje, 1));
+      dq.className = 'cc-dica'; dq.innerHTML = `🗓 Fica em <b>Programadas</b> e começa sozinha em <b>${ccDiaTxt(quando)} às ${ini}</b> (${esc(turno.nome)}).`;
+    }
+  } else dq.innerHTML = '';
+
+  // OP e séries
+  const op = ccV('cc-o-op'), si = ccV('cc-o-si'), sf = ccV('cc-o-sf');
+  const dop = document.getElementById('cc-o-op-dica'); const partes = []; let aviso = false;
+  if (op.length === 8) {
+    const p = ccPlano(op);
+    if (p) {
+      partes.push(`Plano: <b>${esc(p.descricao || p.cod_decio || '')}</b> — feito ${fmtNum(p.realizado)} de ${fmtNum(p.meta)}`);
+      // sugere o produto do cadenciador com o mesmo código Décio do plano
+      const sel = document.getElementById('cc-o-produto');
+      if (!sel.value && p.cod_decio) { const cp = ccCad.produtos.find(x => x.cod_decio && x.cod_decio === p.cod_decio); if (cp) sel.value = cp.id; }
+    } else { partes.push('⚠ OP ainda não cadastrada no plano mensal — cadastre antes de enviar a produção'); aviso = true; }
+  } else if (op) { partes.push('OP deve ter 8 dígitos'); aviso = true; }
+  if (si || sf) {
+    if ((si && !ccSerieOk(si)) || (sf && !ccSerieOk(sf))) { partes.push('cada n° de série deve ter 13 caracteres'); aviso = true; }
+    else if (si && sf) {
+      const q = ccQtdSeries(si, sf);
+      if (q > 0) { partes.push(`séries = <b>${q} peça${q === 1 ? '' : 's'}</b>`); const m = document.getElementById('cc-o-meta'); m.placeholder = 'ex.: ' + q; }
+      else if (q !== null) { partes.push('⚠ a série final é menor que a inicial'); aviso = true; }
+    }
+  }
+  dop.className = 'cc-dica' + (aviso ? ' av' : ''); dop.innerHTML = partes.join(' · ');
+
+  // capacidade
+  const oper = parseFloat(ccV('cc-o-oper')) || 0, hrs = parseFloat(ccV('cc-o-horas')) || 0;
+  const p = op.length === 8 ? ccPlano(op) : null;
+  const prod = ccCad.produtos.find(x => String(x.id) === ccV('cc-o-produto'));
+  const cod = (p && p.cod_decio) || (prod && prod.cod_decio);
+  const hp = cod ? (ccCad.horas_por_peca || {})[cod] : null;
+  document.getElementById('cc-o-cap-dica').innerHTML = oper && hrs
+    ? `Horas disponíveis: <b>${fmtH(oper * hrs)}</b>${hp ? ` · capacidade: <b>${fmtNum(Math.floor(oper * hrs / hp))} pç</b>` : ''}` : '';
+}
+
+async function cadcProgSalvar() {
+  const ed = ccOrdemEdit, rodando = ed && ed.status === 'ativa';
   const corpo = {
-    nome: document.getElementById('cc-n-nome').value.trim(),
-    produto_id: Number(document.getElementById('cc-n-produto').value) || null,
-    turno_id: Number(document.getElementById('cc-n-turno').value) || null,
-    takt_min: document.getElementById('cc-n-takt').value
+    num_op: ccV('cc-o-op'), serie_inicial: ccV('cc-o-si'), serie_final: ccV('cc-o-sf'),
+    operadores: ccV('cc-o-oper'), horas_operador: ccV('cc-o-horas'), meta: ccV('cc-o-meta'), obs: ccV('cc-o-obs'),
+    repetir: document.getElementById('cc-o-rep').checked
   };
-  if (!corpo.nome) return toast('Dê um nome para a célula', 'warn');
-  if (!corpo.produto_id || !corpo.turno_id) return toast('Escolha o produto e o turno', 'warn');
-  if (await cadcAcao(() => api(CC + '/celulas', { method: 'POST', body: corpo }), 'Célula criada — agora conecte o tablet nela')) cadcFechaModal('cc-m-nova');
+  if (!rodando) Object.assign(corpo, {
+    celula_nome: ccV('cc-o-celula'), produto_id: Number(ccV('cc-o-produto')) || null, turno_id: Number(ccV('cc-o-turno')) || null,
+    takt_min: ccV('cc-o-takt'), data: ccV('cc-o-data')
+  });
+  if (!rodando && !corpo.celula_nome) return toast('Informe a célula', 'warn');
+  if (!rodando && (!corpo.produto_id || !corpo.turno_id)) return toast('Escolha o produto e o turno', 'warn');
+  if (corpo.num_op && corpo.num_op.length !== 8) return toast('N° OP deve ter 8 dígitos (ou ficar em branco)', 'warn');
+  if ((corpo.serie_inicial && !ccSerieOk(corpo.serie_inicial)) || (corpo.serie_final && !ccSerieOk(corpo.serie_final))) return toast('Cada n° de série deve ter 13 caracteres (letras/números)', 'warn');
+  if (corpo.serie_inicial && corpo.serie_final && ccQtdSeries(corpo.serie_inicial, corpo.serie_final) <= 0 && ccQtdSeries(corpo.serie_inicial, corpo.serie_final) !== null) return toast('A série final é menor que a inicial', 'warn');
+
+  const bt = document.getElementById('cc-o-salvar'); bt.disabled = true;
+  try {
+    let o, aviso = null;
+    if (ed) o = await api(CC + '/ordens/' + ed.id, { method: 'PUT', body: corpo });
+    else { const r = await api(CC + '/ordens', { method: 'POST', body: corpo }); o = r.ordem; aviso = r.aviso; }
+    cadcFechaModal('cc-m-prog');
+    if (ed) toast('Programação salva');
+    else if (o.status === 'ativa') { toast(`▶ ${o.celula_nome} já está rodando`); cadcVista('ativas'); }
+    else { toast(`🗓 ${o.celula_nome} programada para ${ccDiaTxt(o.dia)} às ${o.turno_inicio} — começa sozinha`); cadcVista('prog'); }
+    if (aviso) setTimeout(() => toast(aviso, 'warn'), 3200);
+  } catch (e) { toast(e.message, 'error'); }
+  finally { bt.disabled = false; await cadcAtualizar(true); }
 }
+
+function cadcOrdemIniciar(id) {
+  const o = ccOrdemDe(id);
+  if (!confirm(`Começar agora a programação de ${o.celula_nome} (${o.prod_nome})?\nSe a célula estiver rodando outra coisa, ela é encerrada e fica pendente de envio.`)) return;
+  cadcAcao(() => api(CC + '/ordens/' + id + '/iniciar', { method: 'POST', body: {} }), '▶ ' + o.celula_nome + ' rodando').then(ok => { if (ok) cadcVista('ativas'); });
+}
+function cadcOrdemCancelar(id) {
+  const o = ccOrdemDe(id);
+  if (!confirm(`Cancelar a programação de ${o.celula_nome} para ${fmtData(o.dia)}?`)) return;
+  cadcAcao(() => api(CC + '/ordens/' + id, { method: 'DELETE' }), 'Programação cancelada');
+}
+function cadcOrdemDescartar(id) {
+  const o = ccOrdemDe(id);
+  if (!confirm(`Descartar a produção de ${o.celula_nome} do dia ${fmtData(o.dia)} SEM enviar ao Plano de Produção?`)) return;
+  cadcAcao(() => api(CC + '/ordens/' + id, { method: 'DELETE' }), 'Descartada');
+}
+
+/* ---------- finalizar e enviar ao Plano de Produção ---------- */
+async function cadcFinalizar(id) {
+  await ccRecarregarCadastros();
+  const o = ccOrdemDe(id); if (!o) return toast('Programação não encontrada', 'error');
+  // ciclos concluídos desta programação (para conferir com os números de série)
+  let ok = o.ciclos_ok || 0, nok = o.ciclos_nok || 0;
+  if (o._cel) {
+    const h = Cadc.historico(o._cel, Cadc.agora()).lista.filter(x => x.rodada === undefined);
+    nok = h.filter(x => !x.concluido).length; ok = h.length - nok;
+  }
+  ccFim = { o, ok, nok }; ccFimQtdManual = false;
+  document.getElementById('cc-f-info').innerHTML = `<b>${esc(o.celula_nome)}</b> · ${esc(o.prod_nome || '')} · ${esc(o.turno_nome || '')}` +
+    (o.status === 'ativa' ? '<br>A célula <b>para de rodar</b> esta programação e a produção vira um <b>Apontamento Diário</b> no Plano de Produção.'
+                          : '<br>Esta produção já foi encerrada. Confira os números e envie.');
+  ccS('cc-f-data', o.dia); ccS('cc-f-op', o.num_op); ccS('cc-f-meta', o.meta);
+  ccS('cc-f-si', o.serie_inicial); ccS('cc-f-sf', o.serie_final); ccS('cc-f-obs', o.obs); ccS('cc-f-qtd', '');
+  document.getElementById('cc-f-cont').checked = !!o.repetir;
+  document.getElementById('cc-f-so-enc').style.display = o.status === 'ativa' ? '' : 'none';
+  cadcFimSeries();
+  document.getElementById('cc-m-fim').classList.add('show');
+  const sf = document.getElementById('cc-f-sf'); sf.focus(); sf.select();
+}
+
+function cadcFimSeries() {
+  const o = ccFim.o, si = ccV('cc-f-si'), sf = ccV('cc-f-sf');
+  const d = document.getElementById('cc-f-serie-dica'); let txt = '', av = false;
+  const q = ccSerieOk(si) && ccSerieOk(sf) ? ccQtdSeries(si, sf) : null;
+  if (q > 0 && !ccFimQtdManual) ccS('cc-f-qtd', q);
+  if ((si && !ccSerieOk(si)) || (sf && !ccSerieOk(sf))) { txt = 'Cada n° de série deve ter 13 caracteres.'; av = true; }
+  else if (q !== null && q <= 0) { txt = '⚠ O último n° produzido é menor que o inicial.'; av = true; }
+  else if (o.serie_final && sf === o.serie_final) txt = `Está com a <b>última série programada</b>. Se a produção não chegou até ela, troque pelo último número realmente produzido.`;
+  else if (q > 0) txt = `Da série inicial até esta são <b>${q} peça${q === 1 ? '' : 's'}</b>.`;
+  d.className = 'cc-dica' + (av ? ' av' : ''); d.innerHTML = txt;
+
+  // o que faltou
+  const prox = ccSerieOk(sf) ? ccProxSerie(sf) : null;
+  const falta = prox && o.serie_final ? ccQtdSeries(prox, o.serie_final) : null;
+  const cont = document.getElementById('cc-f-cont'), ct = document.getElementById('cc-f-cont-t');
+  if (falta > 0) {
+    ct.innerHTML = `Faltaram <b>${falta} peça${falta === 1 ? '' : 's'}</b> (séries ${esc(prox)} → ${esc(o.serie_final)}): <b>programar para o próximo dia útil</b>, no mesmo turno`;
+    if (!ccFim.tocouCont) cont.checked = true;
+  } else {
+    ct.innerHTML = 'Repetir esta programação no próximo dia útil, no mesmo turno';
+    if (!ccFim.tocouCont) cont.checked = !!o.repetir;
+  }
+  cont.onchange = () => { ccFim.tocouCont = true; };
+  cadcFimDica();
+}
+
+function cadcFimDica() {
+  const qtd = parseFloat(ccV('cc-f-qtd')) || 0;
+  const dq = document.getElementById('cc-f-qtd-dica');
+  dq.className = 'cc-dica';
+  dq.innerHTML = `Cadenciador: <b>${ccFim.ok}</b> ciclo(s) concluído(s)${ccFim.nok ? ` e <b>${ccFim.nok}</b> não concluído(s)` : ''}.` +
+    (qtd && ccFim.ok && qtd !== ccFim.ok ? ` <span style="color:var(--yellow)">A quantidade (${qtd}) é diferente dos ciclos — confira.</span>` : '');
+  const op = ccV('cc-f-op'), dp = document.getElementById('cc-f-plano-dica');
+  if (op.length !== 8) { dp.className = 'cc-dica av'; dp.innerHTML = 'Informe a OP (8 dígitos) para enviar ao Plano.'; return; }
+  const p = ccPlano(op);
+  if (!p) { dp.className = 'cc-dica av'; dp.innerHTML = `⚠ A OP ${esc(op)} não está no plano mensal. Cadastre o plano dela em <a href="/progestao/producao" target="_blank">Plano de Produção</a> e volte aqui.`; return; }
+  dp.className = 'cc-dica ok';
+  dp.innerHTML = `Plano da OP: <b>${esc(p.descricao || '')}</b> — feito ${fmtNum(p.realizado)} de ${fmtNum(p.meta)}${qtd ? ` → com este envio: <b>${fmtNum(p.realizado + qtd)}</b>` : ''}`;
+}
+
+async function cadcFimEnviar(enviar) {
+  const o = ccFim.o;
+  const corpo = { enviar };
+  if (enviar) {
+    Object.assign(corpo, { data_execucao: ccV('cc-f-data'), num_op: ccV('cc-f-op'), serie_inicial: ccV('cc-f-si'), serie_final_real: ccV('cc-f-sf'),
+      realizado: ccV('cc-f-qtd'), meta: ccV('cc-f-meta'), observacoes: ccV('cc-f-obs'), continuar: document.getElementById('cc-f-cont').checked });
+    if (corpo.num_op.length !== 8) return toast('N° OP deve ter 8 dígitos', 'warn');
+    if (!ccSerieOk(corpo.serie_inicial)) return toast('N° de série inicial deve ter 13 caracteres', 'warn');
+    if (!ccSerieOk(corpo.serie_final_real)) return toast('Informe o último n° de série produzido (13 caracteres)', 'warn');
+    if (!(parseFloat(corpo.realizado) > 0)) return toast('Informe a quantidade realizada', 'warn');
+  } else if (!confirm(`Parar ${o.celula_nome} agora e deixar o envio ao Plano para depois?`)) return;
+
+  const bts = ['cc-f-enviar', 'cc-f-so-enc'].map(i => document.getElementById(i)); bts.forEach(b => b.disabled = true);
+  try {
+    const r = await api(CC + '/ordens/' + o.id + '/finalizar', { method: 'POST', body: corpo });
+    cadcFechaModal('cc-m-fim');
+    if (enviar) {
+      toast(`✅ Enviado ao Plano de Produção: ${fmtNum(corpo.realizado)} pç na OP ${corpo.num_op}`);
+      if (r.continuacao) setTimeout(() => toast(`🗓 ${r.continuacao.celula_nome} programada para ${ccDiaTxt(r.continuacao.dia)} às ${r.continuacao.turno_inicio}`), 3200);
+      if (r.aviso) setTimeout(() => toast(r.aviso, 'warn'), 3200);
+    } else toast('Célula encerrada — a produção ficou em “Pendentes de envio”');
+  } catch (e) { toast(e.message, 'error'); }
+  finally { bts.forEach(b => b.disabled = false); await cadcAtualizar(true); }
+}
+
 function cadcMudar(id, corpo, msg) { return cadcAcao(() => api(CC + '/celulas/' + id, { method: 'PUT', body: corpo }), msg); }
 function cadcRenomear(id) {
   const c = cadcCel(id); const nome = prompt('Novo nome da célula:', c.nome);
@@ -1110,7 +1412,7 @@ function cadcRenomear(id) {
 }
 function cadcExcluir(id) {
   const c = cadcCel(id);
-  if (!confirm(`Excluir a célula "${c.nome}"?\nOs tablets conectados nela voltam para a tela de escolha.`)) return;
+  if (!confirm(`Excluir a célula "${c.nome}"?\nOs tablets conectados nela voltam para a tela de escolha.` + (c.ociosa ? '' : '\n\nEla está RODANDO: a produção de agora fica em “Pendentes de envio” (se tiver OP).'))) return;
   cadcAcao(() => api(CC + '/celulas/' + id, { method: 'DELETE' }), 'Célula excluída');
 }
 function cadcMensagem(id, valor) {
@@ -1298,7 +1600,7 @@ function cadcCiclosCSV() {
     const eu = await api('/me');
     if (eu.role !== 'admin') return;
     document.body.classList.add('adm');
-    if (location.hash === '#central') document.getElementById('tab-central').click();
+    if (location.hash !== '#historico') document.getElementById('tab-central').click();
   } catch (e) {}
 })();
 </script>

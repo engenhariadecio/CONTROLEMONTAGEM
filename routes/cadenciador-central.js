@@ -5,6 +5,10 @@
    Os tablets só se conectam a uma célula e espelham o que o admin define:
    produto, turno, pausa, mensagens e comandos de voz.
 
+   Cada célula roda uma PROGRAMAÇÃO (produto + turno + dia + OP + números de série).
+   A programação começa sozinha na hora do turno, preenche a Linha de Produção
+   (histórico) e, no fim, é enviada ao Plano de Produção como Apontamento Diário.
+
    Não usa nem altera nada do cadenciador comum (routes/cadenciador.js).
    ═══════════════════════════════════════════════════════════════════════ */
 
@@ -14,6 +18,7 @@ const bcrypt = require('bcryptjs');
 const { pool } = require('../db');
 const { requireAuth, requireAdmin } = require('../middleware/auth');
 const { listarTurnos, calcularCiclos, paraSegundos, duracaoTurnoSeg } = require('../lib/turnos');
+const { atualizarStatusPlano } = require('./producao');
 
 const FUSO = process.env.TZ_FABRICA || 'America/Sao_Paulo';
 const ONLINE_SEG = 10;            // tablet sem dar sinal há mais que isso = offline
@@ -111,10 +116,14 @@ const SQL_CELULA = `
          COALESCE(tt.takt_min, p.takt_min)::float AS takt_cadastro,
          EXTRACT(EPOCH FROM (NOW() - c.pausa_inicio))::int AS pausa_decorrido_seg,
          EXTRACT(EPOCH FROM (c.pausa_fim_prev - NOW()))::int AS pausa_restante_seg,
-         to_char(c.rodada_data, 'YYYY-MM-DD') AS rodada_dia
+         to_char(c.rodada_data, 'YYYY-MM-DD') AS rodada_dia,
+         o.num_op AS o_num_op, o.serie_inicial AS o_serie_inicial, o.serie_final AS o_serie_final,
+         o.meta::float AS o_meta, o.operadores AS o_operadores, o.horas_operador::float AS o_horas,
+         o.obs AS o_obs, o.repetir AS o_repetir, o.cod_decio AS o_cod_decio, to_char(o.data,'YYYY-MM-DD') AS o_dia
   FROM cadc_celulas c
   LEFT JOIN cad_produtos p ON p.id = c.produto_id
-  LEFT JOIN cad_takt_turno tt ON tt.produto_id = c.produto_id AND tt.turno_id = c.turno_id`;
+  LEFT JOIN cad_takt_turno tt ON tt.produto_id = c.produto_id AND tt.turno_id = c.turno_id
+  LEFT JOIN cadc_ordens o ON o.id = c.ordem_id`;
 
 /** Quanto da pausa caiu dentro do turno — só esse pedaço empurra os ciclos. */
 function pausaDentroDoTurno(turno, inicio, duracaoSeg, inicioOff = 0) {
@@ -160,9 +169,10 @@ async function fecharPausa(cel, turno, { noPrevisto = false } = {}) {
 /**
  * Carrega as células já "arrumadas":
  *  - pausa com duração programada que já venceu é encerrada sozinha;
- *  - tempo parado e reinício de contagem de um turno antigo são zerados.
+ *  - a programação (início automático, virada do dia de turno) fica por conta do motor().
  */
 async function carregarCelulas(filtroId = null) {
+  await motor();          // inicia programadas na hora e vira o dia de turno
   const turnos = await turnosCache();
   const porId = new Map(turnos.map(t => [t.id, t]));
   const ler = async () => (await pool.query(
@@ -180,20 +190,6 @@ async function carregarCelulas(filtroId = null) {
         await comando(c.id, { texto: 'Pausa encerrada. Ciclo iniciado.', origem: 'auto' });
       }
       mudou = true;
-    } else if (!c.pausada) {
-      // Virou o dia de turno: guarda os ciclos de ontem no histórico e começa uma contagem nova
-      const dia = dataDoTurno(turno);
-      if (!c.rodada_dia) {
-        await pool.query('UPDATE cadc_celulas SET rodada_data=$2 WHERE id=$1 AND rodada_data IS NULL', [c.id, dia]);
-        mudou = true;
-      } else if (c.rodada_dia !== dia) {
-        await arquivarRodada(c, turno, limite, { todos: true });
-        await pool.query(
-          `UPDATE cadc_celulas SET tempo_parado_seg=0, inicio_off_seg=0, ref_em=NULL,
-                  rodada=rodada+1, rodada_data=$2, versao=versao+1, updated_at=NOW()
-            WHERE id=$1 AND rodada=$3`, [c.id, dia, c.rodada]);
-        mudou = true;
-      }
     }
   }
   if (mudou) linhas = await ler();
@@ -220,11 +216,24 @@ async function carregarCelulas(filtroId = null) {
     }
   }
 
-  return linhas.map(c => ({
-    ...montarEstado(c, porId.get(c.turno_id), limite),
-    marcas: marcas.get(c.id) || {},
-    anteriores: anteriores.get(c.id) || []
-  }));
+  // Próxima programação de cada célula (aparece no cartão e no tablet quando ela está sem nada rodando)
+  const proximas = new Map();
+  if (ids.length) {
+    const r = await pool.query(SQL_ORDEM + ` WHERE o.status='programada' ORDER BY o.data, o.id`);
+    for (const o of r.rows) {
+      const k = String(o.celula_nome).toLowerCase();
+      if (!proximas.has(k)) proximas.set(k, { id: o.id, dia: o.dia, turno: o.turno_nome, hora: o.turno_inicio, produto: o.prod_nome });
+    }
+  }
+
+  return linhas.map(c => {
+    const e = montarEstado(c, porId.get(c.turno_id), limite);
+    e.proxima = proximas.get(String(c.nome).toLowerCase()) || null;
+    if (e.proxima) e.sinal += '.' + e.proxima.id;
+    e.marcas = marcas.get(c.id) || {};
+    e.anteriores = anteriores.get(c.id) || [];
+    return e;
+  });
 }
 
 /**
@@ -258,7 +267,13 @@ async function arquivarAtual(id) {
 }
 
 function montarEstado(c, turno, limite) {
-  const pronto = !!(turno && c.produto_id && c.takt_min > 0);
+  // Sem programação rodando, a célula fica parada esperando a próxima
+  const pronto = !!(c.ordem_id && turno && c.produto_id && c.takt_min > 0);
+  const ordem = c.ordem_id ? {
+    id: c.ordem_id, dia: c.o_dia, num_op: c.o_num_op, serie_inicial: c.o_serie_inicial, serie_final: c.o_serie_final,
+    meta: c.o_meta, operadores: c.o_operadores, horas_operador: c.o_horas, obs: c.o_obs || '',
+    repetir: !!c.o_repetir, cod_decio: c.o_cod_decio
+  } : null;
   let ciclos = [];
   if (pronto) {
     ciclos = calcularCiclos(turno, c.takt_min, {
@@ -277,10 +292,12 @@ function montarEstado(c, turno, limite) {
     nome: c.nome,
     versao: c.versao,
     // Muda quando QUALQUER coisa que o tablet mostra muda — inclusive cadastro de turno ou de takt
-    sinal: c.versao + '.' + assinatura(JSON.stringify([turnoPub, c.takt_min, c.produto_nome, ciclos.length, ciclos[0], ciclos[ciclos.length - 1]])),
+    sinal: c.versao + '.' + assinatura(JSON.stringify([turnoPub, c.takt_min, c.produto_nome, ciclos.length, ciclos[0], ciclos[ciclos.length - 1], ordem])),
     rodada: c.rodada,
     dia: c.rodada_dia,
     pronto,
+    ociosa: !c.ordem_id,
+    ordem,
     produto: c.produto_id ? { id: c.produto_id, nome: c.produto_nome, cod_decio: c.cod_decio } : null,
     turno: turnoPub,
     takt_min: c.takt_min,
@@ -304,6 +321,561 @@ function montarEstado(c, turno, limite) {
 async function umaCelula(id) {
   return (await carregarCelulas(Number(id)))[0] || null;
 }
+
+/* ═════════════════════ PROGRAMAÇÃO (ordens) ═════════════════════
+   Cada "ordem" é uma célula rodando um produto em um turno de um dia, com OP e
+   faixa de números de série. Fica PROGRAMADA até a hora do turno, vira ATIVA
+   sozinha, e no fim é ENVIADA ao Plano de Produção como apontamento diário.     */
+
+const SQL_ORDEM = `
+  SELECT o.*, to_char(o.data,'YYYY-MM-DD') AS dia,
+         COALESCE(p.nome, o.produto_nome) AS prod_nome,
+         COALESCE(o.takt_manual, tt.takt_min, p.takt_min)::float AS takt_min,
+         o.meta::float AS meta, o.horas_operador::float AS horas_operador, o.realizado::float AS realizado,
+         t.nome AS turno_nome, t.codigo AS turno_codigo,
+         to_char(t.hora_inicio,'HH24:MI') AS turno_inicio, to_char(t.hora_fim,'HH24:MI') AS turno_fim
+    FROM cadc_ordens o
+    LEFT JOIN cad_produtos p ON p.id = o.produto_id
+    LEFT JOIN cad_takt_turno tt ON tt.produto_id = o.produto_id AND tt.turno_id = o.turno_id
+    LEFT JOIN turnos t ON t.id = o.turno_id`;
+
+const umaOrdem = async id => (await pool.query(SQL_ORDEM + ' WHERE o.id=$1', [id])).rows[0] || null;
+
+const DATA_RE = /^\d{4}-\d{2}-\d{2}$/;
+const limparSerie = v => String(v == null ? '' : v).trim().toUpperCase();
+const serieOk = s => /^[A-Z0-9]{13}$/.test(s);
+
+function somaDias(iso, n) {
+  const [a, m, d] = iso.split('-').map(Number);
+  return new Date(Date.UTC(a, m - 1, d + n)).toISOString().slice(0, 10);
+}
+/** Se cair em sábado ou domingo, vai para a segunda-feira. */
+function primeiroDiaUtil(iso) {
+  const [a, m, d] = iso.split('-').map(Number);
+  const sem = new Date(Date.UTC(a, m - 1, d)).getUTCDay();
+  return sem === 6 ? somaDias(iso, 2) : sem === 0 ? somaDias(iso, 1) : iso;
+}
+
+/** Parte numérica do fim de uma série: { prefixo, numero, casas } ou null. */
+function fimNumerico(serie) {
+  const m = /^(.*?)(\d+)$/.exec(serie || '');
+  return m ? { prefixo: m[1], numero: m[2], casas: m[2].length } : null;
+}
+/** Quantas peças há entre duas séries (inclusive). null se não der para calcular. */
+function qtdEntreSeries(a, b) {
+  const x = fimNumerico(a), y = fimNumerico(b);
+  if (!x || !y) return null;
+  // compara pela parte numérica em comum no fim das duas
+  const casas = Math.min(x.casas, y.casas, 15);
+  if (a.slice(0, a.length - casas) !== b.slice(0, b.length - casas)) return null;
+  const n = Number(b.slice(-casas)) - Number(a.slice(-casas)) + 1;
+  return Number.isFinite(n) ? n : null;
+}
+/** Série seguinte (…0040 → …0041). null se não terminar em número ou estourar as casas. */
+function proximaSerie(serie) {
+  const f = fimNumerico(serie);
+  if (!f) return null;
+  const casas = Math.min(f.casas, 15);
+  const prox = String(Number(serie.slice(-casas)) + 1);
+  if (prox.length > casas) return null;
+  return serie.slice(0, serie.length - casas) + prox.padStart(casas, '0');
+}
+
+/** Turno no formato do Plano de Produção ('1', '2' ou '3'). */
+function turnoDoPlano(turno) {
+  if (!turno) return '1';
+  const d = String(turno.codigo || '').replace(/\D/g, '');
+  if (['1', '2', '3'].includes(d)) return d;
+  return ['1', '2', '3'].includes(String(turno.ordem)) ? String(turno.ordem) : '1';
+}
+
+/** Quando este turno pode rodar: hoje (se está em andamento) ou no próximo início. */
+function proximaOcorrencia(turno) {
+  const o = offsetNoTurno(horaFabrica(), turno);
+  if (o <= duracaoTurnoSeg(turno)) return { dia: dataDoTurno(turno), emAndamento: true };
+  return { dia: dataFabrica(new Date(Date.now() + (86400 - o) * 1000)), emAndamento: false };
+}
+
+/** Código Décio do produto: primeiro o do plano da OP, depois o do cadastro do cadenciador. */
+async function codDecioDe(numOp, produtoId) {
+  if (numOp) {
+    const p = await pool.query(`SELECT cod_decio FROM prod_planos WHERE num_op=$1 AND COALESCE(cod_decio,'') <> '' LIMIT 1`, [numOp]);
+    if (p.rows[0]) return p.rows[0].cod_decio;
+  }
+  if (produtoId) {
+    const c = await pool.query(`SELECT cod_decio FROM cad_produtos WHERE id=$1 AND COALESCE(cod_decio,'') <> ''`, [produtoId]);
+    if (c.rows[0]) return c.rows[0].cod_decio;
+  }
+  return null;
+}
+
+const erro = (status, msg) => Object.assign(new Error(msg), { status });
+const numOuNulo = (v, inteiro) => {
+  if (v === '' || v == null) return null;
+  const n = inteiro ? parseInt(v, 10) : parseFloat(v);
+  return Number.isFinite(n) && n >= 0 ? n : null;
+};
+
+/** Lê e confere os campos de uma programação vindos do formulário. `tem(k)` = campo foi enviado. */
+function lerCamposOrdem(b) {
+  const tem = k => b[k] !== undefined;
+  const c = {};
+  if (tem('celula_nome')) {
+    c.celula_nome = texto(b.celula_nome, 50);
+    if (!c.celula_nome) throw erro(400, 'Informe a célula');
+  }
+  if (tem('turno_id')) { c.turno_id = Number(b.turno_id) || null; if (!c.turno_id) throw erro(400, 'Escolha o turno'); }
+  if (tem('produto_id')) { c.produto_id = Number(b.produto_id) || null; if (!c.produto_id) throw erro(400, 'Escolha o produto'); }
+  if (tem('takt_min')) {
+    c.takt_manual = b.takt_min === '' || b.takt_min == null ? null : parseFloat(b.takt_min);
+    if (c.takt_manual != null && !(c.takt_manual > 0)) throw erro(400, 'Takt deve ser maior que zero');
+  }
+  if (tem('num_op')) {
+    c.num_op = String(b.num_op || '').replace(/\D/g, '') || null;
+    if (c.num_op && c.num_op.length !== 8) throw erro(400, 'N° OP deve ter 8 dígitos (ou ficar em branco)');
+  }
+  for (const k of ['serie_inicial', 'serie_final']) {
+    if (!tem(k)) continue;
+    c[k] = limparSerie(b[k]) || null;
+    if (c[k] && !serieOk(c[k])) throw erro(400, `N° de série ${k === 'serie_inicial' ? 'inicial' : 'final'} deve ter 13 caracteres (letras/números)`);
+  }
+  if (tem('operadores')) c.operadores = numOuNulo(b.operadores, true);
+  if (tem('horas_operador')) c.horas_operador = numOuNulo(b.horas_operador);
+  if (tem('meta')) c.meta = numOuNulo(b.meta);
+  if (tem('obs')) c.obs = texto(b.obs, 500) || null;
+  if (tem('repetir')) c.repetir = !!b.repetir;
+  if (tem('data')) {
+    if (b.data && !DATA_RE.test(b.data)) throw erro(400, 'Data inválida');
+    c.data = b.data || null;
+  }
+  return c;
+}
+
+/**
+ * Preenche a Linha de Produção (histórico) do dia com o que a célula está rodando —
+ * o mesmo registro que antes era digitado na aba "Programação do dia".
+ */
+async function registrarLinha(o, userId = null, db = pool) {
+  try {
+    const dia = o.dia || (o.data instanceof Date ? o.data.toISOString().slice(0, 10) : String(o.data).slice(0, 10));
+    const turno = (await turnosCache()).find(t => t.id === o.turno_id);
+    const nome = String(o.celula_nome).slice(0, 80);
+    const cel = (await db.query('SELECT id FROM celulas WHERE nome=$1', [nome])).rows[0];
+    let prod = { id: null, cod_decio: o.cod_decio || null, cod_intelbras: null, descricao: o.prod_nome || o.produto_nome || null };
+    if (o.cod_decio) {
+      const p = (await db.query('SELECT id, cod_decio, cod_intelbras, descricao FROM prod_produtos WHERE cod_decio=$1', [o.cod_decio])).rows[0];
+      if (p) prod = p;
+    }
+    await db.query(
+      `INSERT INTO linha_producao
+         (data, celula_id, celula_nome, funcionando, produto_id, cod_decio, cod_intelbras, descricao,
+          num_op, turno, operadores, horas_operador, meta, obs, registrado_por, updated_at)
+       VALUES ($1,$2,$3,TRUE,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,NOW())
+       ON CONFLICT (data, celula_nome) DO UPDATE SET
+         celula_id=EXCLUDED.celula_id, funcionando=TRUE, produto_id=EXCLUDED.produto_id,
+         cod_decio=EXCLUDED.cod_decio, cod_intelbras=EXCLUDED.cod_intelbras, descricao=EXCLUDED.descricao,
+         num_op=EXCLUDED.num_op, turno=EXCLUDED.turno, operadores=EXCLUDED.operadores,
+         horas_operador=EXCLUDED.horas_operador, meta=EXCLUDED.meta, obs=EXCLUDED.obs,
+         registrado_por=COALESCE(EXCLUDED.registrado_por, linha_producao.registrado_por), updated_at=NOW()`,
+      [dia, cel ? cel.id : null, nome, prod.id, prod.cod_decio, prod.cod_intelbras, prod.descricao,
+       o.num_op || null, turnoDoPlano(turno), o.operadores, o.horas_operador, o.meta, o.obs || null, userId]);
+  } catch (e) { console.error('cadc linha_producao', e.message); }
+}
+
+/** Tira a célula de produção (fica "sem programação"), guardando os ciclos já feitos. */
+async function soltarCelula(celId, { dia = null } = {}) {
+  const c = (await pool.query(SQL_CELULA + ' WHERE c.id=$1', [celId])).rows[0];
+  if (!c) return;
+  const turno = (await turnosCache()).find(t => t.id === c.turno_id);
+  if (turno && c.ordem_id) {
+    await arquivarRodada(c, turno, await limiteCiclos(), { todos: !!(dia && c.rodada_dia && c.rodada_dia !== dia) });
+  }
+  await pool.query(
+    `UPDATE cadc_celulas SET ordem_id=NULL, inicio_off_seg=0, tempo_parado_seg=0, ref_em=NULL,
+            pausada=FALSE, pausa_motivo=NULL, pausa_inicio=NULL, pausa_fim_prev=NULL,
+            rodada=rodada+1, rodada_data=COALESCE($2::date, rodada_data), versao=versao+1, updated_at=NOW()
+      WHERE id=$1`, [celId, dia]);
+  await pool.query(
+    `UPDATE cadc_paradas SET fim=NOW(), duracao_seg=GREATEST(0, EXTRACT(EPOCH FROM (NOW()-inicio))::int)
+      WHERE celula_id=$1 AND fim IS NULL`, [celId]);
+}
+
+/** Cópia de uma programação para outro dia (repetição ou continuação do que faltou). */
+async function clonarOrdem(o, dia, extra = {}) {
+  // Se a célula já tem algo programado para esse dia e turno, não programa por cima
+  const dup = await pool.query(
+    `SELECT id FROM cadc_ordens WHERE lower(celula_nome)=lower($1) AND data=$2 AND turno_id=$3 AND status='programada'`,
+    [o.celula_nome, dia, o.turno_id]);
+  if (dup.rowCount) return null;
+  const r = await pool.query(
+    `INSERT INTO cadc_ordens (celula_id, celula_nome, data, turno_id, produto_id, produto_nome, takt_manual, num_op,
+                              serie_inicial, serie_final, cod_decio, operadores, horas_operador, meta, obs, repetir,
+                              status, origem_id, criado_por, criado_por_id)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,'programada',$17,$18,$19) RETURNING id`,
+    [o.celula_id, o.celula_nome, dia, o.turno_id, o.produto_id, o.prod_nome || o.produto_nome, o.takt_manual, o.num_op,
+     'serie_inicial' in extra ? extra.serie_inicial : o.serie_inicial,
+     'serie_final' in extra ? extra.serie_final : o.serie_final,
+     o.cod_decio, o.operadores, o.horas_operador, 'meta' in extra ? extra.meta : o.meta, o.obs,
+     'repetir' in extra ? extra.repetir : o.repetir, o.id, o.criado_por, o.criado_por_id]);
+  return r.rows[0].id;
+}
+
+/** Põe uma programação para rodar na célula dela (cria a célula se ainda não existir). */
+async function ativarOrdem(o, turno, { por = null, userId = null } = {}) {
+  const dia = dataDoTurno(turno);
+  const pega = await pool.query(
+    `UPDATE cadc_ordens SET status='ativa', iniciada_em=NOW(), data=$2, updated_at=NOW()
+      WHERE id=$1 AND status='programada' RETURNING id`, [o.id, dia]);
+  if (!pega.rowCount) return false;
+
+  // Começou com o turno já andando: os ciclos contam a partir de agora (não desde a abertura do turno)
+  const off = offsetNoTurno(horaFabrica(), turno);
+  const inicioOff = off > 120 && off < duracaoTurnoSeg(turno) ? off : 0;
+
+  let cel = (await pool.query(SQL_CELULA + ' WHERE lower(c.nome) = lower($1) ORDER BY c.id LIMIT 1', [o.celula_nome])).rows[0];
+  let celId;
+  if (!cel) {
+    celId = (await pool.query(
+      `INSERT INTO cadc_celulas (nome, turno_id, produto_id, takt_manual, rodada_data, ordem_id, inicio_off_seg, ref_em)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,NOW()) RETURNING id`,
+      [o.celula_nome, o.turno_id, o.produto_id, o.takt_manual, dia, o.id, inicioOff])).rows[0].id;
+  } else {
+    celId = cel.id;
+    if (cel.ordem_id) {
+      // O que estava rodando sai: fica guardado para ser enviado ao Plano depois
+      const turnoAnt = (await turnosCache()).find(t => t.id === cel.turno_id);
+      if (turnoAnt) await arquivarRodada(cel, turnoAnt, await limiteCiclos(), { todos: cel.rodada_dia !== dia });
+      await pool.query(
+        `UPDATE cadc_ordens SET status = CASE WHEN num_op IS NOT NULL THEN 'encerrada' ELSE 'concluida' END,
+                encerrada_em = NOW(), updated_at = NOW() WHERE id=$1 AND status='ativa'`, [cel.ordem_id]);
+    }
+    await pool.query(
+      `UPDATE cadc_celulas SET turno_id=$2, produto_id=$3, takt_manual=$4, ordem_id=$5,
+              inicio_off_seg=$7, tempo_parado_seg=0, ref_em=NOW(),
+              pausada=FALSE, pausa_motivo=NULL, pausa_inicio=NULL, pausa_fim_prev=NULL,
+              rodada=rodada+1, rodada_data=$6, versao=versao+1, updated_at=NOW()
+        WHERE id=$1`, [celId, o.turno_id, o.produto_id, o.takt_manual, o.id, dia, inicioOff]);
+    await pool.query(
+      `UPDATE cadc_paradas SET fim=NOW(), duracao_seg=GREATEST(0, EXTRACT(EPOCH FROM (NOW()-inicio))::int)
+        WHERE celula_id=$1 AND fim IS NULL`, [celId]);
+  }
+  await pool.query('UPDATE cadc_ordens SET celula_id=$2 WHERE id=$1', [o.id, celId]);
+  await registrarLinha({ ...o, dia }, userId);
+  await comando(celId, {
+    texto: `Atenção. Nova programação. Produto ${o.prod_nome || ''}.`.replace(' .', '.'), origem: 'auto', por
+  });
+  return true;
+}
+
+/**
+ * Motor da programação. Roda sozinho no servidor (mesmo com todas as telas fechadas):
+ *  1. virou o dia de turno → a programação de ontem sai da célula (fica pendente de envio, se tem OP)
+ *     e, se estava marcada para repetir, já deixa a do próximo dia útil programada;
+ *  2. chegou a hora de uma programada → ela começa a rodar.
+ */
+let motorEm = 0, motorRodando = null;
+function motor(forcar = false) {
+  if (motorRodando) return motorRodando;
+  if (!forcar && Date.now() - motorEm < 3000) return Promise.resolve();
+  motorRodando = (async () => {
+    try { await motorPasso(); }
+    catch (e) { console.error('cadc motor', e); }
+    finally { motorEm = Date.now(); motorRodando = null; }
+  })();
+  return motorRodando;
+}
+
+async function motorPasso() {
+  const turnos = await turnosCache();
+  const porId = new Map(turnos.map(t => [t.id, t]));
+  const limite = await limiteCiclos();
+
+  // Programação ativa cuja célula foi apagada não tem mais onde rodar
+  await pool.query(`UPDATE cadc_ordens SET status='cancelada', updated_at=NOW() WHERE status='ativa' AND celula_id IS NULL`);
+
+  // 1. virada do dia de turno
+  const cels = (await pool.query(SQL_CELULA + ' WHERE c.pausada = FALSE')).rows;
+  for (const c of cels) {
+    const turno = porId.get(c.turno_id);
+    const dia = dataDoTurno(turno);
+    if (!c.rodada_dia) {
+      await pool.query('UPDATE cadc_celulas SET rodada_data=$2 WHERE id=$1 AND rodada_data IS NULL', [c.id, dia]);
+      continue;
+    }
+    if (c.rodada_dia === dia) continue;
+    const pega = await pool.query(
+      `UPDATE cadc_celulas SET tempo_parado_seg=0, inicio_off_seg=0, ref_em=NULL, ordem_id=NULL,
+              rodada=rodada+1, rodada_data=$2, versao=versao+1, updated_at=NOW()
+        WHERE id=$1 AND rodada=$3 RETURNING id`, [c.id, dia, c.rodada]);
+    if (!pega.rowCount) continue;
+    if (!c.ordem_id) continue;
+    if (turno) await arquivarRodada(c, turno, limite, { todos: true });
+    const o = await umaOrdem(c.ordem_id);
+    if (!o || o.status !== 'ativa') continue;
+    await pool.query(
+      `UPDATE cadc_ordens SET status=$2, encerrada_em=NOW(), updated_at=NOW() WHERE id=$1 AND status='ativa'`,
+      [o.id, o.num_op ? 'encerrada' : 'concluida']);
+    if (o.repetir) await clonarOrdem(o, primeiroDiaUtil(dia));
+  }
+
+  // 2. programadas que chegaram na hora
+  const prog = (await pool.query(SQL_ORDEM + ` WHERE o.status='programada' ORDER BY o.data, o.id`)).rows;
+  for (const o of prog) {
+    const turno = porId.get(o.turno_id);
+    if (!turno || !o.produto_id) continue;
+    if (dataDoTurno(turno) >= o.dia) await ativarOrdem(o, turno);
+  }
+}
+// Mesmo sem ninguém com a tela aberta, as células programadas começam na hora
+setInterval(() => { motor().catch(() => {}); }, 20000).unref();
+
+/** Cria uma programação. Se o turno já está em andamento no dia pedido, começa a rodar na hora. */
+async function criarOrdem(body, req) {
+  const c = lerCamposOrdem(body);
+  if (!c.celula_nome) throw erro(400, 'Informe a célula');
+  if (!c.turno_id || !c.produto_id) throw erro(400, 'Escolha o turno e o produto');
+  const turno = (await listarTurnos()).find(t => t.id === c.turno_id);
+  if (!turno) throw erro(400, 'Turno inválido');
+  const prod = (await pool.query('SELECT id, nome FROM cad_produtos WHERE id=$1', [c.produto_id])).rows[0];
+  if (!prod) throw erro(400, 'Produto inválido');
+
+  // Dia: nunca no passado. Turno que já acabou hoje fica para o próximo início dele.
+  const oc = proximaOcorrencia(turno);
+  let dia = c.data && c.data > oc.dia ? c.data : oc.dia;
+
+  // Uma célula não pode ter duas programações esperando o mesmo dia e turno
+  const dup = await pool.query(
+    `SELECT id FROM cadc_ordens WHERE lower(celula_nome)=lower($1) AND data=$2 AND turno_id=$3 AND status='programada'`,
+    [c.celula_nome, dia, c.turno_id]);
+  if (dup.rowCount) throw erro(409, `Já existe uma programação da ${c.celula_nome} para esse dia e turno. Edite a que já existe.`);
+
+  const cod = await codDecioDe(c.num_op, c.produto_id);
+  const r = await pool.query(
+    `INSERT INTO cadc_ordens (celula_nome, data, turno_id, produto_id, produto_nome, takt_manual, num_op, serie_inicial,
+                              serie_final, cod_decio, operadores, horas_operador, meta, obs, repetir, status,
+                              criado_por, criado_por_id)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,'programada',$16,$17) RETURNING id`,
+    [c.celula_nome, dia, c.turno_id, c.produto_id, prod.nome, c.takt_manual ?? null, c.num_op ?? null,
+     c.serie_inicial ?? null, c.serie_final ?? null, cod, c.operadores ?? null, c.horas_operador ?? null,
+     c.meta ?? null, c.obs ?? null, !!c.repetir, req ? quem(req) : null, req ? req.session.userId || null : null]);
+  memo.turnosEm = 0;
+  await motor(true);
+  return umaOrdem(r.rows[0].id);
+}
+
+/* GET /ordens?status=programada|encerrada|enviada — lista de programações */
+router.get('/ordens', requireAdmin, async (req, res) => {
+  try {
+    const st = String(req.query.status || 'programada');
+    const r = await pool.query(SQL_ORDEM + ' WHERE o.status = $1 ORDER BY o.data DESC, o.id DESC LIMIT 200', [st]);
+    res.json(r.rows);
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+/* POST /ordens — programa uma célula (agora, próximo turno, amanhã…) */
+router.post('/ordens', requireAdmin, async (req, res) => {
+  try {
+    const o = await criarOrdem(req.body, req);
+    let aviso = null;
+    if (o.num_op) {
+      const pl = await pool.query('SELECT 1 FROM prod_planos WHERE num_op=$1 LIMIT 1', [o.num_op]);
+      if (!pl.rowCount) aviso = `A OP ${o.num_op} ainda não está no plano mensal. Cadastre o plano dela antes de enviar a produção.`;
+    }
+    res.json({ ordem: o, aviso });
+  } catch (e) {
+    if (e.code === '23503') return res.status(400).json({ error: 'Turno ou produto inválido' });
+    res.status(e.status || 500).json({ error: e.message });
+  }
+});
+
+/*
+ * PUT /ordens/:id — edita a programação.
+ * Programada: qualquer campo. Ativa: OP, séries, operadores, meta, observação e repetir
+ * (produto, turno e takt de quem já está rodando se trocam no cartão da célula).
+ */
+router.put('/ordens/:id', requireAdmin, async (req, res) => {
+  try {
+    const o = await umaOrdem(req.params.id);
+    if (!o) return res.status(404).json({ error: 'Programação não encontrada' });
+    if (!['programada', 'ativa', 'encerrada'].includes(o.status)) return res.status(409).json({ error: 'Esta programação já foi finalizada' });
+    const c = lerCamposOrdem(req.body);
+    if (o.status !== 'programada') { delete c.celula_nome; delete c.turno_id; delete c.produto_id; delete c.takt_manual; delete c.data; }
+
+    if (o.status === 'programada') {
+      const turnoId = c.turno_id || o.turno_id;
+      const turno = (await listarTurnos()).find(t => t.id === turnoId);
+      if (!turno) return res.status(400).json({ error: 'Turno inválido' });
+      if (c.data !== undefined || c.turno_id) {
+        const oc = proximaOcorrencia(turno);
+        const pedido = c.data || o.dia;
+        c.data = pedido > oc.dia ? pedido : oc.dia;
+      }
+      if (c.produto_id) {
+        const p = (await pool.query('SELECT nome FROM cad_produtos WHERE id=$1', [c.produto_id])).rows[0];
+        if (!p) return res.status(400).json({ error: 'Produto inválido' });
+        c.produto_nome = p.nome;
+      }
+      const dup = await pool.query(
+        `SELECT id FROM cadc_ordens WHERE lower(celula_nome)=lower($1) AND data=$2 AND turno_id=$3 AND status='programada' AND id<>$4`,
+        [c.celula_nome || o.celula_nome, c.data || o.dia, turnoId, o.id]);
+      if (dup.rowCount) return res.status(409).json({ error: 'Já existe outra programação dessa célula para esse dia e turno' });
+    }
+    if (c.num_op !== undefined || c.produto_id) {
+      c.cod_decio = await codDecioDe(c.num_op !== undefined ? c.num_op : o.num_op, c.produto_id || o.produto_id);
+    }
+    const cols = Object.keys(c);
+    if (cols.length) {
+      await pool.query(
+        `UPDATE cadc_ordens SET ${cols.map((k, i) => `${k} = $${i + 2}`).join(', ')}, updated_at=NOW() WHERE id=$1`,
+        [o.id, ...cols.map(k => c[k])]);
+    }
+    const depois = await umaOrdem(o.id);
+    if (depois.status === 'ativa') {
+      await registrarLinha(depois, req.session.userId || null);
+      if (depois.celula_id) await pool.query('UPDATE cadc_celulas SET versao=versao+1, updated_at=NOW() WHERE id=$1', [depois.celula_id]);
+    }
+    await motor(true);
+    res.json(await umaOrdem(o.id));
+  } catch (e) {
+    if (e.code === '23503') return res.status(400).json({ error: 'Turno ou produto inválido' });
+    res.status(e.status || 500).json({ error: e.message });
+  }
+});
+
+/* DELETE /ordens/:id — cancela uma programada, ou descarta uma pendente de envio */
+router.delete('/ordens/:id', requireAdmin, async (req, res) => {
+  try {
+    const r = await pool.query(
+      `UPDATE cadc_ordens SET status = CASE status WHEN 'programada' THEN 'cancelada' ELSE 'descartada' END, updated_at=NOW()
+        WHERE id=$1 AND status IN ('programada','encerrada') RETURNING id`, [req.params.id]);
+    if (!r.rowCount) return res.status(409).json({ error: 'Só dá para cancelar programação que ainda não começou, ou descartar uma pendente' });
+    res.json({ success: true });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+/* POST /ordens/:id/iniciar — começa agora, sem esperar o dia/turno programado */
+router.post('/ordens/:id/iniciar', requireAdmin, async (req, res) => {
+  try {
+    const o = await umaOrdem(req.params.id);
+    if (!o) return res.status(404).json({ error: 'Programação não encontrada' });
+    if (o.status !== 'programada') return res.status(409).json({ error: 'Esta programação já começou ou foi cancelada' });
+    const turno = (await listarTurnos()).find(t => t.id === o.turno_id);
+    if (!turno) return res.status(400).json({ error: 'Turno inválido' });
+    if (!proximaOcorrencia(turno).emAndamento) {
+      return res.status(409).json({ error: `O ${turno.nome} não está em andamento agora. Esta programação começa sozinha quando o turno abrir (${String(turno.hora_inicio).slice(0, 5)}).` });
+    }
+    await ativarOrdem(o, turno, { por: quem(req), userId: req.session.userId || null });
+    res.json(await umaOrdem(o.id));
+  } catch (e) { res.status(e.status || 500).json({ error: e.message }); }
+});
+
+/*
+ * POST /ordens/:id/finalizar — fim do turno: encerra a célula e envia a produção ao
+ * Plano de Produção (vira um Apontamento Diário, igual ao digitado à mão).
+ * body: { enviar (padrão true), num_op, serie_inicial, serie_final_real, realizado, meta,
+ *         observacoes, data_execucao, continuar }
+ */
+router.post('/ordens/:id/finalizar', requireAdmin, async (req, res) => {
+  const b = req.body || {};
+  try {
+    const o = await umaOrdem(req.params.id);
+    if (!o) return res.status(404).json({ error: 'Programação não encontrada' });
+    if (!['ativa', 'encerrada'].includes(o.status)) return res.status(409).json({ error: 'Esta programação não está rodando nem pendente de envio' });
+    const enviar = b.enviar !== false;
+    const turno = (await listarTurnos()).find(t => t.id === o.turno_id);
+    let ap = null;
+
+    if (enviar) {
+      const numOp = String(b.num_op !== undefined ? b.num_op : (o.num_op || '')).replace(/\D/g, '');
+      const si = limparSerie(b.serie_inicial !== undefined ? b.serie_inicial : o.serie_inicial);
+      const sf = limparSerie(b.serie_final_real !== undefined ? b.serie_final_real : o.serie_final);
+      const realizado = parseFloat(b.realizado);
+      if (numOp.length !== 8) throw erro(400, 'N° OP deve ter exatos 8 dígitos numéricos');
+      if (!serieOk(si)) throw erro(400, 'N° de série inicial deve ter exatos 13 caracteres (letras/números)');
+      if (!serieOk(sf)) throw erro(400, 'Último n° de série produzido deve ter exatos 13 caracteres (letras/números)');
+      if (!(realizado > 0)) throw erro(400, 'Informe a quantidade realizada');
+      const plano = (await pool.query('SELECT id, cod_decio, cod_intelbras, descricao FROM prod_planos WHERE num_op=$1 LIMIT 1', [numOp])).rows[0];
+      if (!plano) throw erro(400, `OP ${numOp} não cadastrada no plano mensal. Cadastre o plano com essa OP antes de enviar.`);
+      const cod = plano.cod_decio || o.cod_decio || await codDecioDe(null, o.produto_id);
+      if (!cod) throw erro(400, 'Este produto está sem Código Décio. Preencha o código no plano da OP (Plano de Produção) e envie de novo.');
+      const prod = (await pool.query('SELECT * FROM prod_produtos WHERE cod_decio=$1', [cod])).rows[0] || {};
+      const dataExec = DATA_RE.test(b.data_execucao || '') ? b.data_execucao : o.dia;
+      const meta = numOuNulo(b.meta !== undefined ? b.meta : o.meta) || 0;
+      const obs = texto(b.observacoes !== undefined ? b.observacoes : o.obs, 1000) || null;
+      ap = { numOp, si, sf, realizado, plano, cod, prod, dataExec, meta, obs };
+    }
+
+    // 1. grava o apontamento diário (se algo falhar aqui, nada mais muda)
+    let apontamentoId = null;
+    if (ap) {
+      const client = await pool.connect();
+      try {
+        await client.query('BEGIN');
+        const r = await client.query(
+          `INSERT INTO prod_apontamentos_detalhados
+             (data_execucao, turno, celula, num_op, serie_inicial, serie_final, cod_decio, cod_intelbras, descricao,
+              categoria, meta, realizado, hora_reportada_total, observacoes, plano_id)
+           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15) RETURNING id`,
+          [ap.dataExec, turnoDoPlano(turno), String(o.celula_nome).slice(0, 50), ap.numOp, ap.si, ap.sf, ap.cod,
+           ap.prod.cod_intelbras || ap.plano.cod_intelbras || null,
+           ap.prod.descricao || ap.plano.descricao || o.prod_nome || null, ap.prod.categoria || null,
+           ap.meta, ap.realizado, (parseFloat(ap.prod.hora_reportado) || 0) * ap.realizado, ap.obs, ap.plano.id]);
+        apontamentoId = r.rows[0].id;
+        await atualizarStatusPlano(ap.plano.id, client);
+        await client.query('COMMIT');
+      } catch (e) { await client.query('ROLLBACK').catch(() => {}); throw e; }
+      finally { client.release(); }
+    }
+
+    // 2. a célula para de rodar esta programação
+    if (o.status === 'ativa' && o.celula_id) {
+      await soltarCelula(o.celula_id);
+      await comando(o.celula_id, { texto: 'Produção do turno encerrada.', origem: 'auto', por: quem(req) });
+    }
+
+    // 3. situação da programação
+    if (ap) {
+      await pool.query(
+        `UPDATE cadc_ordens SET status='enviada', num_op=$2, serie_inicial=$3, serie_final_real=$4, realizado=$5,
+                meta=$6, cod_decio=$7, apontamento_id=$8, enviada_em=NOW(),
+                encerrada_em=COALESCE(encerrada_em, NOW()), updated_at=NOW() WHERE id=$1`,
+        [o.id, ap.numOp, ap.si, ap.sf, ap.realizado, ap.meta || null, ap.cod, apontamentoId]);
+      await registrarLinha({ ...o, dia: ap.dataExec, num_op: ap.numOp, cod_decio: ap.cod, meta: ap.meta || o.meta, obs: ap.obs }, req.session.userId || null);
+    } else {
+      await pool.query(
+        `UPDATE cadc_ordens SET status=$2, encerrada_em=COALESCE(encerrada_em, NOW()), updated_at=NOW() WHERE id=$1`,
+        [o.id, b.descartar ? 'descartada' : 'encerrada']);
+    }
+
+    // 4. o que faltou continua no próximo dia útil
+    let continuacao = null;
+    if (ap) {
+      const prox = proximaSerie(ap.sf);
+      const falta = prox && o.serie_final ? qtdEntreSeries(prox, o.serie_final) : null;
+      const sucessora = (await pool.query(
+        `SELECT id, serie_inicial FROM cadc_ordens WHERE origem_id=$1 AND status IN ('programada','ativa') ORDER BY id LIMIT 1`, [o.id])).rows[0];
+      if (sucessora) {
+        // já existia (repetição automática): só acerta de onde ela começa
+        if (prox && falta > 0 && (sucessora.serie_inicial || '') === (o.serie_inicial || '')) {
+          await pool.query('UPDATE cadc_ordens SET serie_inicial=$2, updated_at=NOW() WHERE id=$1', [sucessora.id, prox]);
+        }
+        continuacao = sucessora.id;
+      } else if (b.continuar) {
+        const base = turno && dataDoTurno(turno) > o.dia ? dataDoTurno(turno) : o.dia;
+        continuacao = await clonarOrdem({ ...o, num_op: ap.numOp, cod_decio: ap.cod }, primeiroDiaUtil(somaDias(base, 1)),
+          falta > 0 ? { serie_inicial: prox, meta: falta } : { serie_inicial: null, serie_final: null });
+      }
+    }
+    await motor(true);
+    let aviso = null;
+    if (ap && b.continuar && !continuacao) aviso = 'A célula já tinha outra programação para o próximo dia; o que faltou não foi programado de novo.';
+    res.json({ success: true, ordem: await umaOrdem(o.id), apontamento_id: apontamentoId,
+               continuacao: continuacao ? await umaOrdem(continuacao) : null, aviso });
+  } catch (e) {
+    if (!e.status) console.error('cadc finalizar', e);
+    res.status(e.status || 500).json({ error: e.message });
+  }
+});
 
 /* ═════════════════════ ADMIN (PC central) ═════════════════════ */
 
@@ -332,7 +904,26 @@ router.get('/admin/visao', requireAdmin, async (_req, res) => {
       LEFT JOIN cadc_tablets t ON t.id = k.tablet_id
       ORDER BY k.id DESC LIMIT 40`)).rows.map(k => ({ ...k, id: Number(k.id) }));
 
-    res.json({ ...relogio(), celulas, tablets, comandos });
+    const hoje = dataFabrica();
+    const programadas = (await pool.query(SQL_ORDEM + ` WHERE o.status='programada' ORDER BY o.data, t.hora_inicio, o.celula_nome`)).rows;
+    const pendentes = (await pool.query(SQL_ORDEM + ` WHERE o.status='encerrada' ORDER BY o.data DESC, o.id DESC LIMIT 100`)).rows;
+    const enviadas = (await pool.query(SQL_ORDEM + ` WHERE o.status='enviada' ORDER BY o.enviada_em DESC LIMIT 12`)).rows;
+    // ciclos do dia de cada pendente (para sugerir a quantidade realizada)
+    if (pendentes.length) {
+      const k = await pool.query(
+        `SELECT celula_id, to_char(data,'YYYY-MM-DD') AS dia, COUNT(*) FILTER (WHERE concluido)::int AS ok,
+                COUNT(*) FILTER (WHERE NOT concluido)::int AS nok
+           FROM cadc_ciclos WHERE celula_id = ANY($1::int[]) GROUP BY celula_id, data`,
+        [pendentes.map(o => o.celula_id).filter(Boolean)]);
+      for (const o of pendentes) {
+        const x = k.rows.find(r => r.celula_id === o.celula_id && r.dia === o.dia);
+        o.ciclos_ok = x ? x.ok : 0; o.ciclos_nok = x ? x.nok : 0;
+      }
+    }
+    const ap = (await pool.query(
+      `SELECT COALESCE(SUM(realizado),0)::float AS qtd, COUNT(*)::int AS n FROM prod_apontamentos_detalhados WHERE data_execucao=$1`, [hoje])).rows[0];
+
+    res.json({ ...relogio(), hoje, celulas, tablets, comandos, programadas, pendentes, enviadas, apontado: ap });
   } catch (e) { console.error('cadc visao', e); res.status(500).json({ error: e.message }); }
 });
 
@@ -343,30 +934,29 @@ router.get('/admin/cadastros', requireAdmin, async (_req, res) => {
       .map(t => ({ id: t.id, nome: t.nome, codigo: t.codigo, hora_inicio: t.hora_inicio, hora_fim: t.hora_fim }));
     const produtos = (await pool.query(
       `SELECT id, nome, cod_decio, takt_min::float FROM cad_produtos WHERE ativo = TRUE ORDER BY ordem, nome`)).rows;
-    const celulasCadastro = (await pool.query(
-      `SELECT nome FROM celulas WHERE ativa IS NOT FALSE ORDER BY nome`)).rows.map(r => r.nome);
-    res.json({ turnos, produtos, celulas_cadastro: celulasCadastro });
+    const cels = (await pool.query(
+      `SELECT nome, categoria, operadores, horas_operador::float AS horas_operador, turno
+         FROM celulas WHERE ativa IS NOT FALSE ORDER BY nome`)).rows;
+    // OPs do plano mensal (para escolher na lista) e horas por peça (para a capacidade)
+    const planos = (await pool.query(
+      `SELECT num_op, cod_decio, COALESCE(descricao, produto) AS descricao, meta::float AS meta,
+              realizado::float AS realizado, status, mes
+         FROM prod_planos WHERE COALESCE(num_op,'') <> '' ORDER BY (status = 'concluido'), data_limite NULLS LAST, id DESC LIMIT 400`)).rows;
+    const horas = (await pool.query(
+      `SELECT cod_decio, hora_reportado::float AS hora_reportado FROM prod_produtos WHERE COALESCE(hora_reportado,0) > 0`)).rows;
+    res.json({ turnos, produtos, celulas_cadastro: cels.map(c => c.nome), celulas: cels, planos,
+               horas_por_peca: Object.fromEntries(horas.map(h => [h.cod_decio, h.hora_reportado])) });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-/* POST /celulas — cria a célula */
+/* POST /celulas — atalho antigo: cria a célula já com uma programação para agora */
 router.post('/celulas', requireAdmin, async (req, res) => {
   try {
-    const nome = texto(req.body.nome, 120);
-    const { turno_id, produto_id } = req.body;
-    if (!nome) return res.status(400).json({ error: 'Dê um nome para a célula' });
-    if (!turno_id || !produto_id) return res.status(400).json({ error: 'Escolha o turno e o produto' });
-    const takt = req.body.takt_min === '' || req.body.takt_min == null ? null : parseFloat(req.body.takt_min);
-    if (takt != null && !(takt > 0)) return res.status(400).json({ error: 'Takt deve ser maior que zero' });
-
-    const r = await pool.query(
-      `INSERT INTO cadc_celulas (nome,turno_id,produto_id,takt_manual) VALUES ($1,$2,$3,$4) RETURNING id`,
-      [nome, turno_id, produto_id, takt]);
-    res.json(await umaCelula(r.rows[0].id));
+    const o = await criarOrdem({ ...req.body, celula_nome: req.body.nome }, req);
+    res.json(o.celula_id ? await umaCelula(o.celula_id) : { programada: true, ordem: o });
   } catch (e) {
-    if (e.code === '23505') return res.status(409).json({ error: 'Já existe uma célula com esse nome' });
     if (e.code === '23503') return res.status(400).json({ error: 'Turno ou produto inválido' });
-    res.status(500).json({ error: e.message });
+    res.status(e.status || 500).json({ error: e.message });
   }
 });
 
@@ -391,6 +981,9 @@ router.put('/celulas/:id', requireAdmin, async (req, res) => {
     const trocaProduto = b.produto_id !== undefined && Number(b.produto_id) !== (antes.produto?.id || 0);
     const trocaTurno = b.turno_id !== undefined && Number(b.turno_id) !== (antes.turno?.id || 0);
     let trocaTakt = false;
+    if (antes.ociosa && (b.produto_id !== undefined || b.turno_id !== undefined || b.takt_min !== undefined)) {
+      return res.status(409).json({ error: 'Esta célula está sem programação. Use "Programar" para definir produto e turno.' });
+    }
 
     if (b.produto_id !== undefined) set('produto_id', b.produto_id || null);
     if (b.turno_id !== undefined) set('turno_id', b.turno_id || null);
@@ -428,6 +1021,31 @@ router.put('/celulas/:id', requireAdmin, async (req, res) => {
       `UPDATE cadc_celulas SET ${sets.join(', ')}, versao = versao + 1, updated_at = NOW()
         WHERE id = $${vals.length}`, vals);
     memo.turnosEm = 0;
+    // Renomeou a célula: as programações dela acompanham o nome novo
+    if (b.nome !== undefined && texto(b.nome, 120) !== antes.nome) {
+      await pool.query(
+        `UPDATE cadc_ordens SET celula_nome=$2, updated_at=NOW()
+          WHERE status IN ('programada','ativa','encerrada') AND (celula_id=$1 OR lower(celula_nome)=lower($3))`,
+        [req.params.id, texto(b.nome, 120), antes.nome]);
+    }
+
+    // A programação em andamento acompanha o que foi trocado no cartão, e o histórico do dia também
+    if (antes.ordem && (trocaProduto || trocaTurno || b.takt_min !== undefined)) {
+      await pool.query(
+        `UPDATE cadc_ordens o SET turno_id=c.turno_id, produto_id=c.produto_id, takt_manual=c.takt_manual,
+                produto_nome=(SELECT nome FROM cad_produtos WHERE id=c.produto_id),
+                data=COALESCE(c.rodada_data, o.data), updated_at=NOW()
+           FROM cadc_celulas c WHERE c.id=$1 AND o.id=c.ordem_id`, [req.params.id]);
+      const od = await umaOrdem(antes.ordem.id);
+      if (od) {
+        if (trocaProduto) {
+          const cod = await codDecioDe(od.num_op, od.produto_id);
+          await pool.query('UPDATE cadc_ordens SET cod_decio=$2 WHERE id=$1', [od.id, cod]);
+          od.cod_decio = cod;
+        }
+        await registrarLinha(od, req.session.userId || null);
+      }
+    }
 
     const depois = await umaCelula(req.params.id);
     if (b.avisar !== false && depois) {
@@ -450,6 +1068,9 @@ router.put('/celulas/:id', requireAdmin, async (req, res) => {
 /* DELETE /celulas/:id — apaga a célula e solta os tablets que estavam nela */
 router.delete('/celulas/:id', requireAdmin, async (req, res) => {
   try {
+    await pool.query(
+      `UPDATE cadc_ordens SET status = CASE WHEN num_op IS NOT NULL THEN 'encerrada' ELSE 'cancelada' END,
+              encerrada_em=NOW(), updated_at=NOW() WHERE celula_id=$1 AND status='ativa'`, [req.params.id]);
     await pool.query('DELETE FROM cadc_celulas WHERE id=$1', [req.params.id]);
     res.json({ success: true });
   } catch (e) { res.status(500).json({ error: e.message }); }
@@ -461,6 +1082,7 @@ router.post('/celulas/:id/pausar', requireAdmin, async (req, res) => {
     const cel = await umaCelula(req.params.id);
     if (!cel) return res.status(404).json({ error: 'Célula não encontrada' });
     if (cel.pausada) return res.status(409).json({ error: 'Esta célula já está pausada' });
+    if (cel.ociosa) return res.status(409).json({ error: 'Esta célula está sem programação rodando' });
 
     const motivo = texto(req.body.motivo, 120) || 'Linha parada';
     const min = parseFloat(req.body.duracao_min);
@@ -698,8 +1320,9 @@ router.get('/tablet/celulas', requireAuth, async (_req, res) => {
     const mapa = new Map(n.map(x => [x.celula_id, x.n]));
     res.json(cels.map(c => ({
       id: c.id, nome: c.nome, pronto: c.pronto, pausada: c.pausada,
-      produto: c.produto?.nome || null, turno: c.turno?.nome || null,
-      takt_min: c.takt_min, tablets_online: mapa.get(c.id) || 0
+      ociosa: c.ociosa, proxima: c.proxima,
+      produto: c.ociosa ? null : (c.produto?.nome || null), turno: c.ociosa ? null : (c.turno?.nome || null),
+      takt_min: c.ociosa ? null : c.takt_min, tablets_online: mapa.get(c.id) || 0
     })));
   } catch (e) { res.status(500).json({ error: e.message }); }
 });

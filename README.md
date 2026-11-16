@@ -134,6 +134,20 @@ Forma adicional do cadenciador. O **Cadenciador comum** (`/cadenciador`) continu
   trocar produto/turno/takt, pausa laboral (com ou sem tempo para voltar sozinha), retomar,
   digitar um texto para o tablet **falar em voz alta** (uma célula, um tablet ou todas),
   mensagem fixa na tela, ligar/desligar os avisos de ciclo, mover ou liberar tablets.
+- **Programação (substitui a antiga aba "Programação do dia"):** cada célula roda uma programação =
+  célula + produto + turno + dia + **OP** + **n° de série inicial e final** + operadores + meta.
+  - Botão **＋ Programar célula**: "Agora", "Próximo turno", "Amanhã" ou outra data. Se o turno escolhido já
+    está em andamento, a célula começa na hora; senão fica em **🗓 Programadas** e **começa sozinha** no início do turno
+    (o servidor confere a cada 20 s, mesmo com todas as telas fechadas).
+  - **▶ Células ativas** × **🗓 Programadas**: dois botões no topo do painel.
+  - Ao começar, a célula já grava a **Linha de Produção** do dia (aba Histórico) — produto, OP, turno, operadores, meta.
+  - **✅ Finalizar e enviar ao Plano**: no fim do turno o admin confere o **último n° de série produzido**
+    (vem preenchido com o programado; a quantidade é calculada pelas séries) e envia. Isso cria o
+    **Apontamento Diário** no Plano de Produção e soma no plano da OP, igual ao digitado à mão.
+    Se faltou produzir, oferece programar o restante para o próximo dia útil (série seguinte → última).
+  - Dia virou sem finalizar: a produção fica em **"aguardando envio"** no topo do painel, para enviar depois.
+  - "Repetir todo dia útil": a mesma programação volta sozinha de segunda a sexta.
+  - A OP precisa existir no plano mensal para o envio (mesma regra do Apontamento Diário).
 - **No tablet:** Portal › **Cadenciador da Célula** (`/cadenciador/celula`). Toca na célula e pronto.
   O tablet fica **preso à célula**: recarregar ou voltar ao Portal devolve para o painel. Só sai se o
   admin liberar pelo PC, ou com usuário e senha de administrador no cadeado do próprio tablet.

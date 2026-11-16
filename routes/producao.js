@@ -537,4 +537,7 @@ router.delete('/prod-apontamentos-detalhados/:id', requireAuth, async (req, res)
   }
 });
 
+/* Usado pelo Cadenciador central ao enviar a produção do turno como apontamento diário */
+router.atualizarStatusPlano = atualizarStatusPlano;
+
 module.exports = router;

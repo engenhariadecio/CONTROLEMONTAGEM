@@ -261,6 +261,56 @@ ALTER TABLE cadc_celulas ADD COLUMN IF NOT EXISTS rodada INTEGER NOT NULL DEFAUL
 ALTER TABLE cadc_celulas ADD COLUMN IF NOT EXISTS rodada_data DATE;
 ALTER TABLE cadc_tablets ADD COLUMN IF NOT EXISTS pula_cmd BOOLEAN NOT NULL DEFAULT FALSE;
 
+/* Programação do cadenciador central: o que cada célula roda, em que dia e turno.
+   Uma linha = uma célula em um turno de um dia, com OP e faixa de números de série.
+   status: programada (aguardando a hora) -> ativa (rodando) -> encerrada (falta enviar ao Plano)
+           -> enviada (virou apontamento diário) | concluida (sem OP) | cancelada | descartada */
+CREATE TABLE IF NOT EXISTS cadc_ordens (
+  id               SERIAL PRIMARY KEY,
+  celula_id        INTEGER REFERENCES cadc_celulas(id) ON DELETE SET NULL,
+  celula_nome      VARCHAR(120) NOT NULL,
+  data             DATE NOT NULL,
+  turno_id         INTEGER REFERENCES turnos(id) ON DELETE SET NULL,
+  produto_id       INTEGER REFERENCES cad_produtos(id) ON DELETE SET NULL,
+  produto_nome     VARCHAR(200),
+  takt_manual      NUMERIC(8,3),
+  num_op           VARCHAR(8),
+  serie_inicial    VARCHAR(13),
+  serie_final      VARCHAR(13),
+  cod_decio        VARCHAR(50),
+  operadores       INTEGER,
+  horas_operador   NUMERIC(5,2),
+  meta             NUMERIC(12,2),
+  obs              TEXT,
+  repetir          BOOLEAN NOT NULL DEFAULT FALSE,
+  status           VARCHAR(20) NOT NULL DEFAULT 'programada',
+  origem_id        INTEGER,
+  serie_final_real VARCHAR(13),
+  realizado        NUMERIC(12,2),
+  apontamento_id   INTEGER,
+  criado_por       VARCHAR(120),
+  criado_por_id    INTEGER,
+  iniciada_em      TIMESTAMPTZ,
+  encerrada_em     TIMESTAMPTZ,
+  enviada_em       TIMESTAMPTZ,
+  created_at       TIMESTAMPTZ DEFAULT NOW(),
+  updated_at       TIMESTAMPTZ DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_cadc_ordens_status ON cadc_ordens(status, data);
+CREATE INDEX IF NOT EXISTS idx_cadc_ordens_celula ON cadc_ordens(celula_id, data);
+ALTER TABLE cadc_celulas ADD COLUMN IF NOT EXISTS ordem_id INTEGER;
+
+/* Células criadas antes de existir a programação: ganham uma programação que se repete,
+   para continuarem rodando como antes. */
+INSERT INTO cadc_ordens (celula_id, celula_nome, data, turno_id, produto_id, takt_manual, status, repetir, iniciada_em)
+SELECT c.id, c.nome, COALESCE(c.rodada_data, CURRENT_DATE), c.turno_id, c.produto_id, c.takt_manual, 'ativa', TRUE, NOW()
+  FROM cadc_celulas c
+ WHERE c.ordem_id IS NULL AND c.produto_id IS NOT NULL AND c.turno_id IS NOT NULL
+   AND NOT EXISTS (SELECT 1 FROM cadc_ordens o WHERE o.celula_id = c.id);
+UPDATE cadc_celulas c SET ordem_id = o.id
+  FROM cadc_ordens o
+ WHERE c.ordem_id IS NULL AND o.celula_id = c.id AND o.status = 'ativa';
+
 /* ══════════════ SISTEMA 3 — PROGESTÃO ══════════════ */
 
 /* ── Ferramentas ── */
