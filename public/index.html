@@ -74,11 +74,6 @@
 .faixa-admin h3 { font-size: 15px; font-weight: 700; }
 .faixa-admin p { font-size: 12.5px; color: var(--t3); margin-top: 3px; }
 </style>
-<script>
-/* Tablet preso a uma célula do Cadenciador central: o Portal devolve para o painel dela.
-   Só o administrador libera (no PC ou com a senha, no próprio tablet). */
-try { if (localStorage.getItem('cadc_preso') === '1') location.replace('/cadenciador/celula'); } catch (e) {}
-</script>
 </head>
 <body>
 <header id="topo"></header>
@@ -167,6 +162,12 @@ try { if (localStorage.getItem('cadc_preso') === '1') location.replace('/cadenci
 (async () => {
   const usuario = await montarTopo({ subtitulo: 'Portal' });
   if (!usuario) return;
+
+  /* Tablet preso a uma célula do Cadenciador central: o Portal devolve para o painel dela.
+     Só o administrador libera (no PC ou com a senha, no próprio tablet). Admin logado passa livre. */
+  try {
+    if (usuario.role !== 'admin' && localStorage.getItem('cadc_preso') === '1') { location.replace('/cadenciador/celula'); return; }
+  } catch (e) {}
 
   if (usuario.role === 'admin') {
     document.getElementById('faixaAdmin').classList.remove('oculto');

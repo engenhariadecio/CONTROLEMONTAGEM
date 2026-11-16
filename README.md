@@ -142,6 +142,13 @@ Forma adicional do cadenciador. O **Cadenciador comum** (`/cadenciador`) continu
   consulta dias anteriores e exporta CSV. O tablet mostra o mesmo histórico (concluídos, não concluídos e motivo).
   Ao trocar de produto, os ciclos já feitos ficam guardados no histórico do dia.
 - A tela do tablet se ajusta a qualquer tamanho (deitado ou em pé); o número grande nunca é cortado.
+- **Relógio único:** PC e tablets usam o relógio do servidor (hora da fábrica), não o do aparelho.
+  O "próximo ciclo" de cada cartão no PC é o mesmo número que aparece no tablet, virando no mesmo segundo.
+- **Trocar tablet pelo PC:** em cada cartão, "⇄ trocar" move o tablet para outra célula ou libera, e
+  "＋ Trazer tablet para cá" puxa qualquer tablet (livre ou de outra célula). Todo tablet que abre a tela
+  já aparece na lista, mesmo antes de escolher célula.
+- Tablet preso não cai mais no login a cada 12 h: a sessão é renovada enquanto ele estiver ligado na célula.
+- Ao atualizar `public/js/cadc.js`, troque o `?v=` nas duas páginas que o carregam (o navegador guarda /js por 1 h).
 - O tablet consulta o servidor a cada 2 s. Sem internet, segue com os últimos dados e avisa "Sem conexão".
 - Depois de recarregar a página, o navegador pode pedir **um toque na tela** para voltar a falar
   (regra do navegador). O admin vê "🔇 falta um toque" na lista de tablets.

@@ -12,7 +12,7 @@ html, body { height: 100%; }
 body { margin: 0; overflow: hidden; background: var(--fundo); color: var(--t1); overscroll-behavior: none; }
 
 /* ───────── Escolha da célula ───────── */
-#escolha { position: fixed; inset: 0; overflow-y: auto; padding: 4vh 5vw 6vh; display: none; }
+#escolha { position: fixed; top: 0; right: 0; bottom: 0; left: 0; overflow-y: auto; padding: 4vh 5vw 6vh; display: none; }
 #escolha.ativo { display: block; }
 .esc-topo { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; margin-bottom: 3vh; }
 .esc-topo img { height: 44px; }
@@ -37,7 +37,7 @@ body { margin: 0; overflow: hidden; background: var(--fundo); color: var(--t1); 
 /* ───────── Painel da célula ─────────
    Tudo é dimensionado pela largura E pela altura da tela (min(vw, vh)),
    e o número grande é ajustado por script para nunca ser cortado. */
-#painel { position: fixed; inset: 0; height: 100vh; height: 100dvh; display: none; flex-direction: column; padding: 2vh 2.4vw 1.4vh; gap: 1.6vh; box-sizing: border-box; }
+#painel { position: fixed; top: 0; right: 0; bottom: 0; left: 0; height: 100vh; height: 100dvh; display: none; flex-direction: column; padding: 2vh 2.4vw 1.4vh; gap: 1.6vh; box-sizing: border-box; }
 #painel.ativo { display: flex; }
 .p-topo { display: flex; align-items: center; justify-content: space-between; gap: 2vw; flex: none; }
 .p-topo > div:first-child { min-width: 0; }
@@ -129,13 +129,13 @@ body { margin: 0; overflow: hidden; background: var(--fundo); color: var(--t1); 
 #aviso-admin .t { font-family: var(--display); font-size: clamp(18px, 3.2vw, 42px); font-weight: 800; margin-top: .5vh; line-height: 1.15; }
 
 /* ───────── Ativar som ───────── */
-#som { position: fixed; inset: 0; z-index: 60; background: rgba(6,14,20,.94); display: none; flex-direction: column; align-items: center; justify-content: center; text-align: center; padding: 6vw; cursor: pointer; }
+#som { position: fixed; top: 0; right: 0; bottom: 0; left: 0; z-index: 60; background: rgba(6,14,20,.94); display: none; flex-direction: column; align-items: center; justify-content: center; text-align: center; padding: 6vw; cursor: pointer; }
 #som.ativo { display: flex; }
 #som .ic { font-size: clamp(60px, 12vw, 140px); }
 #som h2 { font-family: var(--display); font-size: clamp(26px, 5vw, 60px); font-weight: 800; margin: 2vh 0 1vh; }
 #som p { color: var(--t2); font-size: clamp(14px, 2vw, 22px); margin: 0; }
 
-#carregando { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; color: var(--t2); font-size: 16px; }
+#carregando { position: fixed; top: 0; right: 0; bottom: 0; left: 0; display: flex; align-items: center; justify-content: center; color: var(--t2); font-size: 16px; }
 
 </style>
 </head>
@@ -238,7 +238,7 @@ body { margin: 0; overflow: hidden; background: var(--fundo); color: var(--t1); 
 </div>
 
 <script src="/js/core.js"></script>
-<script src="/js/cadc.js"></script>
+<script src="/js/cadc.js?v=3"></script>
 <script>
 /* ═══════════ Identidade do tablet ═══════════ */
 
@@ -263,7 +263,6 @@ let FALAS = [];         // avisos automáticos do turno
 let depois = guarda.ler('cadc_depois');
 depois = depois != null && depois !== '' ? Number(depois) : null;
 let ultimoOff = null;   // último segundo conferido para avisos automáticos
-let pausaBase = null;   // { decorrido, restante, em } — para contar a pausa entre uma consulta e outra
 let falhas = 0;
 let somOk = false;
 
@@ -290,13 +289,34 @@ function bip() {
 }
 
 /** Fala em fila: um comando do admin nunca é cortado pelo aviso seguinte. */
+let vozPt = null, falandoDesde = 0;
+function escolherVoz() {
+  try {
+    const vs = window.speechSynthesis.getVoices() || [];
+    vozPt = vs.find(v => /^pt[-_]BR/i.test(v.lang)) || vs.find(v => /^pt/i.test(v.lang)) || null;
+  } catch { vozPt = null; }
+}
+if ('speechSynthesis' in window) {
+  escolherVoz();
+  try { window.speechSynthesis.addEventListener('voiceschanged', escolherVoz); } catch {}
+}
 function falar(txt, vezes = 1) {
   if (!txt || !('speechSynthesis' in window)) return;
-  for (let i = 0; i < vezes; i++) {
-    const f = new SpeechSynthesisUtterance(txt);
-    f.lang = 'pt-BR'; f.rate = 1; f.volume = 1;
-    window.speechSynthesis.speak(f);
-  }
+  const ss = window.speechSynthesis;
+  try {
+    // Alguns tablets deixam a voz "travada" (pausada ou falando para sempre): destrava antes de falar
+    if (ss.paused) ss.resume();
+    if (ss.speaking && falandoDesde && Date.now() - falandoDesde > 45000) ss.cancel();
+    for (let i = 0; i < vezes; i++) {
+      const f = new SpeechSynthesisUtterance(txt);
+      f.lang = 'pt-BR'; f.rate = 1; f.volume = 1;
+      if (vozPt) f.voice = vozPt;
+      f.onstart = () => { falandoDesde = Date.now(); };
+      f.onend = f.onerror = () => { falandoDesde = 0; };
+      ss.speak(f);
+    }
+    if (!falandoDesde) falandoDesde = Date.now();
+  } catch (e) { console.error('voz', e); }
 }
 
 function ativarSom() {
@@ -341,6 +361,7 @@ function tela(nome) {
   $('painel').classList.toggle('ativo', nome === 'painel');
   if (nome === 'painel') {
     guarda.por('cadc_preso', '1');
+    try { manterTelaLigada(); } catch {}
     // Sem toque nesta visita (ex.: página recarregada), o navegador não deixa falar
     const jaTocou = navigator.userActivation ? navigator.userActivation.hasBeenActive : somOk;
     if (!somOk && !jaTocou) $('som').classList.add('ativo');
@@ -395,11 +416,14 @@ async function consultar() {
   try {
     const q = new URLSearchParams({ device_id: DEVICE, som: somOk ? '1' : '0' });
     if (depois != null) q.set('depois', depois);
-    if (CEL) { q.set('c', CEL.id); q.set('v', CEL.versao); }
-    const r = await fetch(BASE + '/tablet/estado?' + q, { headers: { Accept: 'application/json' }, cache: 'no-store' });
+    if (CEL) { q.set('c', CEL.id); q.set('v', CEL.sinal || ''); }
+    else { const n = guarda.ler('cadc_nome'); if (n) q.set('nome', n); }
+    const t0 = performance.now();
+    const r = await fetch(BASE + '/tablet/estado?' + q, { headers: { Accept: 'application/json' }, cache: 'no-store', credentials: 'same-origin' });
+    const t1 = performance.now();
     if (r.status === 401) { location.href = '/login'; return; }
     if (!r.ok) throw new Error('HTTP ' + r.status);
-    aplicar(await r.json());
+    aplicar(await r.json(), t0, t1);
     falhas = 0;
   } catch {
     falhas++;
@@ -411,8 +435,8 @@ async function consultar() {
   }
 }
 
-function aplicar(r) {
-  Cadc.acertar(r.hora);
+function aplicar(r, t0, t1) {
+  Cadc.acertar(r, t0, t1);
   TABLET = r.tablet;
 
   if (!r.celula) {
@@ -427,18 +451,17 @@ function aplicar(r) {
   }
 
   const c = r.celula;
+  if (c.igual && !(CEL && CEL.id === c.id)) { CEL = null; return; }     // falta a grade: pede completa na próxima
   if (c.igual && CEL && CEL.id === c.id) {
     CEL = { ...CEL, ...c, ciclos: CEL.ciclos, turno: CEL.turno, marcas: CEL.marcas, anteriores: CEL.anteriores };
   } else {
     const trocouCelula = CEL && CEL.id !== c.id;
+    const mesmoTurno = CEL && !trocouCelula && CEL.turno && c.turno && CEL.turno.hora_inicio === c.turno.hora_inicio;
     CEL = c;
     FALAS = Cadc.falasAutomaticas(CEL);
-    ultimoOff = null;
+    if (!mesmoTurno) ultimoOff = null;
     if (trocouCelula) aviso('Este tablet foi movido para ' + c.nome + '.', 'info', 6000);
   }
-  pausaBase = CEL.pausada
-    ? { decorrido: CEL.pausa_decorrido_seg, restante: CEL.pausa_restante_seg, em: performance.now() }
-    : null;
 
   if (r.ultimo_comando != null && r.ultimo_comando !== depois) {
     depois = r.ultimo_comando;
@@ -490,17 +513,15 @@ function tique() {
   requestAnimationFrame(ajustarNumero);
 
   if (CEL.pausada) {
-    const passou = pausaBase ? (performance.now() - pausaBase.em) / 1000 : 0;
+    const pz = Cadc.pausa(CEL);
     caixa.classList.add('pausa');
     $('pProxRot').textContent = 'Linha pausada';
-    if (pausaBase && pausaBase.restante != null) {
-      const rest = Math.max(0, pausaBase.restante - passou);
-      $('pProxVal').textContent = Cadc.curto(rest);
+    if (pz.restante != null) {
+      $('pProxVal').textContent = Cadc.curto(pz.restante);
       $('pProxSub').textContent = (CEL.pausa_motivo || 'Pausa') + ' · volta em';
-      const tot = pausaBase.decorrido + pausaBase.restante;
-      $('pBarra').style.width = (tot > 0 ? Math.min(100, (1 - rest / tot) * 100) : 0) + '%';
+      $('pBarra').style.width = (pz.total > 0 ? Math.min(100, Math.max(0, (1 - pz.restante / pz.total) * 100)) : 0) + '%';
     } else {
-      $('pProxVal').textContent = Cadc.curto((pausaBase ? pausaBase.decorrido : 0) + passou);
+      $('pProxVal').textContent = Cadc.curto(pz.decorrido);
       $('pProxSub').textContent = (CEL.pausa_motivo || 'Pausa') + ' · tempo parado';
       $('pBarra').style.width = '100%';
     }
@@ -543,7 +564,7 @@ function pintarHistorico(agora) {
   $('pOk').textContent = h.ok;
   $('pNok').textContent = h.nok;
   $('pNokCx').classList.toggle('tem', h.nok > 0);
-  const assin = CEL.id + ':' + CEL.versao + ':' + h.lista.length;
+  const assin = CEL.id + ':' + (CEL.sinal || CEL.versao) + ':' + h.lista.length;
   if (assin === histAssin) return;
   histAssin = assin;
   const el = $('pHist');
@@ -636,7 +657,7 @@ window.addEventListener('popstate', () => {
   await consultar();
   if (!CEL && !$('escolha').classList.contains('ativo')) { tela('escolha'); carregarEscolha(); }
 
-  setInterval(tique, 1000);
+  Cadc.aCadaSegundo(tique);          // vira o número junto com o PC do admin
   setInterval(consultar, 2000);
   setInterval(() => { if ($('escolha').classList.contains('ativo')) carregarEscolha(); }, 8000);
   document.addEventListener('visibilitychange', () => { if (!document.hidden) consultar(); });

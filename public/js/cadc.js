@@ -28,23 +28,80 @@ const Cadc = {
     return f > i ? f - i : (86400 - i) + f;
   },
 
-  /** Relógio corrigido pelo servidor: todos os tablets marcam o mesmo segundo. */
-  desvio: 0,
-  acertar(horaServidor) {
-    if (!horaServidor) return;
-    const d = new Date();
-    const local = d.getHours() * 3600 + d.getMinutes() * 60 + d.getSeconds();
-    let dif = Cadc.seg(horaServidor) - local;
-    if (dif > 43200) dif -= 86400;
-    if (dif < -43200) dif += 86400;
-    // Diferença grande = fuso diferente do esperado: nesse caso vale o relógio do aparelho
-    Cadc.desvio = Math.abs(dif) <= 300 ? dif : 0;
+  /**
+   * Relógio oficial = o do servidor (hora da fábrica), não o do aparelho.
+   * PC e tablets ficam no mesmo segundo mesmo que o relógio de um deles esteja errado.
+   * `r` é a resposta do servidor ({ hora, hora_seg }); t0/t1 = performance.now() antes/depois da consulta.
+   */
+  _base: null,
+  acertar(r, t0, t1) {
+    if (!r) return;
+    const agora = performance.now();
+    if (t1 == null) t1 = agora;
+    if (t0 == null) t0 = t1;
+    const ida = Math.max(0, t1 - t0);
+    let seg = typeof r.hora_seg === 'number' ? r.hora_seg : (r.hora ? Cadc.seg(r.hora) + 0.5 : null);
+    if (seg == null) return;
+    seg += ida / 2000;                       // metade do tempo de ida e volta
+    const b = Cadc._base;
+    if (b) {
+      let dif = seg - (b.seg + (t1 - b.em) / 1000);
+      if (dif > 43200) dif -= 86400;
+      if (dif < -43200) dif += 86400;
+      const velho = t1 - b.em > 120000;
+      // Mantém a referência atual enquanto ela estiver boa (evita o relógio "tremer")
+      if (Math.abs(dif) < 0.35 && !(velho && ida <= b.ida)) return;
+      if (Math.abs(dif) < 1.5 && ida > b.ida + 150 && !velho) return;
+    }
+    Cadc._base = { seg, em: t1, ida };
   },
-  agoraSeg() {
+  sincronizado() { return !!Cadc._base; },
+  /** Segundos do dia, com fração. Sem contato com o servidor ainda, usa o relógio do aparelho. */
+  agoraFrac() {
+    const b = Cadc._base;
+    if (b) return (((b.seg + (performance.now() - b.em) / 1000) % 86400) + 86400) % 86400;
     const d = new Date();
-    return (((d.getHours() * 3600 + d.getMinutes() * 60 + d.getSeconds() + Cadc.desvio) % 86400) + 86400) % 86400;
+    return d.getHours() * 3600 + d.getMinutes() * 60 + d.getSeconds() + d.getMilliseconds() / 1000;
   },
+  agoraSeg() { return Math.floor(Cadc.agoraFrac()); },
   agora() { return Cadc.hms(Cadc.agoraSeg()); },
+  /**
+   * Chama fn() exatamente na virada de cada segundo do relógio oficial —
+   * assim todas as telas trocam o número ao mesmo tempo.
+   */
+  aCadaSegundo(fn) {
+    let parar = false;
+    const passo = () => {
+      if (parar) return;
+      try { fn(); } catch (e) { console.error(e); }
+      const f = Cadc.agoraFrac();
+      setTimeout(passo, Math.max(40, (1 - (f - Math.floor(f))) * 1000 + 12));
+    };
+    passo();
+    return () => { parar = true; };
+  },
+
+  /**
+   * Pausa em andamento: { decorrido, restante (null se sem hora para voltar), total }.
+   * Calculada pelo relógio oficial, então PC e tablets mostram o mesmo número.
+   */
+  pausa(cel) {
+    if (!cel || !cel.pausada) return null;
+    const agora = Cadc.agoraFrac();
+    const volta = v => { let d = v % 86400; if (d < 0) d += 86400; return d; };
+    let decorrido = cel.pausa_decorrido_seg || 0;
+    if (cel.pausa_inicio_seg != null && decorrido < 80000) decorrido = volta(agora - cel.pausa_inicio_seg);
+    let restante = null, total = null;
+    if (cel.pausa_fim_seg != null) {
+      let r = volta(cel.pausa_fim_seg - agora);
+      if (r > 43200) r = 0;                 // já passou da hora de voltar
+      restante = r;
+      total = cel.pausa_inicio_seg != null ? volta(cel.pausa_fim_seg - cel.pausa_inicio_seg) : decorrido + r;
+    } else if (cel.pausa_restante_seg != null) {
+      restante = cel.pausa_restante_seg; total = decorrido + restante;
+    }
+    return { decorrido: Math.floor(decorrido), restante: restante == null ? null : Math.ceil(restante), total };
+  },
 
   /**
    * Onde a célula está agora.

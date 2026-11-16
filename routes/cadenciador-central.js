@@ -32,6 +32,23 @@ function offsetNoTurno(hms, turno) {
   return o;
 }
 
+/**
+ * Relógio oficial: segundos do dia na fábrica, com fração.
+ * PC do admin e tablets usam ESTE relógio (não o do aparelho) — por isso
+ * o "próximo ciclo" é idêntico em todas as telas.
+ */
+function relogio() {
+  const d = new Date();
+  const hora = horaFabrica(d);
+  return { hora, hora_seg: paraSegundos(hora) + d.getMilliseconds() / 1000 };
+}
+
+/** Segundos do dia (hora da fábrica) de um instante qualquer, com fração. */
+function segFabrica(quando) {
+  const d = new Date(quando);
+  return paraSegundos(horaFabrica(d)) + d.getMilliseconds() / 1000;
+}
+
 /** Data da fábrica (AAAA-MM-DD). */
 function dataFabrica(d = new Date()) {
   return new Intl.DateTimeFormat('en-CA', { timeZone: FUSO, year: 'numeric', month: '2-digit', day: '2-digit' }).format(d);
@@ -46,9 +63,29 @@ function dataDoTurno(turno) {
 const quem = req => req.session.nome || req.session.username || 'admin';
 const texto = (v, max) => String(v == null ? '' : v).replace(/\s+/g, ' ').trim().slice(0, max);
 
+/* Turnos e limite mudam raramente e são lidos a cada consulta de tablet: guarda por 3 s. */
+const memo = { turnos: null, turnosEm: 0, limite: 500, limiteEm: 0 };
+async function turnosCache() {
+  if (!memo.turnos || Date.now() - memo.turnosEm > 3000) {
+    memo.turnos = await listarTurnos();
+    memo.turnosEm = Date.now();
+  }
+  return memo.turnos;
+}
 async function limiteCiclos() {
-  const r = await pool.query(`SELECT valor FROM app_config WHERE chave='cad_limite_ciclos'`);
-  return parseInt(r.rows[0]?.valor || '500', 10) || 500;
+  if (Date.now() - memo.limiteEm > 3000) {
+    const r = await pool.query(`SELECT valor FROM app_config WHERE chave='cad_limite_ciclos'`);
+    memo.limite = parseInt(r.rows[0]?.valor || '500', 10) || 500;
+    memo.limiteEm = Date.now();
+  }
+  return memo.limite;
+}
+
+/** Assinatura curta de um texto (para saber se a grade de ciclos mudou). */
+function assinatura(txt) {
+  let h = 5381;
+  for (let i = 0; i < txt.length; i++) h = ((h << 5) + h + txt.charCodeAt(i)) | 0;
+  return (h >>> 0).toString(36);
 }
 
 /* ─────────────── comandos (voz / recarregar) ─────────────── */
@@ -80,12 +117,13 @@ const SQL_CELULA = `
   LEFT JOIN cad_takt_turno tt ON tt.produto_id = c.produto_id AND tt.turno_id = c.turno_id`;
 
 /** Quanto da pausa caiu dentro do turno — só esse pedaço empurra os ciclos. */
-function pausaDentroDoTurno(turno, inicio, duracaoSeg) {
+function pausaDentroDoTurno(turno, inicio, duracaoSeg, inicioOff = 0) {
   if (!turno || !inicio) return 0;
   const dur = duracaoTurnoSeg(turno);
   let a = offsetNoTurno(horaFabrica(new Date(inicio)), turno);
   if (a > dur) a -= 86400;                 // começou antes do turno abrir
-  const A = Math.max(a, 0), B = Math.min(a + duracaoSeg, dur);
+  // Antes do ponto onde a contagem (re)começou a pausa não empurra nada
+  const A = Math.max(a, 0, inicioOff || 0), B = Math.min(a + duracaoSeg, dur);
   if (B <= A) return 0;
   // Pedaço da pausa que caiu em cima de um intervalo (café, almoço) não conta duas vezes
   let emIntervalo = 0;
@@ -96,26 +134,26 @@ function pausaDentroDoTurno(turno, inicio, duracaoSeg) {
   return Math.max(0, Math.round(B - A - emIntervalo));
 }
 
-/** Fecha a pausa aberta da célula. `fim` permite fechar no horário programado. */
+/**
+ * Fecha a pausa aberta da célula. Devolve a duração, ou null se outra consulta
+ * já tinha fechado (várias telas consultam ao mesmo tempo — só uma pode somar o tempo).
+ */
 async function fecharPausa(cel, turno, { noPrevisto = false } = {}) {
-  const fimSql = noPrevisto ? 'LEAST(NOW(), $2::timestamptz)' : 'NOW()';
-  const params = noPrevisto ? [cel.id, cel.pausa_fim_prev] : [cel.id];
-  const p = await pool.query(
-    `UPDATE cadc_paradas SET fim = ${fimSql},
-            duracao_seg = GREATEST(0, EXTRACT(EPOCH FROM (${fimSql} - inicio))::int)
-      WHERE celula_id = $1 AND fim IS NULL RETURNING duracao_seg`, params);
-  let dur = p.rows[0]?.duracao_seg;
-  if (dur == null) {
-    dur = noPrevisto
-      ? Math.max(0, Math.round((new Date(cel.pausa_fim_prev) - new Date(cel.pausa_inicio)) / 1000))
-      : Math.max(0, cel.pausa_decorrido_seg || 0);
-  }
-  const soma = pausaDentroDoTurno(turno, cel.pausa_inicio, dur);
-  await pool.query(
+  const dur = noPrevisto
+    ? Math.max(0, Math.round((new Date(cel.pausa_fim_prev) - new Date(cel.pausa_inicio)) / 1000))
+    : Math.max(0, cel.pausa_decorrido_seg || 0);
+  const soma = pausaDentroDoTurno(turno, cel.pausa_inicio, dur, cel.inicio_off_seg);
+
+  const r = await pool.query(
     `UPDATE cadc_celulas SET pausada=FALSE, pausa_motivo=NULL, pausa_inicio=NULL, pausa_fim_prev=NULL,
             tempo_parado_seg = tempo_parado_seg + $2, ref_em = NOW(),
             versao = versao + 1, updated_at = NOW()
-      WHERE id = $1`, [cel.id, soma]);
+      WHERE id = $1 AND pausada = TRUE`, [cel.id, soma]);
+  if (!r.rowCount) return null;
+
+  await pool.query(
+    `UPDATE cadc_paradas SET fim = inicio + ($2 || ' seconds')::interval, duracao_seg = $2::int
+      WHERE celula_id = $1 AND fim IS NULL`, [cel.id, String(dur)]);
   return dur;
 }
 
@@ -125,7 +163,7 @@ async function fecharPausa(cel, turno, { noPrevisto = false } = {}) {
  *  - tempo parado e reinício de contagem de um turno antigo são zerados.
  */
 async function carregarCelulas(filtroId = null) {
-  const turnos = await listarTurnos();
+  const turnos = await turnosCache();
   const porId = new Map(turnos.map(t => [t.id, t]));
   const ler = async () => (await pool.query(
     SQL_CELULA + (filtroId ? ' WHERE c.id = $1' : '') + ' ORDER BY c.nome', filtroId ? [filtroId] : []
@@ -138,20 +176,22 @@ async function carregarCelulas(filtroId = null) {
   for (const c of linhas) {
     const turno = porId.get(c.turno_id);
     if (c.pausada && c.pausa_fim_prev && c.pausa_restante_seg <= 0) {
-      await fecharPausa(c, turno, { noPrevisto: true });
-      await comando(c.id, { texto: 'Pausa encerrada. Ciclo iniciado.', origem: 'auto' });
+      if (await fecharPausa(c, turno, { noPrevisto: true }) != null) {
+        await comando(c.id, { texto: 'Pausa encerrada. Ciclo iniciado.', origem: 'auto' });
+      }
       mudou = true;
     } else if (!c.pausada) {
       // Virou o dia de turno: guarda os ciclos de ontem no histórico e começa uma contagem nova
       const dia = dataDoTurno(turno);
       if (!c.rodada_dia) {
-        await pool.query('UPDATE cadc_celulas SET rodada_data=$2 WHERE id=$1', [c.id, dia]);
+        await pool.query('UPDATE cadc_celulas SET rodada_data=$2 WHERE id=$1 AND rodada_data IS NULL', [c.id, dia]);
         mudou = true;
       } else if (c.rodada_dia !== dia) {
         await arquivarRodada(c, turno, limite, { todos: true });
         await pool.query(
           `UPDATE cadc_celulas SET tempo_parado_seg=0, inicio_off_seg=0, ref_em=NULL,
-                  rodada=rodada+1, rodada_data=$2, versao=versao+1, updated_at=NOW() WHERE id=$1`, [c.id, dia]);
+                  rodada=rodada+1, rodada_data=$2, versao=versao+1, updated_at=NOW()
+            WHERE id=$1 AND rodada=$3`, [c.id, dia, c.rodada]);
         mudou = true;
       }
     }
@@ -213,7 +253,7 @@ async function arquivarRodada(c, turno, limite, { todos = false } = {}) {
 async function arquivarAtual(id) {
   const c = (await pool.query(SQL_CELULA + ' WHERE c.id=$1', [id])).rows[0];
   if (!c) return;
-  const turno = (await listarTurnos()).find(t => t.id === c.turno_id);
+  const turno = (await turnosCache()).find(t => t.id === c.turno_id);
   if (turno) await arquivarRodada(c, turno, await limiteCiclos());
 }
 
@@ -225,21 +265,24 @@ function montarEstado(c, turno, limite) {
       tempoParadoSeg: (c.inicio_off_seg || 0) + (c.tempo_parado_seg || 0), limite
     }).map(x => x.hora);
   }
+  const turnoPub = turno ? {
+    id: turno.id, nome: turno.nome, codigo: turno.codigo,
+    hora_inicio: turno.hora_inicio, hora_fim: turno.hora_fim,
+    intervalos: (turno.intervalos || []).map(i => ({
+      nome: i.nome, hora_inicio: i.hora_inicio, hora_fim: i.hora_fim, aviso_voz: i.aviso_voz
+    }))
+  } : null;
   return {
     id: c.id,
     nome: c.nome,
     versao: c.versao,
+    // Muda quando QUALQUER coisa que o tablet mostra muda — inclusive cadastro de turno ou de takt
+    sinal: c.versao + '.' + assinatura(JSON.stringify([turnoPub, c.takt_min, c.produto_nome, ciclos.length, ciclos[0], ciclos[ciclos.length - 1]])),
     rodada: c.rodada,
     dia: c.rodada_dia,
     pronto,
     produto: c.produto_id ? { id: c.produto_id, nome: c.produto_nome, cod_decio: c.cod_decio } : null,
-    turno: turno ? {
-      id: turno.id, nome: turno.nome, codigo: turno.codigo,
-      hora_inicio: turno.hora_inicio, hora_fim: turno.hora_fim,
-      intervalos: (turno.intervalos || []).map(i => ({
-        nome: i.nome, hora_inicio: i.hora_inicio, hora_fim: i.hora_fim, aviso_voz: i.aviso_voz
-      }))
-    } : null,
+    turno: turnoPub,
     takt_min: c.takt_min,
     takt_cadastro: c.takt_cadastro,
     takt_manual: c.takt_manual != null,
@@ -249,6 +292,9 @@ function montarEstado(c, turno, limite) {
     pausa_motivo: c.pausa_motivo,
     pausa_decorrido_seg: c.pausada ? Math.max(0, c.pausa_decorrido_seg || 0) : 0,
     pausa_restante_seg: c.pausada && c.pausa_fim_prev ? Math.max(0, c.pausa_restante_seg || 0) : null,
+    // Mesmos instantes no relógio oficial: cada tela faz a conta sozinha e todas mostram o mesmo número
+    pausa_inicio_seg: c.pausada && c.pausa_inicio ? segFabrica(c.pausa_inicio) : null,
+    pausa_fim_seg: c.pausada && c.pausa_fim_prev ? segFabrica(c.pausa_fim_prev) : null,
     voz_ativa: c.voz_ativa,
     mensagem: c.mensagem || '',
     ciclos
@@ -264,6 +310,12 @@ async function umaCelula(id) {
 /* GET /api/cadenciador-central/admin/visao — tudo que o painel do admin precisa */
 router.get('/admin/visao', requireAdmin, async (_req, res) => {
   try {
+    // Faxina: tablet livre que não aparece há mais de 15 dias sai da lista
+    if (Date.now() - (memo.faxinaEm || 0) > 10 * 60 * 1000) {
+      memo.faxinaEm = Date.now();
+      pool.query(`DELETE FROM cadc_tablets WHERE celula_id IS NULL
+                   AND COALESCE(visto_em, created_at) < NOW() - INTERVAL '15 days'`).catch(() => {});
+    }
     const celulas = await carregarCelulas();
     const tablets = (await pool.query(`
       SELECT t.id, t.nome, t.celula_id, t.usuario, t.som_ok, t.ultimo_cmd, t.conectado_em, t.visto_em,
@@ -280,7 +332,7 @@ router.get('/admin/visao', requireAdmin, async (_req, res) => {
       LEFT JOIN cadc_tablets t ON t.id = k.tablet_id
       ORDER BY k.id DESC LIMIT 40`)).rows.map(k => ({ ...k, id: Number(k.id) }));
 
-    res.json({ hora: horaFabrica(), celulas, tablets, comandos });
+    res.json({ ...relogio(), celulas, tablets, comandos });
   } catch (e) { console.error('cadc visao', e); res.status(500).json({ error: e.message }); }
 });
 
@@ -363,6 +415,7 @@ router.put('/celulas/:id', requireAdmin, async (req, res) => {
         if (o < duracaoTurnoSeg(turno)) off = o;
       }
       await arquivarAtual(req.params.id);      // os ciclos já feitos ficam no histórico
+      if (trocaTurno && turno) set('rodada_data', dataDoTurno(turno));
       set('inicio_off_seg', off);
       set('tempo_parado_seg', 0);
       sets.push('ref_em = NOW()');
@@ -374,6 +427,7 @@ router.put('/celulas/:id', requireAdmin, async (req, res) => {
     await pool.query(
       `UPDATE cadc_celulas SET ${sets.join(', ')}, versao = versao + 1, updated_at = NOW()
         WHERE id = $${vals.length}`, vals);
+    memo.turnosEm = 0;
 
     const depois = await umaCelula(req.params.id);
     if (b.avisar !== false && depois) {
@@ -412,11 +466,12 @@ router.post('/celulas/:id/pausar', requireAdmin, async (req, res) => {
     const min = parseFloat(req.body.duracao_min);
     const comFim = min > 0 && min <= 600;
 
-    await pool.query(
+    const up = await pool.query(
       `UPDATE cadc_celulas SET pausada=TRUE, pausa_motivo=$2, pausa_inicio=NOW(),
               pausa_fim_prev = ${comFim ? `NOW() + ($3 || ' seconds')::interval` : 'NULL'},
-              versao=versao+1, updated_at=NOW() WHERE id=$1`,
+              versao=versao+1, updated_at=NOW() WHERE id=$1 AND pausada=FALSE`,
       comFim ? [cel.id, motivo, String(Math.round(min * 60))] : [cel.id, motivo]);
+    if (!up.rowCount) return res.status(409).json({ error: 'Esta célula já está pausada' });
     await pool.query(
       'INSERT INTO cadc_paradas (celula_id,motivo,usuario) VALUES ($1,$2,$3)', [cel.id, motivo, quem(req)]);
 
@@ -437,8 +492,8 @@ router.post('/celulas/:id/retomar', requireAdmin, async (req, res) => {
     if (!c) return res.status(404).json({ error: 'Célula não encontrada' });
     if (!c.pausada) return res.status(409).json({ error: 'Esta célula não está pausada' });
 
-    await fecharPausa(c, turnos.find(t => t.id === c.turno_id));
-    if (req.body.avisar !== false) {
+    const fechou = await fecharPausa(c, turnos.find(t => t.id === c.turno_id));
+    if (fechou != null && req.body.avisar !== false) {
       await comando(c.id, { texto: 'Linha retomada. Ciclo iniciado.', origem: 'auto', por: quem(req) });
     }
     res.json(await umaCelula(c.id));
@@ -588,6 +643,11 @@ router.put('/tablets/:id', requireAdmin, async (req, res) => {
     }
     if (!sets.length) return res.status(400).json({ error: 'Nada para alterar' });
     vals.push(req.params.id);
+    // Ao mudar de célula, o tablet não deve falar avisos antigos da célula nova
+    if (req.body.celula_id !== undefined) {
+      sets.push('ultimo_cmd = (SELECT COALESCE(MAX(id),0) FROM cadc_comandos)');
+      sets.push('pula_cmd = TRUE');
+    }
     const r = await pool.query(`UPDATE cadc_tablets SET ${sets.join(', ')} WHERE id=$${vals.length} RETURNING *`, vals);
     if (!r.rows.length) return res.status(404).json({ error: 'Tablet não encontrado' });
     res.json(r.rows[0]);
@@ -675,7 +735,7 @@ router.post('/tablet/conectar', requireAuth, async (req, res) => {
 });
 
 /*
- * GET /tablet/estado?device_id=&c=&v=&depois=&som=
+ * GET /tablet/estado?device_id=&c=&v=&depois=&som=&nome=
  * Chamado pelo tablet a cada ~2 s. Serve de "estou vivo" e traz:
  *  - a célula (grade de ciclos só quando a versão mudou);
  *  - os comandos novos (voz, recarregar).
@@ -684,41 +744,62 @@ router.get('/tablet/estado', requireAuth, async (req, res) => {
   try {
     const { device_id } = req.query;
     if (!deviceOk(device_id)) return res.status(400).json({ error: 'Identificação do tablet inválida' });
-    const depois = req.query.depois != null && req.query.depois !== '' ? Number(req.query.depois) : null;
+    let depois = req.query.depois != null && req.query.depois !== '' ? Number(req.query.depois) : null;
+    if (depois != null && !Number.isFinite(depois)) depois = null;
 
-    const tb = (await pool.query(
-      `UPDATE cadc_tablets SET visto_em=NOW(), som_ok=$2,
-              ultimo_cmd = GREATEST(ultimo_cmd, $3), usuario = COALESCE($4, usuario)
-        WHERE device_id=$1 RETURNING id, nome, celula_id`,
-      [device_id, req.query.som === '1', depois || 0, req.session.username || null])).rows[0];
-
-    if (!tb || !tb.celula_id) {
-      return res.json({ hora: horaFabrica(), tablet: tb || null, celula: null, comandos: [] });
+    // Tablet preso fica logado: a sessão é renovada enquanto ele estiver consultando
+    if (!req.session.cadcRenova || Date.now() - req.session.cadcRenova > 30 * 60 * 1000) {
+      req.session.cadcRenova = Date.now();
     }
 
+    const maxGlobal = Number((await pool.query('SELECT COALESCE(MAX(id),0) AS m FROM cadc_comandos')).rows[0].m);
+    if (depois != null && depois > maxGlobal) depois = maxGlobal;     // banco restaurado / histórico limpo
+
+    let tb = (await pool.query(
+      `UPDATE cadc_tablets t SET visto_em=NOW(), som_ok=$2, usuario = COALESCE($3, t.usuario), pula_cmd=FALSE
+         FROM (SELECT id, pula_cmd, ultimo_cmd FROM cadc_tablets WHERE device_id=$1 FOR UPDATE) a
+        WHERE t.id = a.id
+        RETURNING t.id, t.nome, t.celula_id, a.pula_cmd AS pular, a.ultimo_cmd`,
+      [device_id, req.query.som === '1', req.session.username || null])).rows[0];
+
+    // Tablet que abriu a tela pela primeira vez já aparece para o admin (livre), que pode puxá-lo pelo PC
+    if (!tb) {
+      const nome = texto(req.query.nome, 120) || ('Tablet ' + device_id.slice(-4).toUpperCase());
+      tb = (await pool.query(
+        `INSERT INTO cadc_tablets (device_id, nome, usuario, visto_em, ultimo_cmd) VALUES ($1,$2,$3,NOW(),$4)
+         ON CONFLICT (device_id) DO UPDATE SET visto_em=NOW()
+         RETURNING id, nome, celula_id, FALSE AS pular, ultimo_cmd`,
+        [device_id, nome, req.session.username || null, maxGlobal])).rows[0];
+    }
+    // O admin trocou este tablet de célula: começa a ouvir a partir de agora
+    if (tb.pular) depois = Number(tb.ultimo_cmd);
+    const tablet = { id: tb.id, nome: tb.nome, celula_id: tb.celula_id };
+
+    if (!tb.celula_id) return res.json({ ...relogio(), tablet, celula: null, comandos: [] });
+
     const cel = await umaCelula(tb.celula_id);
-    if (!cel) return res.json({ hora: horaFabrica(), tablet: { ...tb, celula_id: null }, celula: null, comandos: [] });
+    if (!cel) return res.json({ ...relogio(), tablet: { ...tablet, celula_id: null }, celula: null, comandos: [] });
 
     let comandos = [];
     let ultimo = depois;
     if (depois == null) {
-      ultimo = Number((await pool.query('SELECT COALESCE(MAX(id),0) AS m FROM cadc_comandos')).rows[0].m);
+      ultimo = maxGlobal;
     } else {
       comandos = (await pool.query(
         `SELECT id, tipo, texto, repetir, origem FROM cadc_comandos
           WHERE celula_id=$1 AND id > $2 AND (tablet_id IS NULL OR tablet_id=$3)
             AND criado_em > NOW() - INTERVAL '${VALIDADE_CMD_SEG} seconds'
           ORDER BY id LIMIT 20`, [cel.id, depois, tb.id])).rows.map(k => ({ ...k, id: Number(k.id) }));
-      const m = Number((await pool.query(
-        'SELECT COALESCE(MAX(id),0) AS m FROM cadc_comandos WHERE celula_id=$1', [cel.id])).rows[0].m);
-      ultimo = Math.max(depois, m);
+      // Fila cheia: continua de onde parou na próxima consulta. Senão, já está em dia.
+      ultimo = comandos.length === 20 ? comandos[19].id : Math.max(depois, maxGlobal);
     }
+    await pool.query('UPDATE cadc_tablets SET ultimo_cmd=$2 WHERE id=$1 AND ultimo_cmd <> $2', [tb.id, ultimo]);
 
     // Grade de ciclos é a parte pesada: só vai quando algo mudou
-    if (req.query.v && Number(req.query.v) === cel.versao && Number(req.query.c) === cel.id) {
+    if (req.query.v && String(req.query.v) === cel.sinal && Number(req.query.c) === cel.id) {
       delete cel.ciclos; delete cel.turno; delete cel.marcas; delete cel.anteriores; cel.igual = true;
     }
-    res.json({ hora: horaFabrica(), tablet: tb, celula: cel, comandos, ultimo_comando: ultimo });
+    res.json({ ...relogio(), tablet, celula: cel, comandos, ultimo_comando: ultimo });
   } catch (e) { console.error('cadc estado', e); res.status(500).json({ error: e.message }); }
 });
 

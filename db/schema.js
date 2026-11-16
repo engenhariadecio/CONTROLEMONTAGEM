@@ -259,6 +259,7 @@ CREATE TABLE IF NOT EXISTS cadc_ciclos (
 CREATE INDEX IF NOT EXISTS idx_cadc_ciclos_dia ON cadc_ciclos(celula_id, data);
 ALTER TABLE cadc_celulas ADD COLUMN IF NOT EXISTS rodada INTEGER NOT NULL DEFAULT 1;
 ALTER TABLE cadc_celulas ADD COLUMN IF NOT EXISTS rodada_data DATE;
+ALTER TABLE cadc_tablets ADD COLUMN IF NOT EXISTS pula_cmd BOOLEAN NOT NULL DEFAULT FALSE;
 
 /* ══════════════ SISTEMA 3 — PROGESTÃO ══════════════ */
 
