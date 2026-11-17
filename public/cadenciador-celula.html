@@ -137,6 +137,20 @@ body { margin: 0; overflow: hidden; background: var(--fundo); color: var(--t1); 
 #semAut.ativo { display: flex; }
 #semAut h2 { font-family: var(--display); font-size: clamp(22px, 4vw, 44px); margin: 0; }
 #semAut p { color: var(--t2); font-size: clamp(14px, 2vw, 20px); margin: 0; max-width: 720px; }
+.esp { min-height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; gap: 2vh; padding: 2vh 0; }
+.esp-logo { height: clamp(40px, 7vh, 70px); }
+.esp-ok { font-family: var(--display); font-weight: 800; font-size: clamp(22px, min(4.6vw, 7vh), 60px); color: var(--ok); letter-spacing: -.01em; }
+.esp-ok.fora { color: var(--erro); }
+.esp-nome { font-family: var(--display); font-weight: 800; font-size: clamp(26px, min(6vw, 9vh), 84px); line-height: 1.05; }
+.esp-txt { color: var(--t2); font-size: clamp(14px, min(2vw, 3.2vh), 24px); max-width: 900px; line-height: 1.45; }
+.esp-txt b { color: var(--t1); }
+.esp-rel { font-family: var(--mono); font-weight: 700; font-size: clamp(22px, min(4vw, 6vh), 54px); color: var(--t2); }
+.esp-som { font-size: clamp(12px, min(1.6vw, 2.6vh), 18px); color: var(--t3); min-height: 1.3em; }
+.esp-form { margin-top: 1vh; background: var(--card); border: 1px solid var(--linha); border-radius: var(--r); padding: 14px 16px; text-align: left; width: min(560px, 92vw); }
+.esp-form label { font-size: 11px; letter-spacing: .1em; text-transform: uppercase; color: var(--t3); font-weight: 700; display: block; margin-bottom: 8px; }
+.esp-linha { display: flex; gap: 8px; }
+.esp-linha input { flex: 1; min-width: 0; background: var(--card-2); border: 1px solid var(--linha); color: var(--t1); border-radius: var(--r-sm); padding: 11px 13px; font-size: 16px; }
+.esp-portal { color: var(--t3); font-size: 13px; text-decoration: none; }
 .esc-livre { background: var(--ok-bg); border: 1px solid var(--ok-bd); border-radius: var(--r); padding: 12px 16px; margin-bottom: 3vh; font-size: 14px; color: var(--t1); }
 
 #carregando { position: fixed; top: 0; right: 0; bottom: 0; left: 0; display: flex; align-items: center; justify-content: center; color: var(--t2); font-size: 16px; }
@@ -149,29 +163,24 @@ body { margin: 0; overflow: hidden; background: var(--fundo); color: var(--t1); 
 
 <!-- ═════════ 1. Escolher a célula (só aparece com o tablet livre) ═════════ -->
 <div id="escolha">
-  <div class="esc-topo">
-    <img src="/assets/logo-decio.png" alt="Décio">
-    <div>
-      <h1>Cadenciador da Célula</h1>
-      <p>Toque na célula onde este tablet vai ficar. Depois disso, só o administrador libera.</p>
+  <div class="esp">
+    <img src="/assets/logo-decio.png" alt="Décio" class="esp-logo">
+    <div class="esp-ok" id="espOk">✅ TABLET CONECTADO</div>
+    <div class="esp-nome" id="espNome">Tablet</div>
+    <div class="esp-txt">Aguardando o administrador colocar este tablet em uma célula.<br>
+      <b>Não precisa fazer nada aqui</b> — o painel abre sozinho quando o administrador escolher a célula no PC.</div>
+    <div class="esp-rel num" id="espRel">--:--:--</div>
+    <div class="esp-som" id="espSom"></div>
+
+    <div class="esp-form">
+      <label for="nomeTablet">Nome deste tablet (como aparece para o administrador)</label>
+      <div class="esp-linha">
+        <input id="nomeTablet" maxlength="60" placeholder="Ex.: Tablet Célula 1" autocomplete="off">
+        <button class="btn btn-primario" id="btnNome">Salvar nome</button>
+      </div>
     </div>
-    <div class="dir">
-      <button class="btn btn-fantasma btn-sm" onclick="carregarEscolha()">↻ Atualizar</button>
-      <a class="btn btn-fantasma btn-sm" href="/">← Portal</a>
-    </div>
+    <a class="esp-portal" href="/">← Portal</a>
   </div>
-
-  <div class="esc-livre">✅ <b>Tablet ligado ao sistema.</b> Pode deixar esta tela aberta: o administrador coloca este tablet em uma célula <b>pelo PC</b> e o painel abre sozinho aqui. Toque uma vez na tela para o som ficar liberado.</div>
-
-  <div class="esc-nome">
-    <div>
-      <label for="nomeTablet">Nome deste tablet</label>
-      <input id="nomeTablet" maxlength="60" placeholder="Ex.: Tablet Célula 1" autocomplete="off">
-    </div>
-    <small>É com este nome que o tablet aparece na tela do administrador.</small>
-  </div>
-
-  <div class="esc-grade" id="escGrade"></div>
 </div>
 
 <!-- ═════════ 2. Painel preso à célula ═════════ -->
@@ -394,7 +403,7 @@ function ativarSom() {
   bip();
   manterTelaLigada();
   const el = document.documentElement;
-  if (TABLET && TABLET.celula_id && el.requestFullscreen && !document.fullscreenElement) {
+  if (el.requestFullscreen && !document.fullscreenElement) {
     el.requestFullscreen({ navigationUI: 'hide' }).catch(() => {});
   }
 }
@@ -427,45 +436,33 @@ function tela(nome) {
     try { manterTelaLigada(); } catch {}
   } else {
     guarda.por('cadc_preso', null);
-    if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
   }
   conferirSom();      // o aviso de "toque para ligar o som" não tapa o painel
 }
 
-async function carregarEscolha() {
-  let lista = null;
-  try { lista = await tab('GET', '/tablet/celulas'); } catch { return; }      // em segundo plano: tenta de novo sozinho
-  if (!lista) return;
-  const g = $('escGrade');
-  if (!lista.length) {
-    g.innerHTML = `<div class="esc-vazio" style="grid-column:1/-1">Nenhuma célula criada ainda.<br>
-      O administrador cria as células no PC, em <strong>ProGestão › Linha de Produção › Cadenciador central</strong>.</div>`;
-    return;
-  }
-  g.innerHTML = lista.map(c => `
-    <button class="esc-cel" data-id="${c.id}">
-      <strong>${escapar(c.nome)}</strong>
-      <div class="prod">${escapar(c.produto || (c.ociosa ? 'Sem programação agora' : 'Sem produto definido'))}</div>
-      <div class="det">${escapar(c.turno || (c.proxima ? 'Próxima: ' + (c.proxima.produto || '') + ' · ' + c.proxima.dia.slice(8, 10) + '/' + c.proxima.dia.slice(5, 7) + ' às ' + (c.proxima.hora || '') : 'Aguardando programação'))}${c.takt_min ? ' · takt ' + c.takt_min + ' min' : ''}
-        · ${c.tablets_online} tablet${c.tablets_online === 1 ? '' : 's'} conectado${c.tablets_online === 1 ? '' : 's'}</div>
-      <span class="tag ${c.pausada ? 'pausa' : ''}">${c.pausada ? 'Pausada' : 'Toque para conectar'}</span>
-    </button>`).join('');
-  g.querySelectorAll('.esc-cel').forEach(b => b.onclick = () => conectar(Number(b.dataset.id)));
+/* Tela de espera: o tablet só fica ligado ao sistema. Quem escolhe a célula é o administrador, no PC. */
+function carregarEscolha() {
+  $('espNome').textContent = (TABLET && TABLET.nome) || guarda.ler('cadc_nome') || 'Tablet';
+  const campo = $('nomeTablet');
+  if (document.activeElement !== campo && TABLET && TABLET.nome) campo.value = TABLET.nome;
+  const fora = falhas >= 3;
+  $('espOk').textContent = fora ? '📡 SEM CONEXÃO — tentando de novo…' : '✅ TABLET CONECTADO';
+  $('espOk').classList.toggle('fora', fora);
+  $('espSom').textContent = somOk ? '🔊 Som liberado' : '🔇 Toque uma vez na tela para liberar o som';
 }
 
-async function conectar(celulaId) {
+$('btnNome').onclick = async () => {
   const nome = $('nomeTablet').value.trim();
-  guarda.por('cadc_nome', nome || null);
-  const r = await tentar(() => tab('POST', '/tablet/conectar', { device_id: DEVICE, celula_id: celulaId, nome }));
+  if (!nome) { avisoErro('Digite um nome para o tablet.'); return; }
+  const r = await tentar(() => tab('POST', '/tablet/nome', { device_id: DEVICE, nome }));
   if (!r) return;
-  TABLET = r.tablet;
-  depois = r.ultimo_comando;
-  guarda.por('cadc_depois', String(depois));
-  CEL = null;
-  const el = document.documentElement;
-  if (el.requestFullscreen && !document.fullscreenElement) el.requestFullscreen({ navigationUI: 'hide' }).catch(() => {});
-  await consultar();
-}
+  guarda.por('cadc_nome', nome);
+  if (TABLET) TABLET.nome = r.nome;
+  $('nomeTablet').blur();
+  carregarEscolha();
+  avisoOk('Nome salvo. É assim que este tablet aparece para o administrador.');
+};
+$('nomeTablet').addEventListener('keydown', e => { if (e.key === 'Enter') $('btnNome').click(); });
 
 /* ═══════════ Conversa com o servidor ═══════════ */
 
@@ -570,7 +567,10 @@ function pintarFixos() {
 }
 
 function tique() {
-  if (!CEL) return;
+  if (!CEL) {       // tela de espera: relógio e situação
+    if ($('escolha').classList.contains('ativo')) { $('espRel').textContent = Cadc.agora(); carregarEscolha(); }
+    return;
+  }
   const agora = Cadc.agora();
   $('pRelogio').textContent = agora;
 
@@ -735,7 +735,6 @@ window.addEventListener('popstate', () => {
 
   Cadc.aCadaSegundo(tique);          // vira o número junto com o PC do admin
   setInterval(consultar, 2000);      // 24 h por dia; se falhar, só tenta de novo
-  setInterval(() => { if ($('escolha').classList.contains('ativo')) carregarEscolha(); }, 8000);
   setInterval(() => { try { manterTelaLigada(); } catch {} }, 30000);       // tela sempre acesa
   try { manterTelaLigada(); } catch {}
   document.addEventListener('visibilitychange', () => { if (!document.hidden) consultar(); });

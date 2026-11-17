@@ -1407,6 +1407,20 @@ router.get('/tablet/eu', tabletOuSessao, (req, res) => {
   res.json({ logado: !!s.userId, role: s.role || null, nome: s.nome || s.username || null });
 });
 
+/* POST /tablet/nome  body: { device_id, nome } — o próprio tablet diz como quer aparecer na lista do admin */
+router.post('/tablet/nome', tabletOuSessao, async (req, res) => {
+  try {
+    const { device_id } = req.body;
+    if (!deviceOk(device_id)) return res.status(400).json({ error: 'Identificação do tablet inválida' });
+    if (!mesmoTablet(req, device_id)) return res.status(401).json({ error: 'Tablet sem autorização' });
+    const nome = texto(req.body.nome, 120);
+    if (!nome) return res.status(400).json({ error: 'Digite um nome para o tablet' });
+    const r = await pool.query('UPDATE cadc_tablets SET nome=$2 WHERE device_id=$1 RETURNING id, nome, celula_id', [device_id, nome]);
+    if (!r.rowCount) return res.status(404).json({ error: 'Tablet ainda não registrado — aguarde alguns segundos' });
+    res.json(r.rows[0]);
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
 /* GET /tablet/celulas — células disponíveis para conectar */
 router.get('/tablet/celulas', tabletOuSessao, async (_req, res) => {
   try {
