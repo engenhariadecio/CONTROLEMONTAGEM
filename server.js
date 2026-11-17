@@ -93,7 +93,15 @@ app.get('/admin', requireAdmin, (_req, res) => res.sendFile(pagina('admin.html')
 app.get('/ponto', requireAuth, (_req, res) => res.sendFile(pagina('ponto.html')));
 app.get('/cadenciador', requireAuth, (_req, res) => res.sendFile(pagina('cadenciador.html')));
 // Cadenciador central — tela do tablet, presa à célula criada no PC do admin
-app.get('/cadenciador/celula', requireAuth, (_req, res) => res.sendFile(pagina('cadenciador-celula.html')));
+// Vale o login de uma pessoa OU a credencial própria do tablet (ele fica aberto 24 h, sem depender de login).
+app.get('/cadenciador/celula', (req, res, next) => require('./routes/cadenciador-central').tabletOuSessao(req, res, next),
+  (_req, res) => res.sendFile(pagina('cadenciador-celula.html')));
+// Guarda a tela do tablet no aparelho: se a internet ou o servidor falharem na hora de abrir, ela abre assim mesmo.
+app.get('/cadc-sw.js', (_req, res) => {
+  res.set('Cache-Control', 'no-cache');
+  res.set('Service-Worker-Allowed', '/');
+  res.type('application/javascript').sendFile(pagina('js', 'cadc-sw.js'));
+});
 
 // Sistema 3 — ProGestão
 const MODULOS_PROGESTAO = [

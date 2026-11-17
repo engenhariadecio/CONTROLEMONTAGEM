@@ -300,6 +300,12 @@ CREATE INDEX IF NOT EXISTS idx_cadc_ordens_status ON cadc_ordens(status, data);
 CREATE INDEX IF NOT EXISTS idx_cadc_ordens_celula ON cadc_ordens(celula_id, data);
 ALTER TABLE cadc_celulas ADD COLUMN IF NOT EXISTS ordem_id INTEGER;
 
+/* Tablet 24 horas: credencial própria do aparelho (não depende do login de ninguém)
+   e tablets que acompanham uma programação quando ela começa. */
+ALTER TABLE cadc_tablets ADD COLUMN IF NOT EXISTS token_hash VARCHAR(64);
+ALTER TABLE cadc_tablets ADD COLUMN IF NOT EXISTS token_em TIMESTAMPTZ;
+ALTER TABLE cadc_ordens ADD COLUMN IF NOT EXISTS tablets INTEGER[];
+
 /* Células criadas antes de existir a programação: ganham uma programação que se repete,
    para continuarem rodando como antes. */
 INSERT INTO cadc_ordens (celula_id, celula_nome, data, turno_id, produto_id, takt_manual, status, repetir, iniciada_em)

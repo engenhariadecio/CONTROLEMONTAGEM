@@ -15,6 +15,7 @@
 const express = require('express');
 const router = express.Router();
 const bcrypt = require('bcryptjs');
+const crypto = require('crypto');
 const { pool } = require('../db');
 const { requireAuth, requireAdmin } = require('../middleware/auth');
 const { listarTurnos, calcularCiclos, paraSegundos, duracaoTurnoSeg } = require('../lib/turnos');
@@ -444,6 +445,10 @@ function lerCamposOrdem(b) {
   if (tem('meta')) c.meta = numOuNulo(b.meta);
   if (tem('obs')) c.obs = texto(b.obs, 500) || null;
   if (tem('repetir')) c.repetir = !!b.repetir;
+  if (tem('tablets')) {
+    const ids = (Array.isArray(b.tablets) ? b.tablets : []).map(Number).filter(n => Number.isInteger(n) && n > 0);
+    c.tablets = ids.length ? [...new Set(ids)].slice(0, 50) : null;
+  }
   if (tem('data')) {
     if (b.data && !DATA_RE.test(b.data)) throw erro(400, 'Data inválida');
     c.data = b.data || null;
@@ -510,13 +515,13 @@ async function clonarOrdem(o, dia, extra = {}) {
   const r = await pool.query(
     `INSERT INTO cadc_ordens (celula_id, celula_nome, data, turno_id, produto_id, produto_nome, takt_manual, num_op,
                               serie_inicial, serie_final, cod_decio, operadores, horas_operador, meta, obs, repetir,
-                              status, origem_id, criado_por, criado_por_id)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,'programada',$17,$18,$19) RETURNING id`,
+                              status, origem_id, criado_por, criado_por_id, tablets)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,'programada',$17,$18,$19,$20) RETURNING id`,
     [o.celula_id, o.celula_nome, dia, o.turno_id, o.produto_id, o.prod_nome || o.produto_nome, o.takt_manual, o.num_op,
      'serie_inicial' in extra ? extra.serie_inicial : o.serie_inicial,
      'serie_final' in extra ? extra.serie_final : o.serie_final,
      o.cod_decio, o.operadores, o.horas_operador, 'meta' in extra ? extra.meta : o.meta, o.obs,
-     'repetir' in extra ? extra.repetir : o.repetir, o.id, o.criado_por, o.criado_por_id]);
+     'repetir' in extra ? extra.repetir : o.repetir, o.id, o.criado_por, o.criado_por_id, o.tablets || null]);
   return r.rows[0].id;
 }
 
@@ -560,6 +565,13 @@ async function ativarOrdem(o, turno, { por = null, userId = null } = {}) {
         WHERE celula_id=$1 AND fim IS NULL`, [celId]);
   }
   await pool.query('UPDATE cadc_ordens SET celula_id=$2 WHERE id=$1', [o.id, celId]);
+  // Tablets escolhidos na programação vão sozinhos para a célula — ninguém precisa ir até eles
+  if (Array.isArray(o.tablets) && o.tablets.length) {
+    await pool.query(
+      `UPDATE cadc_tablets SET celula_id=$1, conectado_em=NOW(), pula_cmd=TRUE,
+              ultimo_cmd=(SELECT COALESCE(MAX(id),0) FROM cadc_comandos)
+        WHERE id = ANY($2::int[]) AND celula_id IS DISTINCT FROM $1`, [celId, o.tablets]);
+  }
   await registrarLinha({ ...o, dia }, userId);
   await comando(celId, {
     texto: `Atenção. Nova programação. Produto ${o.prod_nome || ''}.`.replace(' .', '.'), origem: 'auto', por
@@ -653,11 +665,12 @@ async function criarOrdem(body, req) {
   const r = await pool.query(
     `INSERT INTO cadc_ordens (celula_nome, data, turno_id, produto_id, produto_nome, takt_manual, num_op, serie_inicial,
                               serie_final, cod_decio, operadores, horas_operador, meta, obs, repetir, status,
-                              criado_por, criado_por_id)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,'programada',$16,$17) RETURNING id`,
+                              criado_por, criado_por_id, tablets)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,'programada',$16,$17,$18) RETURNING id`,
     [c.celula_nome, dia, c.turno_id, c.produto_id, prod.nome, c.takt_manual ?? null, c.num_op ?? null,
      c.serie_inicial ?? null, c.serie_final ?? null, cod, c.operadores ?? null, c.horas_operador ?? null,
-     c.meta ?? null, c.obs ?? null, !!c.repetir, req ? quem(req) : null, req ? req.session.userId || null : null]);
+     c.meta ?? null, c.obs ?? null, !!c.repetir, req ? quem(req) : null, req ? req.session.userId || null : null,
+     c.tablets ?? null]);
   memo.turnosEm = 0;
   await motor(true);
   return umaOrdem(r.rows[0].id);
@@ -699,7 +712,7 @@ router.put('/ordens/:id', requireAdmin, async (req, res) => {
     if (!o) return res.status(404).json({ error: 'Programação não encontrada' });
     if (!['programada', 'ativa', 'encerrada'].includes(o.status)) return res.status(409).json({ error: 'Esta programação já foi finalizada' });
     const c = lerCamposOrdem(req.body);
-    if (o.status !== 'programada') { delete c.celula_nome; delete c.turno_id; delete c.produto_id; delete c.takt_manual; delete c.data; }
+    if (o.status !== 'programada') { delete c.celula_nome; delete c.turno_id; delete c.produto_id; delete c.takt_manual; delete c.data; delete c.tablets; }
 
     if (o.status === 'programada') {
       const turnoId = c.turno_id || o.turno_id;
@@ -1309,8 +1322,93 @@ router.get('/celulas/:id/paradas', requireAdmin, async (req, res) => {
 
 const deviceOk = d => typeof d === 'string' && /^[A-Za-z0-9_-]{8,80}$/.test(d);
 
+/* ── Credencial do tablet ────────────────────────────────────────────────
+   O tablet precisa ficar ligado no painel 24 horas por dia, sem depender do
+   login de uma pessoa (que vence em 12 h). Na primeira vez que alguém logado
+   abre a tela no tablet, ele ganha uma credencial própria (cookie renovado
+   todo dia + cópia no aparelho, que não vence). Daí em diante a tela e as consultas do tablet valem
+   com ela — mesmo depois de o login vencer, do servidor reiniciar ou do
+   tablet ser desligado e ligado. Ela só dá acesso às telas/consultas do
+   tablet; "apagar o tablet da lista" no PC cancela a credencial.          */
+const COOKIE_TAB = 'cadc_tab';
+const DEZ_ANOS = 10 * 365 * 24 * 60 * 60 * 1000;
+const sha = t => crypto.createHash('sha256').update(String(t)).digest('hex');
+const cookieEm = new Map();     // quando o cookie de cada tablet foi regravado pela última vez
+
+function credencialDoPedido(req) {
+  const h = req.headers || {};
+  if (h['x-cadc-device'] && h['x-cadc-token']) return { device: String(h['x-cadc-device']), token: String(h['x-cadc-token']) };
+  const m = /(?:^|;\s*)cadc_tab=([^;]+)/.exec(h.cookie || '');
+  if (!m) return null;
+  let v = m[1]; try { v = decodeURIComponent(v); } catch (e) { /* usa como veio */ }
+  const i = v.indexOf('.');
+  return i > 0 ? { device: v.slice(0, i), token: v.slice(i + 1) } : null;
+}
+
+async function tabletDaCredencial(req) {
+  const c = credencialDoPedido(req);
+  if (!c || !deviceOk(c.device) || !/^[a-f0-9]{32,96}$/.test(c.token)) return null;
+  const r = await pool.query('SELECT id, device_id FROM cadc_tablets WHERE device_id=$1 AND token_hash=$2', [c.device, sha(c.token)]);
+  return r.rows[0] || null;
+}
+
+function gravarCookie(res, device, token) {
+  res.cookie(COOKIE_TAB, `${device}.${token}`, {
+    maxAge: DEZ_ANOS, httpOnly: true, sameSite: 'lax', secure: process.env.NODE_ENV === 'production', path: '/'
+  });
+}
+
+/** Deixa passar quem está logado OU um tablet com credencial válida. */
+async function tabletOuSessao(req, res, next) {
+  if (req.session && req.session.userId) return next();
+  try {
+    const t = await tabletDaCredencial(req);
+    if (t) { req.tabletCred = t; return next(); }
+  } catch (e) { console.error('cadc credencial', e.message); return res.status(503).json({ error: 'Servidor indisponível, tentando de novo' }); }
+  if ((req.originalUrl || '').startsWith('/api/')) return res.status(401).json({ error: 'Tablet sem autorização' });
+  return res.redirect('/login');
+}
+
+/** Sem login, o tablet só pode falar por ele mesmo. */
+function mesmoTablet(req, deviceId) {
+  return !!(req.session && req.session.userId) || !!(req.tabletCred && req.tabletCred.device_id === deviceId);
+}
+
+/**
+ * Entrega a credencial ao tablet quando há alguém logado nele (primeira vez, ou se ele perdeu o cookie).
+ * Devolve o token para a tela guardar uma cópia, ou null se o tablet já tem o dele.
+ */
+async function garantirCredencial(req, res, tabletId, deviceId) {
+  const atual = req.tabletCred || await tabletDaCredencial(req);
+  if (atual && atual.device_id === deviceId) {
+    // já tem. O navegador guarda cookie por no máximo ~400 dias, então ele é regravado uma vez por dia
+    // (e na hora, se o tablet chegou só com a cópia guardada na tela porque o cookie se perdeu).
+    const semCookie = !/(?:^|;\s*)cadc_tab=/.test(req.headers.cookie || '');
+    if (semCookie || Date.now() - (cookieEm.get(deviceId) || 0) > 24 * 60 * 60 * 1000) {
+      const c = credencialDoPedido(req);
+      if (c) { gravarCookie(res, deviceId, c.token); cookieEm.set(deviceId, Date.now()); }
+    }
+    return null;
+  }
+  if (!(req.session && req.session.userId)) return null;
+  // evita gerar uma atrás da outra se o navegador recusar o cookie
+  const r = await pool.query(
+    `SELECT (token_em IS NOT NULL AND token_em > NOW() - INTERVAL '60 seconds') AS recente FROM cadc_tablets WHERE id=$1`, [tabletId]);
+  if (r.rows[0] && r.rows[0].recente) return null;
+  const token = crypto.randomBytes(24).toString('hex');
+  await pool.query('UPDATE cadc_tablets SET token_hash=$2, token_em=NOW() WHERE id=$1', [tabletId, sha(token)]);
+  gravarCookie(res, deviceId, token);
+  return token;
+}
+
+/* GET /tablet/eu — quem está usando o tablet (nunca manda para a tela de login) */
+router.get('/tablet/eu', tabletOuSessao, (req, res) => {
+  const s = req.session || {};
+  res.json({ logado: !!s.userId, role: s.role || null, nome: s.nome || s.username || null });
+});
+
 /* GET /tablet/celulas — células disponíveis para conectar */
-router.get('/tablet/celulas', requireAuth, async (_req, res) => {
+router.get('/tablet/celulas', tabletOuSessao, async (_req, res) => {
   try {
     const cels = await carregarCelulas();
     const n = (await pool.query(
@@ -1332,15 +1430,16 @@ router.get('/tablet/celulas', requireAuth, async (_req, res) => {
  * Depois de conectado, o tablet NÃO troca de célula sozinho: só o admin
  * libera (pelo painel) ou alguém com senha de admin, no próprio tablet.
  */
-router.post('/tablet/conectar', requireAuth, async (req, res) => {
+router.post('/tablet/conectar', tabletOuSessao, async (req, res) => {
   try {
     const { device_id, celula_id } = req.body;
     if (!deviceOk(device_id)) return res.status(400).json({ error: 'Identificação do tablet inválida' });
+    if (!mesmoTablet(req, device_id)) return res.status(401).json({ error: 'Tablet sem autorização' });
     const cel = (await pool.query('SELECT id FROM cadc_celulas WHERE id=$1', [celula_id])).rows[0];
     if (!cel) return res.status(404).json({ error: 'Célula não encontrada' });
 
     const atual = (await pool.query('SELECT * FROM cadc_tablets WHERE device_id=$1', [device_id])).rows[0];
-    if (atual && atual.celula_id && atual.celula_id !== cel.id && req.session.role !== 'admin') {
+    if (atual && atual.celula_id && atual.celula_id !== cel.id && !(req.session && req.session.role === 'admin')) {
       return res.status(423).json({ error: 'Este tablet está preso a outra célula. Só o administrador pode liberar.' });
     }
     const nome = texto(req.body.nome, 120) || atual?.nome || ('Tablet ' + device_id.slice(-4).toUpperCase());
@@ -1350,10 +1449,11 @@ router.post('/tablet/conectar', requireAuth, async (req, res) => {
       `INSERT INTO cadc_tablets (device_id,nome,celula_id,usuario,conectado_em,visto_em,ultimo_cmd)
        VALUES ($1,$2,$3,$4,NOW(),NOW(),$5)
        ON CONFLICT (device_id) DO UPDATE SET nome=EXCLUDED.nome, celula_id=EXCLUDED.celula_id,
-         usuario=EXCLUDED.usuario, conectado_em=NOW(), visto_em=NOW(), ultimo_cmd=EXCLUDED.ultimo_cmd
+         usuario=COALESCE(EXCLUDED.usuario, cadc_tablets.usuario), conectado_em=NOW(), visto_em=NOW(), ultimo_cmd=EXCLUDED.ultimo_cmd
        RETURNING id, nome, celula_id`,
-      [device_id, nome, cel.id, req.session.username || null, ult]);
-    res.json({ tablet: r.rows[0], ultimo_comando: ult });
+      [device_id, nome, cel.id, (req.session && req.session.username) || null, ult]);
+    const token = await garantirCredencial(req, res, r.rows[0].id, device_id);
+    res.json({ tablet: r.rows[0], ultimo_comando: ult, ...(token ? { token } : {}) });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
@@ -1363,15 +1463,17 @@ router.post('/tablet/conectar', requireAuth, async (req, res) => {
  *  - a célula (grade de ciclos só quando a versão mudou);
  *  - os comandos novos (voz, recarregar).
  */
-router.get('/tablet/estado', requireAuth, async (req, res) => {
+router.get('/tablet/estado', tabletOuSessao, async (req, res) => {
   try {
     const { device_id } = req.query;
     if (!deviceOk(device_id)) return res.status(400).json({ error: 'Identificação do tablet inválida' });
+    if (!mesmoTablet(req, device_id)) return res.status(401).json({ error: 'Tablet sem autorização' });
     let depois = req.query.depois != null && req.query.depois !== '' ? Number(req.query.depois) : null;
     if (depois != null && !Number.isFinite(depois)) depois = null;
+    const logado = !!(req.session && req.session.userId);
 
-    // Tablet preso fica logado: a sessão é renovada enquanto ele estiver consultando
-    if (!req.session.cadcRenova || Date.now() - req.session.cadcRenova > 30 * 60 * 1000) {
+    // Se há alguém logado no tablet, o login também é renovado enquanto ele consulta
+    if (logado && (!req.session.cadcRenova || Date.now() - req.session.cadcRenova > 30 * 60 * 1000)) {
       req.session.cadcRenova = Date.now();
     }
 
@@ -1383,7 +1485,7 @@ router.get('/tablet/estado', requireAuth, async (req, res) => {
          FROM (SELECT id, pula_cmd, ultimo_cmd FROM cadc_tablets WHERE device_id=$1 FOR UPDATE) a
         WHERE t.id = a.id
         RETURNING t.id, t.nome, t.celula_id, a.pula_cmd AS pular, a.ultimo_cmd`,
-      [device_id, req.query.som === '1', req.session.username || null])).rows[0];
+      [device_id, req.query.som === '1', logado ? req.session.username || null : null])).rows[0];
 
     // Tablet que abriu a tela pela primeira vez já aparece para o admin (livre), que pode puxá-lo pelo PC
     if (!tb) {
@@ -1392,16 +1494,19 @@ router.get('/tablet/estado', requireAuth, async (req, res) => {
         `INSERT INTO cadc_tablets (device_id, nome, usuario, visto_em, ultimo_cmd) VALUES ($1,$2,$3,NOW(),$4)
          ON CONFLICT (device_id) DO UPDATE SET visto_em=NOW()
          RETURNING id, nome, celula_id, FALSE AS pular, ultimo_cmd`,
-        [device_id, nome, req.session.username || null, maxGlobal])).rows[0];
+        [device_id, nome, logado ? req.session.username || null : null, maxGlobal])).rows[0];
     }
+    // credencial própria do aparelho: é ela que mantém o tablet ligado 24 h
+    const token = await garantirCredencial(req, res, tb.id, device_id);
+    const extra = token ? { token } : {};
     // O admin trocou este tablet de célula: começa a ouvir a partir de agora
     if (tb.pular) depois = Number(tb.ultimo_cmd);
     const tablet = { id: tb.id, nome: tb.nome, celula_id: tb.celula_id };
 
-    if (!tb.celula_id) return res.json({ ...relogio(), tablet, celula: null, comandos: [] });
+    if (!tb.celula_id) return res.json({ ...relogio(), ...extra, tablet, celula: null, comandos: [] });
 
     const cel = await umaCelula(tb.celula_id);
-    if (!cel) return res.json({ ...relogio(), tablet: { ...tablet, celula_id: null }, celula: null, comandos: [] });
+    if (!cel) return res.json({ ...relogio(), ...extra, tablet: { ...tablet, celula_id: null }, celula: null, comandos: [] });
 
     let comandos = [];
     let ultimo = depois;
@@ -1422,7 +1527,7 @@ router.get('/tablet/estado', requireAuth, async (req, res) => {
     if (req.query.v && String(req.query.v) === cel.sinal && Number(req.query.c) === cel.id) {
       delete cel.ciclos; delete cel.turno; delete cel.marcas; delete cel.anteriores; cel.igual = true;
     }
-    res.json({ ...relogio(), tablet, celula: cel, comandos, ultimo_comando: ultimo });
+    res.json({ ...relogio(), ...extra, tablet, celula: cel, comandos, ultimo_comando: ultimo });
   } catch (e) { console.error('cadc estado', e); res.status(500).json({ error: e.message }); }
 });
 
@@ -1431,12 +1536,13 @@ router.get('/tablet/estado', requireAuth, async (req, res) => {
  * Solta o tablet da célula. Só vale se quem está logado é admin
  * ou se for informado usuário + senha de um administrador.
  */
-router.post('/tablet/liberar', requireAuth, async (req, res) => {
+router.post('/tablet/liberar', tabletOuSessao, async (req, res) => {
   try {
     const { device_id, usuario, senha } = req.body;
     if (!deviceOk(device_id)) return res.status(400).json({ error: 'Identificação do tablet inválida' });
+    if (!mesmoTablet(req, device_id)) return res.status(401).json({ error: 'Tablet sem autorização' });
 
-    let autorizado = req.session.role === 'admin';
+    let autorizado = !!(req.session && req.session.role === 'admin');
     if (!autorizado) {
       if (!usuario || !senha) return res.status(403).json({ error: 'Informe usuário e senha de um administrador' });
       const u = (await pool.query('SELECT * FROM users WHERE username=$1', [String(usuario).trim()])).rows[0];
@@ -1447,5 +1553,7 @@ router.post('/tablet/liberar', requireAuth, async (req, res) => {
     res.json({ success: true });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
+
+router.tabletOuSessao = tabletOuSessao;
 
 module.exports = router;

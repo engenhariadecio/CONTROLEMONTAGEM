@@ -148,6 +148,24 @@ Forma adicional do cadenciador. O **Cadenciador comum** (`/cadenciador`) continu
   - Dia virou sem finalizar: a produção fica em **"aguardando envio"** no topo do painel, para enviar depois.
   - "Repetir todo dia útil": a mesma programação volta sozinha de segunda a sexta.
   - A OP precisa existir no plano mensal para o envio (mesma regra do Apontamento Diário).
+- **Tablets ligados 24 horas (sem depender de login):**
+  - Na primeira vez que alguém logado abre "Cadenciador da Célula" no tablet, o aparelho ganha uma
+    **credencial própria** (cookie renovado todo dia + cópia guardada na tela). Daí em diante a tela abre e
+    consulta o servidor **sem login**: não cai mais quando o login de 12 h vence, quando o servidor reinicia
+    ou quando o tablet é desligado e ligado. A credencial só serve para a tela do tablet; "apagar o tablet da
+    lista" no PC cancela.
+  - O tablet nunca sai da tela por erro: sem internet ou com o servidor fora, mostra os últimos dados,
+    avisa "Sem conexão" e volta sozinho. A tela fica guardada no aparelho (`/cadc-sw.js`), então abre mesmo
+    se o servidor estiver fora na hora de ligar o tablet.
+  - Tablet livre fica na tela de espera, sempre ligado ao sistema: o admin o coloca em uma célula **pelo PC**
+    (cartão da célula › "＋ Trazer tablet para cá") e o painel abre sozinho.
+  - Ao **programar** uma célula, marque os tablets dela: quando a programação começar (agora, próximo turno,
+    amanhã…), eles **vão sozinhos** para a célula.
+  - O aviso "toque para ligar o som" virou uma faixa no topo (não tapa mais o painel).
+  - **No tablet, uma vez só:** deixar na tomada, tela "sempre ligada", abrir a tela e **tocar uma vez** (o
+    navegador só libera a voz depois de um toque em cada vez que a página é aberta). Para ligar e falar
+    sem toque nenhum, usar um navegador de quiosque (ex.: Fully Kiosk Browser, com a tela
+    `/cadenciador/celula` como página inicial) — a tela já usa a voz dele quando existe.
 - **No tablet:** Portal › **Cadenciador da Célula** (`/cadenciador/celula`). Toca na célula e pronto.
   O tablet fica **preso à célula**: recarregar ou voltar ao Portal devolve para o painel. Só sai se o
   admin liberar pelo PC, ou com usuário e senha de administrador no cadeado do próprio tablet.

@@ -129,11 +129,15 @@ body { margin: 0; overflow: hidden; background: var(--fundo); color: var(--t1); 
 #aviso-admin .t { font-family: var(--display); font-size: clamp(18px, 3.2vw, 42px); font-weight: 800; margin-top: .5vh; line-height: 1.15; }
 
 /* ───────── Ativar som ───────── */
-#som { position: fixed; top: 0; right: 0; bottom: 0; left: 0; z-index: 60; background: rgba(6,14,20,.94); display: none; flex-direction: column; align-items: center; justify-content: center; text-align: center; padding: 6vw; cursor: pointer; }
+#som { position: fixed; top: 0; left: 0; right: 0; z-index: 60; display: none; align-items: center; justify-content: center; gap: 1.2vw; background: var(--alerta, #F0B429); color: #1a1200; padding: 1.1vh 2vw; font-size: clamp(14px, min(2.2vw, 3.6vh), 28px); font-weight: 800; text-align: center; cursor: pointer; box-shadow: 0 4px 18px rgba(0,0,0,.45); animation: somPisca 1.6s infinite; }
 #som.ativo { display: flex; }
-#som .ic { font-size: clamp(60px, 12vw, 140px); }
-#som h2 { font-family: var(--display); font-size: clamp(26px, 5vw, 60px); font-weight: 800; margin: 2vh 0 1vh; }
-#som p { color: var(--t2); font-size: clamp(14px, 2vw, 22px); margin: 0; }
+#som small { font-weight: 600; font-size: .62em; opacity: .85; }
+@keyframes somPisca { 50% { filter: brightness(.82); } }
+#semAut { position: fixed; top: 0; right: 0; bottom: 0; left: 0; z-index: 70; background: rgba(6,14,20,.96); display: none; flex-direction: column; align-items: center; justify-content: center; text-align: center; padding: 6vw; gap: 2vh; }
+#semAut.ativo { display: flex; }
+#semAut h2 { font-family: var(--display); font-size: clamp(22px, 4vw, 44px); margin: 0; }
+#semAut p { color: var(--t2); font-size: clamp(14px, 2vw, 20px); margin: 0; max-width: 720px; }
+.esc-livre { background: var(--ok-bg); border: 1px solid var(--ok-bd); border-radius: var(--r); padding: 12px 16px; margin-bottom: 3vh; font-size: 14px; color: var(--t1); }
 
 #carregando { position: fixed; top: 0; right: 0; bottom: 0; left: 0; display: flex; align-items: center; justify-content: center; color: var(--t2); font-size: 16px; }
 
@@ -156,6 +160,8 @@ body { margin: 0; overflow: hidden; background: var(--fundo); color: var(--t1); 
       <a class="btn btn-fantasma btn-sm" href="/">← Portal</a>
     </div>
   </div>
+
+  <div class="esc-livre">✅ <b>Tablet ligado ao sistema.</b> Pode deixar esta tela aberta: o administrador coloca este tablet em uma célula <b>pelo PC</b> e o painel abre sozinho aqui. Toque uma vez na tela para o som ficar liberado.</div>
 
   <div class="esc-nome">
     <div>
@@ -210,10 +216,13 @@ body { margin: 0; overflow: hidden; background: var(--fundo); color: var(--t1); 
 
 <div id="aviso-admin"><div class="r">📢 Aviso</div><div class="t" id="avisoTxt"></div></div>
 
-<div id="som">
-  <div class="ic">🔊</div>
-  <h2>Toque na tela para ativar o som</h2>
-  <p>O tablet só pode falar os avisos depois de um toque.</p>
+<div id="som">🔇 TOQUE NA TELA PARA LIGAR O SOM <small>(só uma vez — depois o tablet fala sozinho)</small></div>
+
+<div id="semAut">
+  <div style="font-size:clamp(50px,9vw,110px)">🔑</div>
+  <h2>Este tablet precisa ser autorizado</h2>
+  <p>Isso acontece uma única vez (ou se o administrador apagou o tablet da lista). Entre com qualquer usuário do sistema — depois disso o tablet fica ligado ao painel sozinho, 24 horas por dia.</p>
+  <a class="btn btn-primario" href="/login" id="btnEntrar">Entrar</a>
 </div>
 
 <!-- Liberar tablet -->
@@ -238,7 +247,7 @@ body { margin: 0; overflow: hidden; background: var(--fundo); color: var(--t1); 
 </div>
 
 <script src="/js/core.js"></script>
-<script src="/js/cadc.js?v=3"></script>
+<script src="/js/cadc.js?v=4"></script>
 <script>
 /* ═══════════ Identidade do tablet ═══════════ */
 
@@ -256,6 +265,38 @@ if (!DEVICE || !/^[A-Za-z0-9_-]{8,80}$/.test(DEVICE)) {
 }
 
 const BASE = '/api/cadenciador-central';
+
+/* Credencial própria do tablet (mantém ligado 24 h, sem login). Vai em cookie; aqui fica uma cópia de segurança. */
+function cabecalhos(extra) {
+  const h = Object.assign({ Accept: 'application/json' }, extra || {});
+  const tk = guarda.ler('cadc_token');
+  if (tk) { h['X-Cadc-Device'] = DEVICE; h['X-Cadc-Token'] = tk; }
+  return h;
+}
+function semAutorizacao(sim) {
+  $('semAut').classList.toggle('ativo', !!sim);
+  if (sim) { guarda.por('cadc_preso', '1'); $('carregando').style.display = 'none'; }   // depois do login, o Portal devolve para cá
+}
+/** Pedido com prazo (uma conexão travada não pode parar o tablet) e sem redirecionar. */
+async function tab(metodo, caminho, corpo, prazo = 9000) {
+  const ctl = new AbortController();
+  const t = setTimeout(() => ctl.abort(), prazo);
+  try {
+    const r = await fetch(BASE + caminho, {
+      method: metodo, cache: 'no-store', credentials: 'same-origin', signal: ctl.signal,
+      headers: cabecalhos(corpo ? { 'Content-Type': 'application/json' } : null),
+      body: corpo ? JSON.stringify(corpo) : undefined
+    });
+    let d = null; try { d = await r.json(); } catch {}
+    if (r.status === 401) { semAutorizacao(true); const e = new Error('Tablet sem autorização'); e.status = 401; throw e; }
+    if (!r.ok) { const e = new Error((d && d.error) || 'Erro ' + r.status); e.status = r.status; throw e; }
+    if (d && d.token) guarda.por('cadc_token', d.token);
+    return d;
+  } catch (e) {
+    if (e.name === 'AbortError') throw new Error('Servidor demorou para responder');
+    throw e;
+  } finally { clearTimeout(t); }
+}
 let EU = null;          // usuário logado
 let TABLET = null;      // { id, nome, celula_id }
 let CEL = null;         // estado completo da célula
@@ -301,7 +342,9 @@ if ('speechSynthesis' in window) {
   try { window.speechSynthesis.addEventListener('voiceschanged', escolherVoz); } catch {}
 }
 function falar(txt, vezes = 1) {
-  if (!txt || !('speechSynthesis' in window)) return;
+  if (!txt) return;
+  if (QUIOSQUE) { try { for (let i = 0; i < vezes; i++) window.fully.textToSpeech(txt, 'pt_BR'); } catch (e) { console.error('voz quiosque', e); } return; }
+  if (!('speechSynthesis' in window)) return;
   const ss = window.speechSynthesis;
   try {
     // Alguns tablets deixam a voz "travada" (pausada ou falando para sempre): destrava antes de falar
@@ -317,6 +360,26 @@ function falar(txt, vezes = 1) {
     }
     if (!falandoDesde) falandoDesde = Date.now();
   } catch (e) { console.error('voz', e); }
+}
+
+/* Navegador de quiosque (Fully Kiosk): fala sem precisar de toque nenhum */
+const QUIOSQUE = typeof window.fully !== 'undefined' && typeof window.fully.textToSpeech === 'function';
+
+/** Descobre se o navegador já deixa falar (toque anterior, quiosque, app instalado). Se não deixar, pede o toque. */
+function conferirSom() {
+  if (somOk) return;
+  if (QUIOSQUE) { somOk = true; $('som').classList.remove('ativo'); return; }
+  if (navigator.userActivation && navigator.userActivation.hasBeenActive) { ativarSom(); return; }
+  let decidiu = false;
+  const pedirToque = () => { if (!decidiu && !somOk) { decidiu = true; $('som').classList.add('ativo'); } };
+  try {
+    const f = new SpeechSynthesisUtterance(' ');
+    f.volume = 0; f.lang = 'pt-BR';
+    f.onstart = f.onend = () => { if (!decidiu) { decidiu = true; somOk = true; $('som').classList.remove('ativo'); } };
+    f.onerror = pedirToque;
+    window.speechSynthesis.speak(f);
+  } catch { pedirToque(); }
+  setTimeout(pedirToque, 1500);
 }
 
 function ativarSom() {
@@ -362,19 +425,16 @@ function tela(nome) {
   if (nome === 'painel') {
     guarda.por('cadc_preso', '1');
     try { manterTelaLigada(); } catch {}
-    // Sem toque nesta visita (ex.: página recarregada), o navegador não deixa falar
-    const jaTocou = navigator.userActivation ? navigator.userActivation.hasBeenActive : somOk;
-    if (!somOk && !jaTocou) $('som').classList.add('ativo');
-    else if (!somOk) ativarSom();
   } else {
     guarda.por('cadc_preso', null);
-    $('som').classList.remove('ativo');
     if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
   }
+  conferirSom();      // o aviso de "toque para ligar o som" não tapa o painel
 }
 
 async function carregarEscolha() {
-  const lista = await tentar(() => API.get(BASE + '/tablet/celulas'));
+  let lista = null;
+  try { lista = await tab('GET', '/tablet/celulas'); } catch { return; }      // em segundo plano: tenta de novo sozinho
   if (!lista) return;
   const g = $('escGrade');
   if (!lista.length) {
@@ -396,7 +456,7 @@ async function carregarEscolha() {
 async function conectar(celulaId) {
   const nome = $('nomeTablet').value.trim();
   guarda.por('cadc_nome', nome || null);
-  const r = await tentar(() => API.post(BASE + '/tablet/conectar', { device_id: DEVICE, celula_id: celulaId, nome }));
+  const r = await tentar(() => tab('POST', '/tablet/conectar', { device_id: DEVICE, celula_id: celulaId, nome }));
   if (!r) return;
   TABLET = r.tablet;
   depois = r.ultimo_comando;
@@ -419,14 +479,14 @@ async function consultar() {
     if (CEL) { q.set('c', CEL.id); q.set('v', CEL.sinal || ''); }
     else { const n = guarda.ler('cadc_nome'); if (n) q.set('nome', n); }
     const t0 = performance.now();
-    const r = await fetch(BASE + '/tablet/estado?' + q, { headers: { Accept: 'application/json' }, cache: 'no-store', credentials: 'same-origin' });
+    const d = await tab('GET', '/tablet/estado?' + q, null, 8000);
     const t1 = performance.now();
-    if (r.status === 401) { location.href = '/login'; return; }
-    if (!r.ok) throw new Error('HTTP ' + r.status);
-    aplicar(await r.json(), t0, t1);
-    falhas = 0;
-  } catch {
-    falhas++;
+    semAutorizacao(false);
+    aplicar(d, t0, t1);
+    falhas = 0; ultimoOk = Date.now();
+  } catch (e) {
+    // Nunca sai da tela por causa de erro: continua mostrando os últimos dados e tenta de novo em 2 s
+    if (!(e && e.status === 401)) falhas++;
   } finally {
     consultando = false;
     const fora = falhas >= 3;
@@ -434,6 +494,7 @@ async function consultar() {
     $('pConTxt').textContent = fora ? 'Sem conexão — seguindo com os últimos dados' : 'Conectado';
   }
 }
+let ultimoOk = Date.now();
 
 function aplicar(r, t0, t1) {
   Cadc.acertar(r, t0, t1);
@@ -632,6 +693,7 @@ function avisosAutomaticos(agora) {
 
 $('btnTrava').onclick = () => {
   $('libCel').textContent = CEL ? CEL.nome : '';
+  tab('GET', '/tablet/eu').then(u => { EU = u; $('libCampos').classList.toggle('oculto', !!(EU && EU.role === 'admin')); }).catch(() => {});
   $('libCampos').classList.toggle('oculto', !!(EU && EU.role === 'admin'));
   $('libUsuario').value = ''; $('libSenha').value = '';
   abrirModal('modalLiberar');
@@ -643,7 +705,7 @@ $('btnLiberar').onclick = async () => {
     corpo.senha = $('libSenha').value;
     if (!corpo.usuario || !corpo.senha) { avisoErro('Informe usuário e senha do administrador.'); return; }
   }
-  const r = await tentar(() => API.post(BASE + '/tablet/liberar', corpo));
+  const r = await tentar(() => tab('POST', '/tablet/liberar', corpo));
   if (!r) return;
   fecharModal('modalLiberar');
   CEL = null; FALAS = [];
@@ -662,16 +724,22 @@ window.addEventListener('popstate', () => {
 /* ═══════════ Início ═══════════ */
 
 (async function iniciar() {
-  try { EU = await API.get('/api/me'); } catch { return; }
   $('nomeTablet').value = guarda.ler('cadc_nome') || '';
 
+  // Guarda a tela no aparelho: abre mesmo se a internet falhar na hora de ligar o tablet
+  if ('serviceWorker' in navigator) navigator.serviceWorker.register('/cadc-sw.js', { scope: '/cadenciador/celula' }).catch(() => {});
+
+  tab('GET', '/tablet/eu').then(u => { EU = u; }).catch(() => {});
   await consultar();
-  if (!CEL && !$('escolha').classList.contains('ativo')) { tela('escolha'); carregarEscolha(); }
+  if (!CEL && !$('escolha').classList.contains('ativo') && !$('semAut').classList.contains('ativo')) { tela('escolha'); carregarEscolha(); }
 
   Cadc.aCadaSegundo(tique);          // vira o número junto com o PC do admin
-  setInterval(consultar, 2000);
+  setInterval(consultar, 2000);      // 24 h por dia; se falhar, só tenta de novo
   setInterval(() => { if ($('escolha').classList.contains('ativo')) carregarEscolha(); }, 8000);
+  setInterval(() => { try { manterTelaLigada(); } catch {} }, 30000);       // tela sempre acesa
+  try { manterTelaLigada(); } catch {}
   document.addEventListener('visibilitychange', () => { if (!document.hidden) consultar(); });
+  window.addEventListener('online', consultar);
 })();
 </script>
 </body>

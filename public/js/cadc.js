@@ -87,7 +87,7 @@ const Cadc = {
    */
   pausa(cel) {
     if (!cel || !cel.pausada) return null;
-    const agora = Cadc.agoraFrac();
+    const agora = Cadc.agoraSeg();      // segundo cheio: todas as telas fazem a mesma conta
     const volta = v => { let d = v % 86400; if (d < 0) d += 86400; return d; };
     let decorrido = cel.pausa_decorrido_seg || 0;
     if (cel.pausa_inicio_seg != null && decorrido < 80000) decorrido = volta(agora - cel.pausa_inicio_seg);

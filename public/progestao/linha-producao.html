@@ -317,6 +317,10 @@ body.pcp .cel-card input,body.pcp .cel-card select,body.pcp .chave{pointer-event
 .cc-chips{display:flex;flex-wrap:wrap;gap:6px}
 .cc-chips button{background:var(--panel2);border:1px solid var(--border);color:var(--text);border-radius:99px;padding:5px 12px;font-size:12px;cursor:pointer}
 .cc-chips button:hover{border-color:var(--accent)}
+.cc-tk{display:inline-flex;align-items:center;gap:6px;background:var(--panel2);border:1px solid var(--border);border-radius:99px;padding:5px 11px;font-size:12px;cursor:pointer;color:var(--text)}
+.cc-tk input{accent-color:var(--accent);width:15px;height:15px}
+.cc-tk.off{opacity:.65}
+.cc-resumo.alerta{color:var(--red);font-weight:700}
 .cc-dica{font-size:12px;color:var(--text2);min-height:16px}
 .cc-dica b{color:var(--text)}
 .cc-dica.ok{color:var(--accent)}
@@ -488,6 +492,11 @@ body.adm #tab-central{display:inline-block}
     <div class="cc-dica" id="cc-o-cap-dica"></div>
     <div class="form-group"><label>Observação</label><input id="cc-o-obs" maxlength="500" placeholder="Ex.: aguardando material, setup às 9h…"></div>
     <label class="cc-check"><input type="checkbox" id="cc-o-rep"> <span>Repetir todo dia útil (segunda a sexta), no mesmo turno, até eu parar</span></label>
+    <div id="cc-o-tabs-bloco">
+      <div class="cc-sub">📱 Tablets desta célula</div>
+      <div class="cc-dica" style="margin:6px 0">Os marcados <b>vão sozinhos para esta célula quando ela começar</b> — ninguém precisa ir até o tablet. Os que já estão na célula continuam nela de qualquer jeito.</div>
+      <div class="cc-chips" id="cc-o-tabs"></div>
+    </div>
 
     <div class="rod">
       <button class="btn-sm btn-ghost" onclick="cadcFechaModal('cc-m-prog')">Cancelar</button>
@@ -710,7 +719,7 @@ function exportarCSV() {
   await carregarHistorico();
 })();
 </script>
-<script src="/js/cadc.js?v=3"></script>
+<script src="/js/cadc.js?v=4"></script>
 <script>
 /* ═══════════ Cadenciador central — painel do administrador ═══════════ */
 const CC = '/cadenciador-central';
@@ -775,8 +784,15 @@ function cadcRender(forcar) {
   cadcDesenharLog();
   cadcVivo();
 
-  const on = v.tablets.filter(t => t.online && t.celula_id).length;
-  document.getElementById('cc-resumo').textContent = `${on} tablet${on === 1 ? '' : 's'} online`;
+  const on = v.tablets.filter(t => t.online).length;
+  const rodando = new Set(v.celulas.filter(c => !c.ociosa).map(c => c.id));
+  const fora = v.tablets.filter(t => !t.online && rodando.has(t.celula_id));
+  const semTab = v.celulas.filter(c => !c.ociosa && !v.tablets.some(t => t.celula_id === c.id && t.online));
+  const rs = document.getElementById('cc-resumo');
+  rs.textContent = `${on} tablet${on === 1 ? '' : 's'} online` + (fora.length ? ` · ⚠ ${fora.length} sem sinal` : '');
+  rs.title = (fora.length ? 'Sem sinal: ' + fora.map(t => t.nome).join(', ') + '. ' : '') +
+             (semTab.length ? 'Células rodando sem tablet online: ' + semTab.map(c => c.nome).join(', ') : '');
+  rs.classList.toggle('alerta', fora.length > 0);
 }
 
 function cadcDesenharCelulas() {
@@ -926,7 +942,8 @@ function cadcDesenharTablets() {
   tb.innerHTML = v.tablets.map(t => `
     <tr>
       <td><b>${esc(t.nome || 'Tablet')}</b></td>
-      <td>${t.online ? '<span class="badge green">Online</span>' : '<span class="badge red">Sem sinal</span>'}</td>
+      <td>${t.online ? '<span class="badge green">Online</span>' : `<span class="badge red">Sem sinal</span> <span style="color:var(--text2);font-size:11px">${
+        t.visto_ha_seg == null ? 'nunca conectou' : t.visto_ha_seg < 3600 ? 'há ' + Math.max(1, Math.round(t.visto_ha_seg / 60)) + ' min' : t.visto_ha_seg < 172800 ? 'há ' + Math.round(t.visto_ha_seg / 3600) + ' h' : 'há ' + Math.round(t.visto_ha_seg / 86400) + ' dias'}</span>`}</td>
       <td>${!t.online ? '—' : t.som_ok ? '🔊 ativo' : '<span title="Falta um toque na tela do tablet">🔇 falta um toque</span>'}</td>
       <td><select onchange="cadcMover(${t.id}, this.value)">
             <option value="">— livre (sem célula) —</option>
@@ -1117,7 +1134,8 @@ function cadcDesenharProg() {
     const qtd = o.serie_inicial && o.serie_final ? ccQtdSeries(o.serie_inicial, o.serie_final) : null;
     return `<tr class="${o.dia === v.hoje ? 'hoje' : ''}" title="${esc(o.obs || '')}">
       <td><b>${ccDiaTxt(o.dia)}</b><div style="font-size:11px;color:var(--text2)">${esc(o.turno_nome || '')} · ${esc(o.turno_inicio || '')}–${esc(o.turno_fim || '')}</div></td>
-      <td><b>${esc(o.celula_nome)}</b>${o.repetir ? ' <span class="badge blue" title="Repete todo dia útil">🔁</span>' : ''}</td>
+      <td><b>${esc(o.celula_nome)}</b>${o.repetir ? ' <span class="badge blue" title="Repete todo dia útil">🔁</span>' : ''}${
+        o.tablets && o.tablets.length ? ` <span class="badge" title="Tablets que vão para a célula quando ela começar: ${esc(o.tablets.map(id => (v.tablets.find(t => t.id === id) || {}).nome || '?').join(', '))}">📱 ${o.tablets.length}</span>` : ''}</td>
       <td>${esc(o.prod_nome || '—')}</td><td>${o.takt_min != null ? fmtNum(o.takt_min) + ' min' : '—'}</td>
       <td>${o.num_op ? esc(o.num_op) : '<span style="color:var(--text2)">—</span>'}</td>
       <td class="q">${o.serie_inicial || o.serie_final ? esc(o.serie_inicial || '?') + ' → ' + esc(o.serie_final || '?') + (qtd > 0 ? ` <span style="color:var(--text2)">(${qtd} pç)</span>` : '') : '<span style="color:var(--text2)">—</span>'}</td>
@@ -1175,7 +1193,10 @@ async function cadcProgramar(celNome) {
   const t = ccTurnosAgora();
   ccS('cc-o-data', ccVisao.hoje);
   if (t.rodando || t.proximo) ccS('cc-o-turno', (t.rodando || t.proximo).id);
+  document.getElementById('cc-o-tabs-bloco').style.display = '';
+  document.getElementById('cc-o-tabs').innerHTML = '';
   if (typeof celNome === 'string' && celNome) { ccS('cc-o-celula', celNome); cadcProgCelula(); }
+  else cadcProgTablets([]);
   cadcProgDica();
   document.getElementById('cc-m-prog').classList.add('show');
   document.getElementById(celNome ? 'cc-o-produto' : 'cc-o-celula').focus();
@@ -1194,12 +1215,31 @@ async function cadcProgEditar(id) {
   ccS('cc-o-op', o.num_op); ccS('cc-o-si', o.serie_inicial); ccS('cc-o-sf', o.serie_final);
   ccS('cc-o-oper', o.operadores); ccS('cc-o-horas', o.horas_operador); ccS('cc-o-meta', o.meta); ccS('cc-o-obs', o.obs);
   document.getElementById('cc-o-rep').checked = !!o.repetir;
+  document.getElementById('cc-o-tabs-bloco').style.display = rodando ? 'none' : '';
+  if (!rodando) cadcProgTablets(o.tablets || []);
   cadcProgDica();
   document.getElementById('cc-m-prog').classList.add('show');
 }
 
+/* Tablets que acompanham a programação. `marcados` = ids já escolhidos (edição); senão, marca os que já estão na célula. */
+function cadcProgTablets(marcados) {
+  const v = ccVisao, box = document.getElementById('cc-o-tabs');
+  const nome = ccV('cc-o-celula').toLowerCase();
+  const cel = v.celulas.find(c => c.nome.toLowerCase() === nome);
+  const jaMarcados = marcados || [...box.querySelectorAll('input:checked')].map(i => Number(i.value));
+  if (!v.tablets.length) { box.innerHTML = '<span class="cc-dica">Nenhum tablet ligado ao sistema ainda. Abra “Cadenciador da Célula” no tablet uma vez.</span>'; return; }
+  box.innerHTML = v.tablets.map(t => {
+    const naCelula = cel && t.celula_id === cel.id;
+    const onde = naCelula ? 'já está nela' : t.celula_id ? 'está em ' + ((v.celulas.find(c => c.id === t.celula_id) || {}).nome || '?') : 'livre';
+    const on = naCelula || jaMarcados.includes(t.id);
+    return `<label class="cc-tk ${t.online ? '' : 'off'}" title="${t.online ? 'Online' : 'Sem sinal agora'}">
+      <input type="checkbox" value="${t.id}" ${on ? 'checked' : ''}> ${t.online ? '🟢' : '⚪'} ${esc(t.nome || 'Tablet')} <span style="color:var(--text2)">— ${esc(onde)}</span></label>`;
+  }).join('');
+}
+
 /* escolheu a célula: traz operadores e horas do cadastro dela */
 function cadcProgCelula() {
+  cadcProgTablets();
   const c = (ccCad.celulas || []).find(x => x.nome.toLowerCase() === ccV('cc-o-celula').toLowerCase());
   if (c) {
     if (!ccV('cc-o-oper') && c.operadores) ccS('cc-o-oper', c.operadores);
@@ -1279,7 +1319,8 @@ async function cadcProgSalvar() {
   };
   if (!rodando) Object.assign(corpo, {
     celula_nome: ccV('cc-o-celula'), produto_id: Number(ccV('cc-o-produto')) || null, turno_id: Number(ccV('cc-o-turno')) || null,
-    takt_min: ccV('cc-o-takt'), data: ccV('cc-o-data')
+    takt_min: ccV('cc-o-takt'), data: ccV('cc-o-data'),
+    tablets: [...document.querySelectorAll('#cc-o-tabs input:checked')].map(i => Number(i.value))
   });
   if (!rodando && !corpo.celula_nome) return toast('Informe a célula', 'warn');
   if (!rodando && (!corpo.produto_id || !corpo.turno_id)) return toast('Escolha o produto e o turno', 'warn');
