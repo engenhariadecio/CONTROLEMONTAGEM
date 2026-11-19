@@ -21,7 +21,7 @@ router.get('/produtos', requireAuth, async (req, res) => {
     }
 
     let sql = `
-      SELECT p.id, p.nome, p.cod_decio, p.takt_min AS takt_padrao,
+      SELECT p.id, p.nome, p.cod_decio, p.takt_min AS takt_padrao, p.peso_kg::float AS peso_kg, p.peso_tol_kg::float AS peso_tol_kg,
              ${taktSel}::float AS takt_min,
              p.celula_id, c.nome AS celula_nome, p.ativo, p.ordem
       FROM cad_produtos p
@@ -35,19 +35,29 @@ router.get('/produtos', requireAuth, async (req, res) => {
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
+/** Peso padrão e tolerância do produto (estação de pesagem). Só mexe se o campo veio no pedido; vazio = sem peso. */
+function lerPeso(b) {
+  if (!b || !('peso_kg' in b || 'peso_tol_kg' in b)) return null;
+  const n = v => { const x = parseFloat(String(v == null ? '' : v).replace(',', '.')); return Number.isFinite(x) && x >= 0 && x < 100000 ? Math.round(x * 1000) / 1000 : null; };
+  const peso = n(b.peso_kg);
+  return { peso_kg: peso > 0 ? peso : null, peso_tol_kg: peso > 0 ? n(b.peso_tol_kg) : null };
+}
+
 router.post('/produtos', requireAdmin, async (req, res) => {
   try {
     const { nome, cod_decio, takt_min, celula_id, ordem } = req.body;
     if (!nome) return res.status(400).json({ error: 'Nome do produto é obrigatório' });
     const takt = parseFloat(takt_min);
     if (!(takt > 0)) return res.status(400).json({ error: 'Takt time deve ser maior que zero' });
+    const peso = lerPeso(req.body);
 
     const r = await pool.query(
       `INSERT INTO cad_produtos (nome,cod_decio,takt_min,celula_id,ordem)
        VALUES ($1,$2,$3,$4,$5) RETURNING *`,
       [nome.trim(), cod_decio || null, takt, celula_id || null, ordem ?? 0]
     );
-    res.json(r.rows[0]);
+    if (peso) await pool.query('UPDATE cad_produtos SET peso_kg=$1, peso_tol_kg=$2 WHERE id=$3', [peso.peso_kg, peso.peso_tol_kg, r.rows[0].id]);
+    res.json({ ...r.rows[0], ...(peso || {}) });
   } catch (e) {
     if (e.code === '23505') return res.status(409).json({ error: 'Já existe um produto com esse nome' });
     res.status(500).json({ error: e.message });
@@ -70,7 +80,9 @@ router.put('/produtos/:id', requireAdmin, async (req, res) => {
        ordem ?? null, typeof ativo === 'boolean' ? ativo : null, req.params.id]
     );
     if (!r.rows.length) return res.status(404).json({ error: 'Produto não encontrado' });
-    res.json(r.rows[0]);
+    const peso = lerPeso(req.body);
+    if (peso) await pool.query('UPDATE cad_produtos SET peso_kg=$1, peso_tol_kg=$2, updated_at=NOW() WHERE id=$3', [peso.peso_kg, peso.peso_tol_kg, req.params.id]);
+    res.json({ ...r.rows[0], ...(peso || {}) });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 

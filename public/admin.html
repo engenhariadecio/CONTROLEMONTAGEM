@@ -560,7 +560,7 @@ function renderTakt() {
         ${sobrescrito ? `<span class="selo selo-info" style="margin-left:8px">padrão ${p.takt_padrao}</span>` : ''}</td>
       <td><input class="controle takt-input ${sobrescrito ? 'sobrescrito' : ''}" type="number" step="0.001" min="0.001"
                  value="${p.takt_min}" data-id="${p.id}" data-orig="${p.takt_min}"></td>
-      <td>${escapar(p.celula_nome || '—')}</td>
+      <td>${escapar(p.celula_nome || '—')}${p.peso_kg ? `<span class="selo selo-neutro" style="margin-left:8px" title="Peso do produto (Estação de Pesagem)">⚖ ${String(p.peso_kg).replace('.', ',')} kg</span>` : ''}</td>
       <td><span class="selo ${p.ativo ? 'selo-ok' : 'selo-neutro'}">${p.ativo ? 'Ativo' : 'Inativo'}</span></td>
       <td><button class="btn btn-fantasma btn-xs" onclick="abrirProdutoCad(${p.id})">Editar</button>
         ${sobrescrito ? `<button class="btn btn-fantasma btn-xs" onclick="limparSobrescrita(${p.id})">Usar padrão</button>` : ''}
@@ -616,6 +616,11 @@ function abrirProdutoCad(id) {
         <select class="controle" id="cpCel">${opc}</select></div>
       <div class="campo"><label class="rotulo" for="cpOrdem">Ordem</label>
         <input class="controle" type="number" id="cpOrdem" value="${p.ordem ?? 0}"></div>
+      <div class="campo"><label class="rotulo" for="cpPeso">Peso do produto (kg)</label>
+        <input class="controle" type="number" step="0.001" min="0" id="cpPeso" value="${p.peso_kg ?? ''}" placeholder="vazio = não confere peso"></div>
+      <div class="campo"><label class="rotulo" for="cpPesoTol">Tolerância ± (kg)</label>
+        <input class="controle" type="number" step="0.001" min="0" id="cpPesoTol" value="${p.peso_tol_kg ?? ''}" placeholder="vazio = 2 % (mín. 0,050)"></div>
+      <div class="campo campo-full" style="font-size:12px;color:var(--t3);margin-top:-6px">O peso é usado na <b>Estação de Pesagem</b>: fora da tolerância a tela fica vermelha e o tablet da célula fala “Peso incorreto”.</div>
       <div class="campo campo-full"><label class="chave"><input type="checkbox" id="cpAtivo" ${p.ativo !== false ? 'checked' : ''}>
         <span class="chave-tri"></span><span class="chave-txt">Produto ativo (aparece no Cadenciador)</span></label></div>
     </div>`, async () => {
@@ -623,7 +628,9 @@ function abrirProdutoCad(id) {
       nome: val('cpNome'), takt_min: parseFloat(val('cpTakt')),
       cod_decio: val('cpCod') || null,
       celula_id: val('cpCel') ? Number(val('cpCel')) : null,
-      ordem: Number(val('cpOrdem')), ativo: chk('cpAtivo')
+      ordem: Number(val('cpOrdem')), ativo: chk('cpAtivo'),
+      peso_kg: val('cpPeso') === '' ? null : parseFloat(val('cpPeso')),
+      peso_tol_kg: val('cpPesoTol') === '' ? null : parseFloat(val('cpPesoTol'))
     };
     if (!corpo.nome) return avisoErro('Informe o nome.');
     if (!(corpo.takt_min > 0)) return avisoErro('Takt deve ser maior que zero.');

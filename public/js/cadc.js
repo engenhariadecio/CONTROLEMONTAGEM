@@ -119,6 +119,10 @@ const Cadc = {
                proximo: { rot: 'Início do turno', restante: 86400 - o, janela: Math.max(1, 86400 - dur) } };
     }
 
+    // Programação com hora de fim (2 produtos no mesmo turno): depois dela esta produção acabou
+    const fim = cel.fim_off_seg != null && cel.fim_off_seg < dur ? cel.fim_off_seg : null;
+    if (fim != null && o >= fim) return { fase: 'encerrado', total, feitos: total, ciclo: total, programacao: true };
+
     const eventos = [];
     let feitos = 0;
     for (const h of cel.ciclos) {
@@ -129,11 +133,12 @@ const Cadc = {
     let intervalo = null;
     for (const i of (t.intervalos || [])) {
       const a = Cadc.off(i.hora_inicio, t), b = Cadc.off(i.hora_fim, t);
+      if (fim != null && a >= fim) continue;
       eventos.push({ rot: 'Início do ' + i.nome, off: a });
-      eventos.push({ rot: 'Retorno do ' + i.nome, off: b });
+      if (fim == null || b < fim) eventos.push({ rot: 'Retorno do ' + i.nome, off: b });
       if (o >= a && o < b) intervalo = i.nome;
     }
-    eventos.push({ rot: 'Fim do turno', off: dur });
+    eventos.push(fim != null ? { rot: 'Fim da programação', off: fim } : { rot: 'Fim do turno', off: dur });
 
     const futuros = eventos.filter(e => e.off > o).sort((x, y) => x.off - y.off);
     if (!futuros.length) return { fase: 'encerrado', total, feitos, ciclo: total };
@@ -155,12 +160,13 @@ const Cadc = {
 
   /**
    * Ciclos já encerrados (mais recente primeiro), com a marcação do admin:
-   * [{ numero, hora, produto, concluido, observacao }] + totais ok / nok.
+   * [{ numero, hora, produto, concluido, observacao, atrasado, pesados }] + totais ok / nok / atrasados.
+   * atrasado = o ciclo fechou sem nenhum produto pesado dentro do prazo do takt.
    * Inclui contagens anteriores do mesmo dia (ex.: antes de uma troca de produto).
    */
   historico(cel, agoraHMS) {
     const lista = [];
-    if (!cel) return { lista, ok: 0, nok: 0 };
+    if (!cel) return { lista, ok: 0, nok: 0, atrasados: 0 };
     for (const a of (cel.anteriores || [])) lista.push({ ...a });
     if (cel.pronto && cel.turno && cel.ciclos) {
       const t = cel.turno, o = Cadc.off(agoraHMS, t), fora = o > Cadc.dur(t);
@@ -169,12 +175,54 @@ const Cadc = {
         if (!fora && Cadc.off(h, t) > o) return;
         const m = marcas[i + 1];
         lista.push({ numero: i + 1, hora: h, produto: cel.produto ? cel.produto.nome : '',
-                     concluido: m ? m.c : true, observacao: m ? m.o : '' });
+                     concluido: m ? m.c : true, observacao: m ? m.o : '',
+                     atrasado: !!(m && m.at && !m.c), pesados: m && m.p != null ? m.p : null });
       });
     }
     lista.reverse();
     const nok = lista.filter(x => !x.concluido).length;
-    return { lista, ok: lista.length - nok, nok };
+    return { lista, ok: lista.length - nok, nok, atrasados: lista.filter(x => x.atrasado).length };
+  },
+
+  /**
+   * Gráfico (SVG) comparando o takt com o tempo de saída de cada produto.
+   * saidas = [{ n, h: 'HH:MM:SS', s: série, min }]; barra verde = dentro do takt, vermelha = acima.
+   */
+  graficoSaidas(saidas, takt, { largura = 900, altura = 300, max = 60 } = {}) {
+    const d = (saidas || []).slice(-max);
+    const W = largura, H = altura, mE = 46, mD = 14, mT = 16, mB = 38;
+    const iw = W - mE - mD, ih = H - mT - mB;
+    const cor = { ok: '#26b247', nok: '#f26d6d', takt: '#f5c542', txt: '#9fb3c8', grade: 'rgba(159,179,200,.18)' };
+    const e = t => String(t == null ? '' : t).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+    const fm = v => String(Math.round(v * 10) / 10).replace('.', ',');
+    if (!d.length) {
+      return `<svg viewBox="0 0 ${W} ${H}" width="100%" style="max-width:${W}px;display:block;margin:auto" role="img">
+        <text x="${W / 2}" y="${H / 2}" fill="${cor.txt}" font-size="15" text-anchor="middle">Nenhum produto pesado ainda nesta programação.</text></svg>`;
+    }
+    const t = Number(takt) || 0;
+    const topo = Math.max(t * 1.6, ...d.map(x => Math.min(x.min, t ? t * 4 : x.min)), 1);
+    const y = v => mT + ih - Math.min(v, topo) / topo * ih;
+    const passo = iw / d.length, lb = Math.max(2, Math.min(34, passo * 0.72));
+    const ticks = 4, cadaRot = Math.ceil(d.length / 12);
+    let g = '';
+    for (let i = 0; i <= ticks; i++) {
+      const v = topo * i / ticks, yy = y(v);
+      g += `<line x1="${mE}" y1="${yy}" x2="${W - mD}" y2="${yy}" stroke="${cor.grade}"/><text x="${mE - 6}" y="${yy + 4}" fill="${cor.txt}" font-size="11" text-anchor="end">${fm(v)}</text>`;
+    }
+    d.forEach((x, i) => {
+      const cx = mE + passo * i + passo / 2, alto = x.min > t * 1.0001 && t > 0, yy = y(x.min);
+      g += `<rect x="${cx - lb / 2}" y="${yy}" width="${lb}" height="${Math.max(1, mT + ih - yy)}" rx="2" fill="${alto ? cor.nok : cor.ok}">
+              <title>#${x.n} · ${e(x.s)} · saiu às ${e(String(x.h).slice(0, 5))} · ${fm(x.min)} min${t ? ' (takt ' + fm(t) + ')' : ''}</title></rect>`;
+      if (x.min > topo) g += `<text x="${cx}" y="${mT + 10}" fill="#fff" font-size="9" text-anchor="middle">${fm(x.min)}</text>`;
+      if (i % cadaRot === 0) g += `<text x="${cx}" y="${H - mB + 14}" fill="${cor.txt}" font-size="10" text-anchor="middle">${e(String(x.h).slice(0, 5))}</text>`;
+    });
+    if (t > 0) {
+      g += `<line x1="${mE}" y1="${y(t)}" x2="${W - mD}" y2="${y(t)}" stroke="${cor.takt}" stroke-width="2" stroke-dasharray="7 5"/>
+            <text x="${W - mD - 4}" y="${y(t) - 5}" fill="${cor.takt}" font-size="12" font-weight="700" text-anchor="end">takt ${fm(t)} min</text>`;
+    }
+    g += `<text x="12" y="${mT + ih / 2}" fill="${cor.txt}" font-size="11" text-anchor="middle" transform="rotate(-90 12 ${mT + ih / 2})">minutos por peça</text>
+          <text x="${mE + iw / 2}" y="${H - 6}" fill="${cor.txt}" font-size="11" text-anchor="middle">hora em que cada produto saiu (pesagem)</text>`;
+    return `<svg viewBox="0 0 ${W} ${H}" width="100%" style="max-width:${W}px;display:block;margin:auto" role="img" aria-label="Takt x tempo de saída">${g}</svg>`;
   },
 
   /** Avisos automáticos de voz (iguais aos do cadenciador comum), em offset no turno. */
@@ -185,12 +233,15 @@ const Cadc = {
     const por = (off, fala, prio) => { const a = m.get(off); if (!a || prio > a.prio) m.set(off, { off, fala, prio }); };
 
     for (const h of cel.ciclos) por(Cadc.off(h, t), 'Ciclo finalizado', 1);
+    const fim = cel.fim_off_seg != null && cel.fim_off_seg < dur ? cel.fim_off_seg : null;
     for (const i of (t.intervalos || [])) {
-      por(Cadc.off(i.hora_inicio, t), i.aviso_voz || `Intervalo de ${i.nome} iniciado`, 3);
-      por(Cadc.off(i.hora_fim, t), 'Ciclo iniciado', 3);
+      const a = Cadc.off(i.hora_inicio, t), b = Cadc.off(i.hora_fim, t);
+      if (fim != null && a >= fim) continue;
+      por(a, i.aviso_voz || `Intervalo de ${i.nome} iniciado`, 3);
+      if (fim == null || b < fim) por(b, 'Ciclo iniciado', 3);
     }
     por(0, 'Ciclo iniciado', 4);
-    por(dur, 'Turno finalizado', 4);
+    if (fim == null) por(dur, 'Turno finalizado', 4);
     return [...m.values()].sort((a, b) => a.off - b.off);
   }
 };

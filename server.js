@@ -64,6 +64,7 @@ app.use('/api/colaboradores', require('./routes/colaboradores'));
 app.use('/api/ponto', require('./routes/ponto'));
 app.use('/api/cadenciador', require('./routes/cadenciador'));
 app.use('/api/cadenciador-central', require('./routes/cadenciador-central'));
+app.use('/api/pesagem', require('./routes/pesagem'));
 app.use('/api/ferramentas', require('./routes/ferramentas'));
 app.use('/api/epis', require('./routes/epis'));
 app.use('/api', require('./routes/banco-horas'));
@@ -92,10 +93,15 @@ app.get('/admin', requireAdmin, (_req, res) => res.sendFile(pagina('admin.html')
 // Sistema 1 e 2
 app.get('/ponto', requireAuth, (_req, res) => res.sendFile(pagina('ponto.html')));
 app.get('/cadenciador', requireAuth, (_req, res) => res.sendFile(pagina('cadenciador.html')));
+// Painel da linha em tempo real (TV / PC): takt, planejado x realizado, ciclos atrasados e OEE
+app.get(['/painel', '/painel-linha'], requireAuth, (_req, res) => res.sendFile(pagina('painel.html')));
 // Cadenciador central — tela do tablet, presa à célula criada no PC do admin
 // Vale o login de uma pessoa OU a credencial própria do tablet (ele fica aberto 24 h, sem depender de login).
 app.get('/cadenciador/celula', (req, res, next) => require('./routes/cadenciador-central').tabletOuSessao(req, res, next),
   (_req, res) => res.sendFile(pagina('cadenciador-celula.html')));
+// Estação de pesagem — notebook da linha com a balança e a coletora (USB). Login de uma pessoa OU credencial do notebook.
+app.get(['/pesagem', '/cadenciador/pesagem'], (req, res, next) => require('./routes/pesagem').estacaoOuSessao(req, res, next),
+  (_req, res) => res.sendFile(pagina('pesagem.html')));
 // Guarda a tela do tablet no aparelho: se a internet ou o servidor falharem na hora de abrir, ela abre assim mesmo.
 app.get('/cadc-sw.js', (_req, res) => {
   res.set('Cache-Control', 'no-cache');

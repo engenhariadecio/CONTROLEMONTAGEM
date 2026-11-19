@@ -256,7 +256,7 @@ body { margin: 0; overflow: hidden; background: var(--fundo); color: var(--t1); 
 </div>
 
 <script src="/js/core.js"></script>
-<script src="/js/cadc.js?v=4"></script>
+<script src="/js/cadc.js?v=5"></script>
 <script>
 /* ═══════════ Identidade do tablet ═══════════ */
 
@@ -350,6 +350,8 @@ if ('speechSynthesis' in window) {
   escolherVoz();
   try { window.speechSynthesis.addEventListener('voiceschanged', escolherVoz); } catch {}
 }
+let naFila = 0;                 // falas esperando a vez no tablet
+function calarFila() { try { window.speechSynthesis.cancel(); } catch {} naFila = 0; falandoDesde = 0; }
 function falar(txt, vezes = 1) {
   if (!txt) return;
   if (QUIOSQUE) { try { for (let i = 0; i < vezes; i++) window.fully.textToSpeech(txt, 'pt_BR'); } catch (e) { console.error('voz quiosque', e); } return; }
@@ -358,13 +360,16 @@ function falar(txt, vezes = 1) {
   try {
     // Alguns tablets deixam a voz "travada" (pausada ou falando para sempre): destrava antes de falar
     if (ss.paused) ss.resume();
-    if (ss.speaking && falandoDesde && Date.now() - falandoDesde > 45000) ss.cancel();
+    if (ss.speaking && falandoDesde && Date.now() - falandoDesde > 45000) { ss.cancel(); naFila = 0; }
+    // Fila de falas acumulada (vários avisos seguidos): joga fora o que ficou para trás e fala só o de agora
+    if (naFila >= 3) { ss.cancel(); naFila = 0; }
     for (let i = 0; i < vezes; i++) {
       const f = new SpeechSynthesisUtterance(txt);
       f.lang = 'pt-BR'; f.rate = 1; f.volume = 1;
       if (vozPt) f.voice = vozPt;
       f.onstart = () => { falandoDesde = Date.now(); };
-      f.onend = f.onerror = () => { falandoDesde = 0; };
+      f.onend = f.onerror = () => { falandoDesde = 0; naFila = Math.max(0, naFila - 1); };
+      naFila++;
       ss.speak(f);
     }
     if (!falandoDesde) falandoDesde = Date.now();
@@ -525,19 +530,33 @@ function aplicar(r, t0, t1) {
     depois = r.ultimo_comando;
     guarda.por('cadc_depois', String(depois));
   }
-  for (const k of (r.comandos || [])) executar(k);
+  // Vários avisos automáticos de uma vez (ex.: o takt foi alterado várias vezes seguidas): só o último é falado
+  const cmds = r.comandos || [];
+  const autos = cmds.filter(k => k.tipo === 'voz' && k.origem === 'auto');
+  const ultimoAuto = autos.length ? autos[autos.length - 1].id : null;
+  for (const k of cmds) {
+    if (k.tipo === 'voz' && k.origem === 'auto' && k.id !== ultimoAuto) continue;
+    executar(k);
+  }
 
   if (!$('painel').classList.contains('ativo')) tela('painel');
   pintarFixos();
   tique();
 }
 
+let ultCmd = { txt: '', em: 0 };
 function executar(k) {
   if (k.tipo === 'recarregar') { setTimeout(() => location.reload(), 300); return; }
   if (k.tipo !== 'voz' || !k.texto) return;
   const doAdmin = k.origem !== 'auto';
+  // O mesmo aviso não é repetido em seguida, e um aviso automático novo substitui o anterior em vez de entrar na fila
+  const agora = Date.now();
+  if (ultCmd.txt === k.texto && agora - ultCmd.em < 20000) return;
+  ultCmd = { txt: k.texto, em: agora };
+  if (!doAdmin) { clearTimeout(executar.t); if (!QUIOSQUE) calarFila(); }
   bip();
-  setTimeout(() => falar(k.texto, k.repetir || 1), 450);
+  const t = setTimeout(() => falar(k.texto, Math.min(3, k.repetir || 1)), 450);
+  if (!doAdmin) executar.t = t;
   mostrarAviso(k.texto);
   registrarFala(k.texto, doAdmin);
 }
@@ -558,7 +577,9 @@ function pintarFixos() {
       ? `${CEL.turno.nome} · ${horaCurta(CEL.turno.hora_inicio)}–${horaCurta(CEL.turno.hora_fim)}` +
         (CEL.takt_min ? ` · takt ${CEL.takt_min} min` : '')
       : 'Aguardando turno') +
-      (od && od.num_op ? ` · OP ${od.num_op}` : '') + (od && od.meta ? ` · meta ${od.meta} pç` : '');
+      (od && od.hora_fim ? ` · até ${horaCurta(od.hora_fim)}` : '') +
+      (od && od.num_op ? ` · OP ${od.num_op}` : '') + (od && od.meta ? ` · meta ${od.meta} pç` : '') +
+      (CEL.ind && CEL.ind.balanca ? ` · pesados ${CEL.ind.realizado}/${CEL.ind.planejado}` : '');
   }
   $('pMsg').textContent = CEL.mensagem || '';
   $('pMsg').classList.toggle('ativo', !!CEL.mensagem);
@@ -611,9 +632,9 @@ function tique() {
   }
   if (s.fase === 'encerrado' || s.fase === 'fora') {
     caixa.classList.add('apagado');
-    $('pProxRot').textContent = 'Turno encerrado';
+    $('pProxRot').textContent = s.programacao ? 'Programação encerrada' : 'Turno encerrado';
     $('pProxVal').textContent = 'FIM';
-    $('pProxSub').textContent = 'Produção do turno encerrada';
+    $('pProxSub').textContent = s.programacao ? 'Aguardando o próximo produto' : 'Produção do turno encerrada';
     $('pBarra').style.width = '100%';
   } else {
     const p = s.proximo;
@@ -645,7 +666,7 @@ function pintarHistorico(agora) {
   el.innerHTML = h.lista.slice(0, 150).map(c => `
     <div class="p-h ${c.concluido ? '' : 'nok'}">
       <span class="n">#${c.numero}</span><span class="h">${horaCurta(c.hora)}</span>
-      <span class="s">${c.concluido ? '✓ Concluído' : '✕ Não concluído'}</span>
+      <span class="s">${c.concluido ? (c.pesados ? `✓ No prazo · ${c.pesados} pç` : '✓ Concluído') : c.atrasado ? '⏰ Atrasado' : '✕ Não concluído'}</span>
       ${c.observacao ? `<span class="o">${escapar(c.observacao)}</span>` : (c.concluido ? '' : '<span class="o falta">Motivo não informado</span>')}
       ${c.produto && c.produto !== prodAtual ? `<span class="pr">${escapar(c.produto)}</span>` : ''}
     </div>`).join('');

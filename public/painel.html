@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#0A1620">
+<title>Painel da Linha — Décio</title>
+<link rel="icon" href="/assets/favicon.png">
+<link rel="stylesheet" href="/css/decio.css">
+<style>
+body { margin: 0; background: var(--fundo); color: var(--t1); }
+#app { min-height: 100vh; padding: 14px 16px 22px; box-sizing: border-box; display: flex; flex-direction: column; gap: 12px; }
+.topo { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+.topo img { height: 38px; }
+.topo h1 { font-family: var(--display); font-size: clamp(18px, 2.4vw, 30px); margin: 0; letter-spacing: -.02em; flex: 1; min-width: 200px; }
+.topo h1 small { display: block; font-family: var(--corpo); font-size: 12px; font-weight: 600; color: var(--t3); letter-spacing: .1em; text-transform: uppercase; }
+.rel { font-family: var(--mono); font-weight: 700; font-size: clamp(22px, 3vw, 40px); letter-spacing: -.03em; }
+.chip { display: inline-flex; align-items: center; gap: 7px; font-size: 13px; font-weight: 700; padding: 7px 12px; border-radius: 99px; border: 1px solid var(--linha); background: var(--card); color: var(--t2); cursor: pointer; text-decoration: none; white-space: nowrap; }
+.chip i { width: 9px; height: 9px; border-radius: 50%; background: var(--t3); }
+.chip.ok { color: var(--ok); border-color: var(--ok-bd); background: var(--ok-bg); } .chip.ok i { background: var(--ok); }
+.chip.erro { color: var(--erro); border-color: var(--erro-bd); background: var(--erro-bg); } .chip.erro i { background: var(--erro); }
+
+.tot { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; }
+.kp { background: var(--card); border: 1px solid var(--linha); border-radius: 14px; padding: 12px 14px; }
+.kp .r { font-size: 11px; letter-spacing: .12em; text-transform: uppercase; color: var(--t3); font-weight: 700; }
+.kp .v { font-family: var(--mono); font-weight: 700; font-size: clamp(24px, 3vw, 40px); line-height: 1.1; letter-spacing: -.04em; margin-top: 4px; }
+.kp .s { font-size: 12px; color: var(--t2); margin-top: 2px; }
+.bom { color: var(--ok); } .ruim { color: var(--erro); } .aten { color: var(--alerta); }
+
+.grade { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 470px), 1fr)); gap: 12px; }
+.cel { background: var(--card); border: 1px solid var(--linha); border-radius: 16px; padding: 14px; display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.cel.pausada { border-color: var(--alerta-bd); } .cel.atrasada { border-color: var(--erro-bd); }
+.c-top { display: flex; align-items: flex-start; gap: 10px; }
+.c-top .nm { font-family: var(--display); font-weight: 800; font-size: 22px; line-height: 1.1; }
+.c-top .pr { color: var(--t2); font-size: 13px; margin-top: 3px; }
+.c-top .dt { color: var(--t3); font-size: 11px; letter-spacing: .06em; text-transform: uppercase; margin-top: 3px; }
+.c-top .esq { flex: 1; min-width: 0; }
+.c-top .esq > div { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.st { font-size: 11px; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; padding: 5px 10px; border-radius: 99px; background: var(--ok-bg); color: var(--ok); border: 1px solid var(--ok-bd); white-space: nowrap; }
+.st.pausa, .st.intervalo { background: var(--alerta-bg); color: var(--alerta); border-color: var(--alerta-bd); }
+.st.fim { background: var(--card-2); color: var(--t3); border-color: var(--linha); }
+.c-mid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; }
+.bx { background: var(--card-2); border-radius: 12px; padding: 9px 10px; text-align: center; min-width: 0; }
+.bx .r { font-size: 10px; letter-spacing: .1em; text-transform: uppercase; color: var(--t3); font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.bx .v { font-family: var(--mono); font-weight: 700; font-size: clamp(20px, 2.3vw, 30px); line-height: 1.15; letter-spacing: -.03em; white-space: nowrap; }
+.bx .v small { font-size: .5em; color: var(--t3); font-weight: 600; letter-spacing: 0; }
+.bx .s { font-size: 11px; color: var(--t2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pr-linha { display: grid; grid-template-columns: 92px 1fr 64px; gap: 8px; align-items: center; font-size: 12px; color: var(--t2); }
+.pr-linha b { font-family: var(--mono); color: var(--t1); text-align: right; font-size: 14px; }
+.tr { height: 12px; background: var(--card-2); border-radius: 99px; overflow: hidden; }
+.tr i { display: block; height: 100%; border-radius: 99px; background: var(--t3); transition: width .6s; }
+.tr i.re { background: var(--ok); } .tr i.re.atras { background: var(--erro); } .tr i.pl { background: #5b8dbf; }
+.oee { display: grid; grid-template-columns: 110px 1fr; gap: 12px; align-items: center; }
+.oee .g { text-align: center; }
+.oee .g .v { font-family: var(--mono); font-weight: 700; font-size: 34px; letter-spacing: -.04em; line-height: 1; }
+.oee .g .r { font-size: 11px; letter-spacing: .14em; color: var(--t3); font-weight: 800; }
+.oee .f { display: grid; gap: 5px; }
+.oee .f div { display: grid; grid-template-columns: 104px 1fr 52px; gap: 8px; align-items: center; font-size: 12px; color: var(--t2); }
+.oee .f b { font-family: var(--mono); color: var(--t1); text-align: right; }
+.tags { display: flex; gap: 6px; flex-wrap: wrap; font-size: 12px; }
+.tg { padding: 4px 9px; border-radius: 8px; background: var(--card-2); color: var(--t2); font-weight: 600; }
+.tg b { font-family: var(--mono); color: var(--t1); }
+.tg.ruim { background: var(--erro-bg); color: var(--erro); } .tg.ruim b { color: var(--erro); }
+.tg.bom { background: var(--ok-bg); color: var(--ok); } .tg.bom b { color: var(--ok); }
+.graf { background: var(--card-2); border-radius: 12px; padding: 6px; }
+.graf .r { font-size: 10px; letter-spacing: .1em; text-transform: uppercase; color: var(--t3); font-weight: 700; padding: 3px 6px; }
+.vazio { padding: 40px 16px; text-align: center; color: var(--t3); background: var(--card); border: 1px dashed var(--linha); border-radius: 16px; }
+.rod { font-size: 12px; color: var(--t3); line-height: 1.6; }
+.rod b { color: var(--t2); }
+.semb { font-size: 12px; color: var(--alerta); background: var(--alerta-bg); border-radius: 8px; padding: 6px 9px; }
+</style>
+</head>
+<body>
+<div id="app">
+  <div class="topo">
+    <img src="/assets/logo-decio.png" alt="Décio">
+    <h1>Painel da Linha<small id="hoje">tempo real</small></h1>
+    <span class="chip" id="cBal"><i></i><span id="cBalTxt">Balança</span></span>
+    <span class="chip" id="cRede"><i></i><span id="cRedeTxt">Conectando…</span></span>
+    <button class="chip" id="cTela">⛶ Tela cheia</button>
+    <a class="chip" href="/progestao/linha-producao">← Linha de Produção</a>
+    <div class="rel" id="rel">--:--:--</div>
+  </div>
+
+  <div class="tot" id="tot"></div>
+  <div class="grade" id="grade"><div class="vazio">Carregando…</div></div>
+  <div class="tags" id="ociosas"></div>
+
+  <div class="rod">
+    <b>Como ler:</b> <b>Planejado</b> = ciclos que a cadência (takt) já fechou até agora · <b>Realizado</b> = peças pesadas com peso correto (série bipada na balança) ·
+    <b>Ciclo atrasado</b> = ciclo que fechou sem nenhuma peça pesada no prazo ·
+    <b>OEE</b> = Disponibilidade × Performance × Qualidade —
+    <b>Disponibilidade</b> = tempo rodando ÷ tempo programado (sem os intervalos) ·
+    <b>Performance</b> = peças pesadas ÷ peças que a cadência já pedia ·
+    <b>Qualidade</b> = peças com peso correto ÷ peças pesadas.
+  </div>
+</div>
+
+<script src="/js/cadc.js?v=5"></script>
+<script>
+const $ = id => document.getElementById(id);
+const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const fm = (v, c = 1) => v == null ? '—' : Number(v).toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: c });
+const pc = v => v == null ? '—' : fm(v) + '%';
+const corPct = v => v == null ? '' : v >= 85 ? 'bom' : v >= 60 ? 'aten' : 'ruim';
+const hm = h => String(h || '').slice(0, 5);
+let D = null, falhas = 0, grafAssin = {};
+
+async function buscar() {
+  try {
+    const t0 = performance.now();
+    const r = await fetch('/api/cadenciador-central/painel', { cache: 'no-store', credentials: 'same-origin' });
+    if (r.status === 401) { location.href = '/login'; return; }
+    if (!r.ok) throw new Error('erro ' + r.status);
+    D = await r.json();
+    Cadc.acertar(D, t0, performance.now());
+    falhas = 0;
+  } catch (e) { falhas++; }
+  $('cRede').className = 'chip ' + (falhas >= 2 ? 'erro' : 'ok');
+  $('cRedeTxt').textContent = falhas >= 2 ? 'Sem conexão' : 'Ao vivo';
+  desenhar(true);
+}
+
+function situacaoTxt(c, s) {
+  if (c.pausada) return ['pausa', '⏸ Pausada'];
+  if (s.fase === 'intervalo') return ['intervalo', '☕ ' + (s.intervalo || 'Intervalo')];
+  if (s.fase === 'rodando') return ['', '▶ Rodando'];
+  if (s.fase === 'fora') return ['fim', 'Fora do turno'];
+  if (s.fase === 'encerrado') return ['fim', s.programacao ? 'Programação encerrada' : 'Turno encerrado'];
+  return ['fim', 'Aguardando'];
+}
+
+function desenhar(dados) {
+  if (!D) return;
+  const agora = Cadc.agora();
+  $('rel').textContent = agora;
+  if (!dados) {            // a cada segundo: só o relógio e as contagens regressivas
+    for (const c of D.celulas) {
+      const el = document.getElementById('prox-' + c.id); if (!el) continue;
+      el.innerHTML = proximoTxt(c, Cadc.situacao(c, agora));
+    }
+    return;
+  }
+  $('hoje').textContent = 'tempo real · ' + D.hoje.split('-').reverse().join('/');
+  const lendo = (D.estacoes || []).filter(e => e.lendo).length;
+  $('cBal').className = 'chip ' + (lendo ? 'ok' : (D.estacoes || []).length ? 'erro' : '');
+  $('cBalTxt').textContent = lendo ? `Balança lendo${lendo > 1 ? ' (' + lendo + ')' : ''}` : (D.estacoes || []).length ? 'Balança desligada' : 'Sem balança';
+
+  const ativas = D.celulas.filter(c => c.pronto && c.ind);
+  const ociosas = D.celulas.filter(c => !(c.pronto && c.ind));
+
+  // totais
+  // planejado x realizado só soma as células que passam pela balança (as outras não têm como contar o realizado)
+  const comBal = ativas.filter(c => c.ind.balanca);
+  const soma = (k, l = comBal) => l.reduce((a, c) => a + (c.ind[k] || 0), 0);
+  const plan = soma('planejado'), real = soma('realizado'), atr = soma('atrasados');
+  const comB = ativas.filter(c => c.ind.oee != null);
+  const pesoT = comB.reduce((a, c) => a + Math.max(1, c.ind.tempo_programado_min), 0);
+  const oee = comB.length ? comB.reduce((a, c) => a + c.ind.oee * Math.max(1, c.ind.tempo_programado_min), 0) / pesoT : null;
+  const atend = plan > 0 ? real / plan * 100 : null;
+  $('tot').innerHTML = [
+    ['Células rodando', ativas.length, ociosas.length ? ociosas.length + ' sem programação' : 'todas programadas', ''],
+    ['Planejado até agora', plan, comBal.length < ativas.length ? `${comBal.length} de ${ativas.length} células com balança` : 'meta do turno ' + soma('meta'), ''],
+    ['Realizado', real, 'peças pesadas', real >= plan ? 'bom' : 'ruim'],
+    ['Saldo', (real - plan > 0 ? '+' : '') + (real - plan), real >= plan ? 'no ritmo ou adiantado' : 'atrasado', real >= plan ? 'bom' : 'ruim'],
+    ['Atendimento', pc(atend == null ? null : Math.round(atend * 10) / 10), 'realizado ÷ planejado', corPct(atend)],
+    ['OEE da linha', pc(oee == null ? null : Math.round(oee * 10) / 10), 'média das células', corPct(oee)],
+    ['Ciclos atrasados', atr, 'sem peça no prazo do takt', atr ? 'ruim' : 'bom']
+  ].map(k => `<div class="kp"><div class="r">${k[0]}</div><div class="v ${k[3]}">${k[1]}</div><div class="s">${k[2]}</div></div>`).join('');
+
+  // células
+  const g = $('grade');
+  if (!ativas.length) { g.innerHTML = '<div class="vazio">Nenhuma célula rodando agora.<br>O administrador programa em Linha de Produção › Cadenciador central.</div>'; }
+  else {
+    g.innerHTML = ativas.map(c => {
+      const I = c.ind, s = Cadc.situacao(c, agora), st = situacaoTxt(c, s), o = c.ordem || {};
+      const base = Math.max(I.meta || 0, I.planejado, I.realizado, 1);
+      const det = [c.turno ? c.turno.nome : '', o.hora_inicio || o.hora_fim ? `${o.hora_inicio ? hm(o.hora_inicio) : 'início'}–${o.hora_fim ? hm(o.hora_fim) : 'fim do turno'}` : '', o.num_op ? 'OP ' + o.num_op : ''].filter(Boolean).join(' · ');
+      const real = I.takt_real_min;
+      return `<div class="cel ${c.pausada ? 'pausada' : ''} ${I.balanca && I.saldo < 0 ? 'atrasada' : ''}">
+        <div class="c-top">
+          <div class="esq"><div class="nm">${esc(c.nome)}</div><div class="pr">${esc(c.produto ? c.produto.nome : '')}</div><div class="dt">${esc(det)}</div></div>
+          <span class="st ${st[0]}">${st[1]}</span>
+        </div>
+        <div class="c-mid">
+          <div class="bx" id="prox-${c.id}">${proximoTxt(c, s)}</div>
+          <div class="bx"><div class="r">Takt planejado</div><div class="v">${fm(I.takt_min)}<small> min</small></div><div class="s">por peça</div></div>
+          <div class="bx"><div class="r">Takt real</div><div class="v ${real == null ? '' : real > I.takt_min * 1.05 ? 'ruim' : 'bom'}">${fm(real)}<small> min</small></div><div class="s">${real == null ? 'sem peça pesada' : real > I.takt_min * 1.05 ? 'mais lento que o takt' : 'dentro do takt'}</div></div>
+        </div>
+        <div>
+          <div class="pr-linha"><span>Planejado</span><div class="tr"><i class="pl" style="width:${I.planejado / base * 100}%"></i></div><b>${I.planejado}</b></div>
+          <div class="pr-linha" style="margin-top:5px"><span>Realizado</span><div class="tr"><i class="re ${I.saldo < 0 ? 'atras' : ''}" style="width:${I.realizado / base * 100}%"></i></div><b>${I.realizado}</b></div>
+        </div>
+        <div class="tags">
+          ${I.balanca ? `<span class="tg ${I.saldo < 0 ? 'ruim' : 'bom'}">Saldo <b>${I.saldo > 0 ? '+' : ''}${I.saldo}</b></span>` : ''}
+          <span class="tg">Meta <b>${I.meta}</b></span>
+          ${I.no_prazo != null ? `<span class="tg bom">Ciclos no prazo <b>${I.no_prazo}</b></span>` : ''}
+          <span class="tg ${I.atrasados ? 'ruim' : ''}">Atrasados <b>${I.atrasados}</b></span>
+          <span class="tg ${I.pesos_incorretos ? 'ruim' : ''}">Peso incorreto <b>${I.pesos_incorretos}</b></span>
+          <span class="tg ${I.tempo_parado_min ? 'ruim' : ''}">Parada <b>${I.tempo_parado_min} min</b></span>
+        </div>
+        ${I.balanca ? '' : '<div class="semb">Sem pesagem nesta célula (sem faixa de série ou balança desligada): realizado, performance e OEE dependem da balança.</div>'}
+        <div class="oee">
+          <div class="g"><div class="v ${corPct(I.oee)}">${pc(I.oee)}</div><div class="r">OEE</div></div>
+          <div class="f">
+            ${[['Disponibilidade', I.disponibilidade], ['Performance', I.performance], ['Qualidade', I.qualidade]].map(x =>
+              `<div><span>${x[0]}</span><div class="tr"><i style="width:${x[1] == null ? 0 : x[1]}%;background:${x[1] == null ? 'var(--t3)' : x[1] >= 85 ? 'var(--ok)' : x[1] >= 60 ? 'var(--alerta)' : 'var(--erro)'}"></i></div><b>${pc(x[1])}</b></div>`).join('')}
+          </div>
+        </div>
+        <div class="graf"><div class="r">Takt x tempo de saída de cada produto (min)</div>${Cadc.graficoSaidas(c.saidas, c.takt_min, { largura: 620, altura: 190, max: 40 })}</div>
+      </div>`;
+    }).join('');
+  }
+  $('ociosas').innerHTML = ociosas.map(c => `<span class="tg">${esc(c.nome)}: ${c.proxima ? `próxima ${esc(c.proxima.produto || '')} · ${c.proxima.dia.slice(8, 10)}/${c.proxima.dia.slice(5, 7)} às ${esc(c.proxima.hora || '')}` : 'sem programação'}</span>`).join('');
+}
+
+function proximoTxt(c, s) {
+  if (c.pausada) {
+    const pz = Cadc.pausa(c);
+    return `<div class="r">Linha pausada</div><div class="v aten">${Cadc.curto(pz.restante != null ? pz.restante : pz.decorrido)}</div><div class="s">${esc(c.pausa_motivo || 'pausa')}${pz.restante != null ? ' · volta em' : ''}</div>`;
+  }
+  if (!s.proximo || s.fase === 'encerrado' || s.fase === 'fora') return `<div class="r">Ciclo</div><div class="v">FIM</div><div class="s">${s.total} ciclos</div>`;
+  return `<div class="r">${esc(s.proximo.rot)}</div><div class="v ${s.fase === 'rodando' && s.proximo.rot === 'Próximo ciclo' && s.proximo.restante <= 30 ? 'aten' : ''}">${Cadc.curto(s.proximo.restante)}</div><div class="s">ciclo ${s.ciclo} de ${s.total}</div>`;
+}
+
+$('cTela').onclick = () => { const el = document.documentElement; if (document.fullscreenElement) document.exitFullscreen(); else if (el.requestFullscreen) el.requestFullscreen().catch(() => {}); };
+buscar();
+setInterval(buscar, 3000);
+Cadc.aCadaSegundo(() => desenhar(false));
+document.addEventListener('visibilitychange', () => { if (!document.hidden) buscar(); });
+</script>
+</body>
+</html>

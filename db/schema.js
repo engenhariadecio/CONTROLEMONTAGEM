@@ -317,6 +317,73 @@ UPDATE cadc_celulas c SET ordem_id = o.id
   FROM cadc_ordens o
  WHERE c.ordem_id IS NULL AND o.celula_id = c.id AND o.status = 'ativa';
 
+/* ══════════════ ESTAÇÃO DE PESAGEM (notebook da linha + balança + coletora) ══════════════
+   Cada produto pode ter um peso padrão e uma tolerância. A estação (notebook) fica ligada a uma
+   célula do cadenciador central: pesa o produto, confere o peso e grava o número de série bipado. */
+ALTER TABLE cad_produtos ADD COLUMN IF NOT EXISTS peso_kg NUMERIC(10,3);
+ALTER TABLE cad_produtos ADD COLUMN IF NOT EXISTS peso_tol_kg NUMERIC(10,3);
+
+CREATE TABLE IF NOT EXISTS cadc_estacoes (
+  id          SERIAL PRIMARY KEY,
+  device_id   VARCHAR(80) UNIQUE NOT NULL,
+  nome        VARCHAR(120),
+  celula_id   INTEGER REFERENCES cadc_celulas(id) ON DELETE SET NULL,
+  usuario     VARCHAR(120),
+  token_hash  VARCHAR(64),
+  token_em    TIMESTAMPTZ,
+  balanca_ok  BOOLEAN DEFAULT FALSE,
+  ultimo_peso NUMERIC(10,3),
+  visto_em    TIMESTAMPTZ,
+  created_at  TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS cadc_pesagens (
+  id            BIGSERIAL PRIMARY KEY,
+  celula_id     INTEGER REFERENCES cadc_celulas(id) ON DELETE SET NULL,
+  celula_nome   VARCHAR(120),
+  ordem_id      INTEGER,
+  produto_id    INTEGER REFERENCES cad_produtos(id) ON DELETE SET NULL,
+  produto_nome  VARCHAR(200),
+  cod_decio     VARCHAR(50),
+  num_op        VARCHAR(8),
+  serie         VARCHAR(40),
+  peso_kg       NUMERIC(10,3) NOT NULL,
+  peso_padrao   NUMERIC(10,3),
+  tolerancia    NUMERIC(10,3),
+  ok            BOOLEAN,
+  fora_faixa    BOOLEAN NOT NULL DEFAULT FALSE,
+  data          DATE NOT NULL,
+  turno_id      INTEGER,
+  estacao_id    INTEGER,
+  estacao_nome  VARCHAR(120),
+  usuario       VARCHAR(120),
+  criado_em     TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_cadc_pes_ordem ON cadc_pesagens(ordem_id);
+CREATE INDEX IF NOT EXISTS idx_cadc_pes_dia ON cadc_pesagens(celula_id, data);
+/* A balança não fica presa a uma célula: quem liga a pesagem à célula é o NÚMERO DE SÉRIE bipado
+   (só os números contam: JSF0000433645 = 433645, comparado com a faixa inicial-final da célula).
+   Peso incorreto também guarda a série, mas não conta como peça e pode ser bipado de novo. */
+ALTER TABLE cadc_pesagens ADD COLUMN IF NOT EXISTS serie_num BIGINT;
+DROP INDEX IF EXISTS uq_cadc_pes_serie;
+CREATE UNIQUE INDEX IF NOT EXISTS uq_cadc_pes_serie_ok ON cadc_pesagens(serie) WHERE serie IS NOT NULL AND ok IS NOT FALSE;
+CREATE INDEX IF NOT EXISTS idx_cadc_pes_num ON cadc_pesagens(ordem_id, serie_num);
+CREATE INDEX IF NOT EXISTS idx_cadc_pes_estacao ON cadc_pesagens(estacao_id, id DESC);
+
+/* Horário por programação: a mesma célula pode montar 2 (ou mais) produtos no mesmo turno,
+   cada um com sua hora de início e de fim. Vazio = vale o turno inteiro, como antes. */
+ALTER TABLE cadc_ordens ADD COLUMN IF NOT EXISTS hora_inicio TIME;
+ALTER TABLE cadc_ordens ADD COLUMN IF NOT EXISTS hora_fim TIME;
+
+/* Ciclo no prazo x atrasado: no fim de cada ciclo o sistema confere se alguma peça da célula
+   foi pesada dentro do prazo do takt. Sem peça = ciclo ATRASADO (fica no histórico).
+   manual = TRUE quando foi o administrador quem marcou (a marcação dele vale mais que a automática). */
+ALTER TABLE cadc_ciclos ADD COLUMN IF NOT EXISTS atrasado BOOLEAN NOT NULL DEFAULT FALSE;
+ALTER TABLE cadc_ciclos ADD COLUMN IF NOT EXISTS pesados INTEGER;
+ALTER TABLE cadc_ciclos ADD COLUMN IF NOT EXISTS manual BOOLEAN NOT NULL DEFAULT FALSE;
+ALTER TABLE cadc_ciclos ADD COLUMN IF NOT EXISTS ordem_id INTEGER;
+UPDATE cadc_ciclos SET manual = TRUE WHERE manual = FALSE AND usuario IS NOT NULL;
+
 /* ══════════════ SISTEMA 3 — PROGESTÃO ══════════════ */
 
 /* ── Ferramentas ── */

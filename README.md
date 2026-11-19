@@ -191,6 +191,69 @@ Forma adicional do cadenciador. O **Cadenciador comum** (`/cadenciador`) continu
 Arquivos: `routes/cadenciador-central.js`, `public/cadenciador-celula.html`, `public/js/cadc.js`,
 tabelas `cadc_*` (inclui `cadc_ciclos`) em `db/schema.js` (criadas sozinhas ao iniciar).
 
+## Estação de pesagem (notebook + balança + coletora)
+
+Um notebook na linha, com a **balança Urano** e a **coletora** (leitor de código de barras) ligadas por USB.
+A tela fica em **`/pesagem`** (Portal › *Estação de Pesagem*) e precisa do **Chrome ou Edge**.
+
+**A balança não fica presa a nenhuma célula.** Quem liga a pesagem à célula é o **número de série** bipado:
+só os números contam (`JSF0000433645` = `433645`) e ele é procurado na **faixa de séries (inicial e final)** de cada
+célula que está rodando. A peça vai para a célula que tem esse número na faixa.
+
+**Processo do operador**
+
+1. Coloca o produto na balança — o peso aparece em tempo real.
+2. Com o peso parado, a tela pede: **“BIPE O NÚMERO DE SÉRIE”**.
+3. Ao bipar, o sistema acha a célula pela série e confere o peso com o **peso cadastrado no produto dessa célula** (± tolerância):
+   - **verde** → “PESO CORRETO — REGISTRADO”: grava célula, OP, produto, série, peso e hora, e conta a peça;
+   - **vermelho** → “PESO INCORRETO” (mostra quanto falta ou sobra), **não conta**, e o **tablet dessa célula fala “Peso incorreto”**.
+     Depois de corrigir o produto, é só bipar de novo.
+4. Retira o produto; a tela volta a pedir o próximo.
+
+Série fora da faixa de todas as células é recusada; série já pesada não conta de novo.
+
+**Onde cadastrar o peso do produto**: Administração › Takt Times › produto (*Peso do produto* e *Tolerância ±*), ou no
+cartão da célula em Linha de Produção › Cadenciador central › **⚖️ Peso do produto**. Sem tolerância informada vale 2 % do peso
+(mínimo 0,050 kg). Produto sem peso: a estação grava o peso lido sem conferir.
+
+**Contagem x meta x cadência**: a estação lista todas as células rodando com *pesados / meta*, quantas peças a cadência (takt)
+previa até agora e o saldo (adiantado / atrasado); o cartão da célula mostra o mesmo. Em **📋 Pesagens** o admin vê, apaga e
+exporta (CSV) as pesagens do dia.
+
+**Balança**: leitura pela porta USB com Web Serial (`public/js/balanca.js`), 9600 bps 8N2, pedindo o peso várias vezes por segundo.
+Funciona com o cabo Urano / conversor USB-TTL (sinal normal) e com o kit Novus USB-i485 (sinal invertido, decifrado no programa).
+Na primeira vez clique em **Conectar balança** e escolha a porta; depois ela religa sozinha.
+
+**Notebook 24 h**: basta um login na primeira vez — a estação ganha uma credencial própria (como os tablets) e continua ligada
+depois de reiniciar. Para treinar sem balança: `/pesagem?simular`.
+
+Tabelas: `cadc_estacoes`, `cadc_pesagens`, e as colunas `peso_kg` / `peso_tol_kg` em `cad_produtos`. Rotas em `routes/pesagem.js`.
+
+## Horário por programação, ciclos atrasados, gráfico e painel (v9)
+
+**2 produtos na mesma célula no mesmo turno.** Ao programar a célula há dois campos opcionais: *Começa às* e *Termina às*.
+Vazios = turno inteiro (como antes). Preenchidos, a mesma célula pode ter mais de uma programação no mesmo dia e turno, desde
+que os horários não se cruzem. Na hora de fim a produção sai da célula sozinha (fica pendente de envio ao Plano, se tem OP) e,
+na hora de início, a próxima entra sozinha, com os ciclos contando a partir da hora marcada.
+
+**Ciclo no prazo x atrasado.** Quando um ciclo fecha, o sistema confere se alguma peça daquela célula foi pesada (série bipada,
+peso correto) dentro do prazo do takt. Sem nenhuma peça, o ciclo fica no histórico como **⏰ Atrasado**; com peça, **No prazo**
+(com a quantidade). O administrador ainda pode mudar a marcação ou escrever o motivo. Só vale para células com faixa de série e
+com a balança em uso — sem balança ninguém é marcado como atrasado.
+
+**Gráfico takt x saída.** No cartão da célula, **📈 Takt x saída**: uma barra para cada produto pesado, com o tempo útil desde o
+produto anterior (sem intervalos e sem linha parada) e a linha do takt. Verde = dentro do takt, vermelho = acima.
+
+**Painel em tempo real** em **`/painel`** (Portal › *Painel da Linha*), para TV ou PC, somente leitura, qualquer usuário logado:
+por célula mostra próximo ciclo, takt planejado x real, planejado x realizado, saldo, ciclos no prazo/atrasados, pesos incorretos,
+tempo parado, o gráfico de saídas e o **OEE** = Disponibilidade × Performance × Qualidade:
+disponibilidade = tempo rodando ÷ tempo programado (sem os intervalos); performance = peças pesadas ÷ peças que a cadência já pedia;
+qualidade = peças com peso correto ÷ peças pesadas.
+
+**Áudio repetindo ao trocar o takt.** Cada clique nas setinhas do campo de takt mandava uma troca, e o tablet falava um aviso
+para cada uma, em fila. Agora o campo espera a pessoa terminar e pede confirmação, o servidor guarda só o último aviso de takt,
+e o tablet não empilha avisos automáticos (o novo substitui o anterior; o mesmo texto não é repetido em seguida).
+
 ## Subir no GitHub
 
 ```bash

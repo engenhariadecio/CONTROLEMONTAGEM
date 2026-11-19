@@ -1,0 +1,518 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#0A1620">
+<title>Estação de Pesagem — Décio</title>
+<link rel="icon" href="/assets/favicon.png">
+<link rel="stylesheet" href="/css/decio.css">
+<style>
+html, body { height: 100%; }
+body { margin: 0; background: var(--fundo); color: var(--t1); overflow: hidden; }
+#app { height: 100vh; height: 100dvh; display: grid; grid-template-rows: auto minmax(0, 1fr); gap: 1.4vh; padding: 2vh 1.4vw 1.4vh; box-sizing: border-box; }
+
+/* ───── topo ───── */
+.topo { display: flex; align-items: center; gap: 1.4vw; min-width: 0; }
+.topo img { height: clamp(26px, 4.6vh, 44px); flex: none; }
+.t-meio { flex: 1; min-width: 0; }
+.t-cel { display: inline-block; font-size: clamp(10px, 1.6vh, 14px); font-weight: 800; letter-spacing: .14em; text-transform: uppercase; color: #06140B; background: var(--verde-clr); padding: .3em .9em; border-radius: 99px; }
+.t-cel.sem { background: var(--alerta); }
+.t-prod { font-family: var(--display); font-weight: 800; font-size: clamp(16px, 3.4vh, 34px); line-height: 1.1; letter-spacing: -.02em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: .3vh; }
+.t-det { font-size: clamp(10px, 1.7vh, 15px); color: var(--t2); letter-spacing: .06em; text-transform: uppercase; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.t-dir { display: flex; align-items: center; gap: 10px; flex: none; }
+.t-rel { font-family: var(--mono); font-weight: 700; font-size: clamp(18px, 3.6vh, 36px); letter-spacing: -.03em; }
+.chip { display: inline-flex; align-items: center; gap: 7px; font-size: clamp(11px, 1.7vh, 14px); font-weight: 700; padding: .5em .9em; border-radius: 99px; border: 1px solid var(--linha); background: var(--card); color: var(--t2); cursor: pointer; white-space: nowrap; }
+.chip i { width: 9px; height: 9px; border-radius: 50%; background: var(--t3); display: block; }
+.chip.ok { color: var(--ok); border-color: var(--ok-bd); background: var(--ok-bg); } .chip.ok i { background: var(--ok); }
+.chip.erro { color: var(--erro); border-color: var(--erro-bd); background: var(--erro-bg); } .chip.erro i { background: var(--erro); }
+.chip.av { color: var(--alerta); border-color: var(--alerta-bd); background: var(--alerta-bg); } .chip.av i { background: var(--alerta); }
+
+/* ───── corpo ───── */
+.corpo { display: grid; grid-template-columns: minmax(0, 1.75fr) minmax(250px, 1fr); gap: 1.4vw; min-height: 0; }
+.esq { display: grid; grid-template-rows: minmax(0, 1.25fr) minmax(0, 1fr); gap: 1.4vh; min-height: 0; }
+.caixa { background: var(--card); border: 1px solid var(--linha); border-radius: 18px; position: relative; overflow: hidden; min-width: 0; min-height: 0; }
+.rot { font-size: clamp(10px, 1.6vh, 15px); letter-spacing: .12em; text-transform: uppercase; color: var(--t3); font-weight: 700; }
+
+.visor { display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; padding: 1.5vh 1.5vw; transition: background .25s, border-color .25s; }
+.visor .v { font-family: var(--mono); font-weight: 700; line-height: 1; letter-spacing: -.04em; white-space: nowrap; font-size: clamp(54px, min(13vw, 24vh), 240px); margin: 1vh 0 .6vh; }
+.visor .v small { font-size: .3em; color: var(--t3); letter-spacing: 0; font-weight: 600; }
+.visor .faixa { font-size: clamp(12px, 2.3vh, 22px); color: var(--t2); font-weight: 600; }
+.visor .faixa b { color: var(--t1); font-family: var(--mono); }
+.visor .dif { font-family: var(--mono); font-weight: 700; font-size: clamp(14px, 3vh, 30px); min-height: 1.3em; margin-top: .6vh; }
+
+.status { display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; padding: 1.5vh 2vw; gap: 1vh; transition: background .25s, border-color .25s; }
+.status .ico { font-size: clamp(30px, 7vh, 80px); line-height: 1; }
+.status .tit { font-family: var(--display); font-weight: 800; font-size: clamp(20px, min(4.4vw, 6.4vh), 66px); line-height: 1.05; letter-spacing: -.02em; }
+.status .sub { font-size: clamp(13px, 2.6vh, 26px); color: var(--t2); font-weight: 600; max-width: 95%; }
+.status .serie { font-family: var(--mono); font-weight: 700; font-size: clamp(16px, 3.4vh, 36px); letter-spacing: .06em; min-height: 1.2em; color: var(--t1); }
+
+body[data-fase="pronto"] .status { background: #0d2c47; border-color: var(--info); }
+body[data-fase="pronto"] .status .tit { color: #8fd3f5; }
+body[data-fase="registrado"] .visor, body[data-fase="registrado"] .status { background: #0c3a22; border-color: var(--ok); }
+body[data-fase="registrado"] .visor .v, body[data-fase="registrado"] .status .tit { color: #5cf0b0; }
+body[data-fase="incorreto"] .visor, body[data-fase="incorreto"] .status { background: #4a1212; border-color: var(--erro); }
+body[data-fase="incorreto"] .visor .v, body[data-fase="incorreto"] .status .tit { color: #ff9c9c; }
+body[data-fase="incorreto"] .status { animation: pisca 1s steps(2) infinite; }
+body[data-fase="instavel"] .status { border-color: var(--alerta-bd); }
+body[data-fase="instavel"] .status .tit { color: var(--alerta); }
+body[data-fase="erro"] .status { background: #4a1212; border-color: var(--erro); }
+body[data-fase="erro"] .status .tit { color: #ff9c9c; }
+@keyframes pisca { 50% { filter: brightness(1.35); } }
+
+/* ───── direita ───── */
+.dir { display: grid; grid-template-rows: minmax(0, 1.15fr) minmax(0, 1fr); gap: 1.4vh; min-height: 0; }
+.cx-lista { display: flex; flex-direction: column; }
+.cx-lista .rot { padding: 1.2vh 1vw .9vh; border-bottom: 1px solid var(--linha); flex: none; }
+.cx-lista .l { overflow-y: auto; flex: 1; min-height: 0; }
+.cel { padding: 1.1vh 1vw 1.3vh; border-bottom: 1px solid var(--linha); transition: background .3s; }
+.cel.agora { background: var(--ok-bg); }
+.cel.agora.nok { background: var(--erro-bg); }
+.cel .c1 { display: flex; align-items: baseline; gap: .8vw; }
+.cel .nm { font-family: var(--display); font-weight: 800; font-size: clamp(14px, 2.3vh, 22px); white-space: nowrap; }
+.cel .pr { flex: 1; min-width: 0; color: var(--t2); font-size: clamp(11px, 1.7vh, 15px); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cel .qt { font-family: var(--mono); font-weight: 700; font-size: clamp(16px, 3vh, 30px); color: var(--ok); white-space: nowrap; }
+.cel .qt small { font-size: .55em; color: var(--t3); }
+.cel .c2 { display: flex; gap: .8vw; flex-wrap: wrap; margin-top: .4vh; font-size: clamp(10px, 1.6vh, 14px); color: var(--t2); }
+.cel .c2 b { font-family: var(--mono); color: var(--t1); }
+.cel .c2 .neg { color: var(--erro); } .cel .c2 .pos { color: var(--ok); }
+.barra { height: .8vh; background: var(--card-2); border-radius: 99px; overflow: hidden; margin-top: .7vh; }
+.barra i { display: block; height: 100%; width: 0; background: var(--fade); transition: width .5s; }
+.h { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 0 .8vw; align-items: baseline; padding: .8vh 1vw; border-bottom: 1px solid var(--linha); font-size: clamp(12px, 1.9vh, 17px); }
+.h .hr { font-family: var(--mono); color: var(--t3); }
+.h .se { font-family: var(--mono); font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.h .se small { font-family: var(--corpo); font-weight: 600; color: var(--t3); margin-left: .5vw; }
+.h .pe { font-family: var(--mono); color: var(--ok); font-weight: 700; }
+.h.nok .se, .h.nok .pe { color: var(--erro); }
+.vazio { padding: 3vh 1vw; text-align: center; color: var(--t3); font-size: clamp(12px, 2vh, 16px); }
+
+/* ───── telas por cima ───── */
+.cobre { position: fixed; top: 0; right: 0; bottom: 0; left: 0; z-index: 50; background: rgba(6,14,20,.97); display: none; align-items: center; justify-content: center; padding: 20px; overflow: auto; }
+.cobre.ativo { display: flex; }
+.painel { background: var(--card); border: 1px solid var(--linha); border-radius: 18px; padding: 24px; width: min(640px, 96vw); }
+.painel h2 { font-family: var(--display); font-size: 24px; margin: 0 0 6px; }
+.painel p { color: var(--t2); font-size: 14px; margin: 0 0 16px; line-height: 1.5; }
+.painel label { font-size: 11px; letter-spacing: .1em; text-transform: uppercase; color: var(--t3); font-weight: 700; display: block; margin: 14px 0 6px; }
+.linha { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.linha .controle { flex: 1; min-width: 180px; }
+.rodape-p { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin-top: 20px; flex-wrap: wrap; }
+.rodape-p a { color: var(--t3); font-size: 13px; }
+#toast { position: fixed; left: 50%; top: 2vh; transform: translate(-50%, -20px); opacity: 0; transition: all .25s; z-index: 80; background: #4a1212; border: 1px solid var(--erro); color: #fff; padding: 12px 20px; border-radius: 12px; font-weight: 700; font-size: clamp(14px, 2.4vh, 22px); max-width: 92vw; text-align: center; pointer-events: none; }
+#toast.ativo { opacity: 1; transform: translate(-50%, 0); }
+#toast.bom { background: #0c3a22; border-color: var(--ok); }
+#simular { position: fixed; left: 10px; bottom: 10px; z-index: 40; background: var(--card-2); border: 1px dashed var(--alerta); border-radius: 10px; padding: 8px 10px; display: none; gap: 6px; align-items: center; font-size: 12px; color: var(--alerta); }
+#simular input { width: 90px; }
+
+@media (max-width: 820px), (orientation: portrait) {
+  body { overflow: auto; }
+  #app { height: auto; min-height: 100vh; }
+  .corpo { grid-template-columns: 1fr; }
+  .esq { grid-template-rows: auto auto; }
+  .cx-lista .l { max-height: 40vh; }
+  .t-rel { display: none; }
+}
+</style>
+</head>
+<body data-fase="carregando">
+
+<div id="app">
+  <div class="topo">
+    <img src="/assets/logo-decio.png" alt="Décio">
+    <div class="t-meio">
+      <span class="t-cel" id="tCel">Estação de pesagem</span>
+      <div class="t-prod" id="tProd">Pese o produto e bipe o número de série</div>
+      <div class="t-det" id="tDet">Conectando…</div>
+    </div>
+    <div class="t-dir">
+      <button class="chip" id="cBal" title="Balança"><i></i><span id="cBalTxt">Balança</span></button>
+      <button class="chip" id="cRede" title="Ligação com o sistema"><i></i><span id="cRedeTxt">Sistema</span></button>
+      <button class="chip" id="cCfg">⚙ Ajustes</button>
+      <div class="t-rel" id="tRel">--:--:--</div>
+    </div>
+  </div>
+
+  <div class="corpo">
+    <div class="esq">
+      <div class="caixa visor">
+        <div class="rot">Peso na balança</div>
+        <div class="v" id="vPeso">-,---<small> kg</small></div>
+        <div class="faixa" id="vFaixa">&nbsp;</div>
+        <div class="dif" id="vDif"></div>
+      </div>
+      <div class="caixa status">
+        <div class="ico" id="sIco">⏳</div>
+        <div class="tit" id="sTit">Conectando…</div>
+        <div class="sub" id="sSub"></div>
+        <div class="serie" id="sSerie"></div>
+      </div>
+    </div>
+
+    <div class="dir">
+      <div class="caixa cx-lista">
+        <div class="rot">Células · pesados / meta · saldo x cadência</div>
+        <div class="l" id="cels"><div class="vazio">Nenhuma célula rodando agora.</div></div>
+      </div>
+      <div class="caixa cx-lista">
+        <div class="rot">Últimas pesagens desta balança</div>
+        <div class="l" id="lista"><div class="vazio">Nenhuma pesagem ainda.</div></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Ajustes: nome da estação e balança -->
+<div class="cobre" id="cfg">
+  <div class="painel">
+    <h2>Ajustes da estação</h2>
+    <p id="cfgTxt">Esta balança <b>não fica presa a nenhuma célula</b>. É o <b>número de série</b> bipado que diz de qual célula é a peça: ele é procurado na faixa de séries (inicial e final) que o administrador colocou em cada célula.</p>
+    <label for="cfgNome">Nome desta estação (como aparece para o administrador)</label>
+    <div class="linha"><input class="controle" id="cfgNome" maxlength="60" placeholder="Balança linha 1"><button class="btn btn-fantasma" id="cfgSalvarNome">Salvar nome</button></div>
+    <label>Balança (cabo USB)</label>
+    <div class="linha">
+      <button class="btn btn-primario" id="cfgBal">🔌 Conectar / trocar a balança</button>
+      <span id="cfgBalTxt" style="color:var(--t2);font-size:13px"></span>
+    </div>
+    <div class="rodape-p"><a href="/">← Portal</a><button class="btn btn-fantasma" id="cfgFechar">Fechar</button></div>
+  </div>
+</div>
+
+<!-- Sem autorização -->
+<div class="cobre" id="semAut">
+  <div class="painel" style="text-align:center">
+    <h2>Este computador precisa de um login</h2>
+    <p>Faça o login uma vez neste notebook. Depois disso a estação fica ligada sozinha, mesmo desligando e ligando o computador.</p>
+    <a class="btn btn-primario btn-lg" href="/login">Fazer login</a>
+  </div>
+</div>
+
+<div id="toast"></div>
+<div id="simular">SIMULAÇÃO · peso <input class="controle" id="simPeso" type="number" step="0.001" value="0"> kg</div>
+
+<script src="/js/cadc.js?v=5"></script>
+<script src="/js/balanca.js?v=1"></script>
+<script>
+/* ═══════════ Estação de pesagem ═══════════
+   1. coloca o produto  →  2. bipa o número de série  →  3. o sistema acha a célula pela série e confere o peso com o produto dela  →  4. retira o produto */
+const $ = id => document.getElementById(id);
+const BASE = '/api/pesagem';
+const guarda = {
+  ler(k) { try { return localStorage.getItem(k); } catch { return null; } },
+  por(k, v) { try { v == null ? localStorage.removeItem(k) : localStorage.setItem(k, v); } catch {} }
+};
+let DEVICE = guarda.ler('est_device');
+if (!DEVICE || !/^[A-Za-z0-9_-]{8,80}$/.test(DEVICE)) {
+  const a = new Uint8Array(12); crypto.getRandomValues(a);
+  DEVICE = 'est-' + [...a].map(b => b.toString(16).padStart(2, '0')).join('');
+  guarda.por('est_device', DEVICE);
+}
+const SIMULAR = new URLSearchParams(location.search).has('simular');
+const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const kg = (n, casas = 3) => Number(n).toFixed(casas).replace('.', ',');
+
+/* ───────── conversa com o servidor ───────── */
+function cabecalhos(extra) {
+  const h = { ...(extra || {}) }, tk = guarda.ler('est_token');
+  if (tk) { h['X-Est-Device'] = DEVICE; h['X-Est-Token'] = tk; }
+  return h;
+}
+async function api(metodo, caminho, corpo, prazo = 9000) {
+  const ctl = new AbortController();
+  const t = setTimeout(() => ctl.abort(), prazo);
+  try {
+    const r = await fetch(BASE + caminho, {
+      method: metodo, cache: 'no-store', credentials: 'same-origin', signal: ctl.signal,
+      headers: cabecalhos(corpo ? { 'Content-Type': 'application/json' } : null),
+      body: corpo ? JSON.stringify(corpo) : undefined
+    });
+    let d = null; try { d = await r.json(); } catch {}
+    if (r.status === 401) { $('semAut').classList.add('ativo'); const e = new Error('Sem autorização'); e.status = 401; throw e; }
+    if (!r.ok) { const e = new Error((d && d.error) || 'Erro ' + r.status); e.status = r.status; e.dados = d; throw e; }
+    $('semAut').classList.remove('ativo');
+    if (d && d.token) guarda.por('est_token', d.token);
+    return d;
+  } catch (e) {
+    if (e.name === 'AbortError') throw new Error('Servidor demorou para responder');
+    throw e;
+  } finally { clearTimeout(t); }
+}
+
+/* ───────── sons e voz ───────── */
+let audioCtx = null;
+function tom(freqs, dur = 0.16, tipo = 'sine') {
+  try {
+    audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)();
+    if (audioCtx.state === 'suspended') audioCtx.resume();
+    const t0 = audioCtx.currentTime;
+    freqs.forEach((f, i) => {
+      const o = audioCtx.createOscillator(), g = audioCtx.createGain();
+      o.type = tipo; o.frequency.value = f;
+      g.gain.setValueAtTime(0.0001, t0 + i * (dur + 0.02));
+      g.gain.exponentialRampToValueAtTime(0.4, t0 + i * (dur + 0.02) + 0.02);
+      g.gain.exponentialRampToValueAtTime(0.0001, t0 + i * (dur + 0.02) + dur);
+      o.connect(g); g.connect(audioCtx.destination);
+      o.start(t0 + i * (dur + 0.02)); o.stop(t0 + i * (dur + 0.02) + dur + 0.02);
+    });
+  } catch (e) { /* sem som */ }
+}
+const somOk = () => tom([880, 1320]);
+const somErro = () => tom([220, 165, 220], 0.22, 'square');
+function falar(txt) {
+  try {
+    if (!('speechSynthesis' in window)) return;
+    const f = new SpeechSynthesisUtterance(txt); f.lang = 'pt-BR';
+    window.speechSynthesis.cancel(); window.speechSynthesis.speak(f);
+  } catch (e) { /* sem voz */ }
+}
+let toastT = null;
+function toast(txt, bom = false, ms = 4500) {
+  const t = $('toast'); t.textContent = txt; t.className = 'ativo' + (bom ? ' bom' : '');
+  clearTimeout(toastT); toastT = setTimeout(() => { t.className = ''; }, ms);
+}
+
+/* ───────── estado ───────── */
+let EST = null, CELULAS = [], ULT = [], REDE_OK = false, redeFalhas = 0;
+const L = { kg: null, est: false, em: 0, iguais: 0 };                    // leitura da balança
+// produto que está na balança: res = resposta do servidor ao bipe (registrado / incorreto)
+const P = { fase: 'carregando', res: null, pesoRes: null, enviando: false, erro: '' };
+let bufSerie = '', bufEm = 0, celAgora = null, celAgoraNok = false, celAgoraT = null;
+
+const VAZIO_KG = 0.1;                                                     // abaixo disso a balança está vazia
+const balancaViva = () => SIMULAR || (bal.estado === 'lendo' && Date.now() - L.em < 2500);
+const leituraEstavel = () => L.kg != null && (L.iguais >= 4 || (L.est && L.iguais >= 2));
+
+/* ───────── balança ───────── */
+function novaLeitura({ kg: v, est }) {
+  if (L.kg != null && Math.abs(v - L.kg) < 0.0005) L.iguais++; else L.iguais = 1;
+  L.kg = v; L.est = !!est; L.em = Date.now();
+  avaliar();
+}
+const bal = new Balanca({ aoLer: novaLeitura, aoMudar: () => { pintarBalanca(); avaliar(); } });
+function pintarBalanca() {
+  const c = $('cBal'), t = $('cBalTxt');
+  const e = SIMULAR ? 'lendo' : bal.estado;
+  c.className = 'chip ' + (e === 'lendo' ? 'ok' : e === 'sem-sinal' || e === 'abrindo' ? 'av' : 'erro');
+  t.textContent = SIMULAR ? 'Balança (simulação)' : e === 'lendo' ? 'Balança ligada' : e === 'sem-sinal' ? 'Balança sem sinal' : e === 'abrindo' ? 'Abrindo…' : 'Conectar balança';
+  $('cfgBalTxt').textContent = !Balanca.suportado ? 'Este navegador não lê a balança. Use o Chrome ou o Edge.'
+    : e === 'lendo' ? 'Ligada e lendo' + (bal.invertido ? ' (kit Novus)' : '') : e === 'sem-sinal' ? 'Porta aberta, mas a balança não responde. Ela está ligada?' : (bal.msgErro || 'Desligada');
+}
+$('cBal').onclick = async () => { if (SIMULAR) return; if (bal.estado === 'lendo') { abrirCfg(); return; } tom([660], 0.05); await bal.escolher(); };
+$('cfgBal').onclick = () => bal.escolher();
+
+/* ───────── máquina de estados da pesagem ─────────
+   vazia → (coloca o produto) → pesando → PRONTO: bipe a série → REGISTRADO ou PESO INCORRETO → (retira) → vazia */
+function avaliar() {
+  if (!EST) return pintar('carregando');
+  if (!balancaViva()) return pintar('sembalanca');
+  const v = L.kg;
+  if (v < VAZIO_KG) {                                    // balança vazia: acabou este produto
+    if (leituraEstavel() || v <= 0) { P.res = null; P.pesoRes = null; P.erro = ''; }
+    return pintar(P.res && P.res.success ? 'registrado' : 'vazia');
+  }
+  if (P.res && P.res.success) return pintar('registrado');
+  if (!leituraEstavel()) return pintar('instavel');
+  // peso incorreto: fica na tela até o operador mexer no produto (o peso mudar)
+  if (P.res && P.res.incorreto && Math.abs(v - P.pesoRes) < 0.0005) return pintar('incorreto');
+  if (P.res && P.res.incorreto) { P.res = null; P.pesoRes = null; }
+  pintar('pronto');
+}
+setInterval(avaliar, 300);
+
+const TELAS = {
+  carregando: ['⏳', 'Conectando…', ''],
+  sembalanca: ['🔌', 'Balança desligada', 'Confira se a balança está ligada e o cabo USB no computador. Toque em “Conectar balança”.'],
+  vazia:      ['📦', 'Coloque o produto na balança', ''],
+  instavel:   ['⚖️', 'Pesando…', 'Aguarde o peso parar.'],
+  pronto:     ['🔖', 'BIPE O NÚMERO DE SÉRIE', 'Passe a coletora na etiqueta de série do produto.'],
+  incorreto:  ['⛔', 'PESO INCORRETO', ''],
+  registrado: ['✅', 'PESO CORRETO — REGISTRADO', '']
+};
+function pintar(fase) {
+  P.fase = fase;
+  document.body.dataset.fase = fase === 'sembalanca' ? 'erro' : fase;
+  const t = TELAS[fase] || TELAS.carregando;
+  let tit = t[1], sub = t[2], serie = '', faixaTxt = '&nbsp;', dif = '';
+  const v = L.kg, viva = balancaViva(), r = P.res;
+
+  $('vPeso').innerHTML = (viva && v != null ? kg(v) : '-,---') + '<small> kg</small>';
+
+  if (r && (fase === 'registrado' || fase === 'incorreto')) {
+    const f = r.faixa;
+    faixaTxt = `<b>${esc(r.celula)}</b> · ${esc(r.produto || '')}` + (f ? ` · deve pesar <b>${kg(f.min)}</b> a <b>${kg(f.max)} kg</b>` : ' · produto sem peso cadastrado');
+    if (f) { const d = r.peso_kg - f.padrao; dif = Math.abs(d) < 0.0005 ? 'peso exato' : (d > 0 ? 'sobrando ' : 'faltando ') + kg(Math.abs(d)) + ' kg'; }
+    serie = r.serie;
+  }
+  if (fase === 'registrado' && r) {
+    if (!r.conferido) tit = 'REGISTRADO';
+    sub = `${r.celula} · peso ${kg(r.peso_kg)} kg gravado às ${r.hora}.` + (r.conferido ? '' : ' Produto sem peso cadastrado: gravado sem conferência.') + ' Retire o produto.';
+  }
+  if (fase === 'incorreto' && r && r.faixa) {
+    const d = r.peso_kg - r.faixa.padrao;
+    sub = `${r.celula}: está ${d > 0 ? 'sobrando' : 'faltando'} ${kg(Math.abs(d))} kg. Não contou. Confira o produto e bipe de novo.`;
+  }
+  if (fase === 'pronto') {
+    if (P.enviando) sub = 'Conferindo…';
+    else if (P.erro) sub = '⚠ ' + P.erro;
+    serie = bufSerie;
+  }
+  if (fase === 'sembalanca' && bal.msgErro) sub = bal.msgErro;
+  if (fase === 'sembalanca' && !Balanca.suportado) sub = 'Este navegador não lê a balança. Abra esta tela no Chrome ou no Edge.';
+  $('vFaixa').innerHTML = faixaTxt; $('vDif').textContent = dif;
+  $('sIco').textContent = t[0]; $('sTit').textContent = tit; $('sSub').textContent = sub; $('sSerie').textContent = serie;
+}
+
+/* ───────── coletora (leitor de código de barras = teclado) ───────── */
+document.addEventListener('keydown', ev => {
+  if (ev.target && /^(INPUT|TEXTAREA|SELECT)$/.test(ev.target.tagName)) return;      // digitando nos ajustes
+  if (ev.ctrlKey || ev.altKey || ev.metaKey) return;
+  const agora = Date.now();
+  if (agora - bufEm > 8000) bufSerie = '';
+  if (ev.key === 'Enter' || ev.key === 'Tab') {
+    if (bufSerie) { ev.preventDefault(); const s = bufSerie; bufSerie = ''; bipou(s); }
+    return;
+  }
+  if (ev.key === 'Backspace') { bufSerie = bufSerie.slice(0, -1); bufEm = agora; pintar(P.fase); return; }
+  if (ev.key === 'Escape') { bufSerie = ''; pintar(P.fase); return; }
+  if (ev.key.length === 1 && /[A-Za-z0-9\-_/.]/.test(ev.key) && bufSerie.length < 40) {
+    bufSerie += ev.key.toUpperCase(); bufEm = agora;
+    if (P.fase === 'pronto') pintar(P.fase);
+  }
+});
+
+function destacar(celId, nok) {
+  celAgora = celId; celAgoraNok = !!nok;
+  clearTimeout(celAgoraT); celAgoraT = setTimeout(() => { celAgora = null; pintarCelulas(); }, 8000);
+}
+
+async function bipou(serie) {
+  if (P.enviando) return;
+  const recusa = {
+    carregando: 'Aguarde a estação conectar.',
+    vazia: 'Coloque o produto na balança antes de bipar.',
+    instavel: 'Espere o peso parar antes de bipar.',
+    registrado: 'Este produto já foi registrado. Retire-o e coloque o próximo.',
+    sembalanca: 'Balança desligada: não dá para registrar.'
+  }[P.fase];
+  if (recusa) { somErro(); toast(recusa); return; }
+  const peso = L.kg;                      // 'pronto' ou 'incorreto' (bipou de novo sem mexer): confere com o peso de agora
+  P.enviando = true; P.erro = ''; P.res = null; pintar('pronto');
+  try {
+    const r = await api('POST', '/registrar', { device_id: DEVICE, serie, peso_kg: peso });
+    P.res = r; P.pesoRes = peso;
+    if (r.ultimas) ULT = r.ultimas;
+    aplicarContagem(r);
+    destacar(r.celula_id, false);
+    somOk();
+  } catch (e) {
+    const d = e.dados || {};
+    if (d.incorreto) {
+      P.res = d; P.pesoRes = peso;
+      if (d.ultimas) ULT = d.ultimas;
+      aplicarContagem(d);
+      destacar(d.celula_id, true);
+      somErro(); setTimeout(() => falar('Peso incorreto'), 700);
+    } else {
+      somErro();
+      P.erro = e.message;
+      toast(e.message, false, 7000);
+      if (d.duplicada) falar('Série já registrada');
+      else if (d.sem_celula) falar('Série fora da faixa');
+    }
+  }
+  P.enviando = false;
+  pintarCelulas(); pintarLista(); avaliar();
+}
+function aplicarContagem(r) {
+  const c = CELULAS.find(x => x.id === r.celula_id);
+  if (c && r.contagem) c.pesagem = { ...(c.pesagem || {}), ok: r.contagem.ok, nok: r.contagem.nok };
+}
+
+/* ───────── células: pesados x meta x cadência ───────── */
+function pintarCelulas() {
+  const agora = Cadc.agora();
+  $('cels').innerHTML = CELULAS.length ? CELULAS.map(c => {
+    let sit = { fase: 'sem-config', total: 0, feitos: 0 };
+    try { sit = Cadc.situacao(c, agora); } catch (e) { /* sem grade */ }
+    const pz = c.pesagem || { ok: 0, nok: 0 };
+    const meta = c.ordem && c.ordem.meta > 0 ? Math.round(c.ordem.meta) : sit.total;
+    const previsto = sit.fase === 'fora' || sit.fase === 'sem-config' ? 0 : sit.feitos;
+    const saldo = pz.ok - previsto;
+    const o = c.ordem || {};
+    const fx = o.serie_inicial ? `séries <b>${esc(String(o.serie_inicial).replace(/\D/g, '').replace(/^0+(?=\d)/, ''))}</b> a <b>${esc(String(o.serie_final || '?').replace(/\D/g, '').replace(/^0+(?=\d)/, '') || '?')}</b>` : '<span class="neg">sem faixa de série — não recebe pesagem</span>';
+    return `<div class="cel${celAgora === c.id ? ' agora' + (celAgoraNok ? ' nok' : '') : ''}">
+      <div class="c1"><span class="nm">${esc(c.nome)}</span><span class="pr">${esc(c.produto ? c.produto.nome : '')}</span>
+        <span class="qt">${pz.ok}<small> / ${meta || '—'}</small></span></div>
+      <div class="barra"><i style="width:${meta ? Math.min(100, pz.ok / meta * 100) : 0}%"></i></div>
+      <div class="c2">
+        <span>${fx}</span>
+        <span>cadência previa <b>${previsto}</b></span>
+        <span>saldo <b class="${saldo < 0 ? 'neg' : 'pos'}">${saldo > 0 ? '+' : ''}${saldo}</b></span>
+        ${c.faixa ? `<span>peso <b>${kg(c.faixa.padrao)}</b> ± ${kg(c.faixa.tol)}</span>` : '<span>sem peso cadastrado</span>'}
+        ${pz.nok ? `<span class="neg">${pz.nok} peso(s) incorreto(s)</span>` : ''}
+      </div></div>`;
+  }).join('') : '<div class="vazio">Nenhuma célula rodando agora.<br>O administrador inicia em Linha de Produção › Cadenciador central.</div>';
+}
+function pintarLista() {
+  $('lista').innerHTML = ULT.length ? ULT.map(u => `
+    <div class="h ${u.ok === false ? 'nok' : ''}">
+      <span class="hr">${esc(u.hora)}</span>
+      <span class="se">${esc(u.serie || '—')}<small>${esc(u.celula_nome || '')}${u.ok === false ? ' · PESO INCORRETO' : ''}</small></span>
+      <span class="pe">${kg(u.peso_kg)} kg</span>
+    </div>`).join('') : '<div class="vazio">Nenhuma pesagem ainda.</div>';
+}
+function pintarTopo() {
+  $('tCel').textContent = EST ? EST.nome : 'Estação de pesagem';
+  const n = CELULAS.length;
+  $('tDet').textContent = n ? `${n} célula${n === 1 ? '' : 's'} rodando · a série bipada diz de qual célula é a peça` : 'Nenhuma célula rodando agora';
+}
+
+/* ───────── consulta ao servidor (a cada 2 s) ───────── */
+let consultando = false;
+async function consultar() {
+  if (consultando) return; consultando = true;
+  try {
+    const q = new URLSearchParams({ device_id: DEVICE, balanca: balancaViva() ? '1' : '0' });
+    if (balancaViva() && L.kg != null) q.set('peso', L.kg);
+    const t0 = performance.now();
+    const r = await api('GET', '/estado?' + q);
+    Cadc.acertar(r, t0, performance.now());
+    EST = r.estacao;
+    if (!P.enviando) { CELULAS = r.celulas || []; ULT = r.ultimas || []; }
+    REDE_OK = true; redeFalhas = 0;
+  } catch (e) {
+    if (++redeFalhas >= 2) REDE_OK = false;
+  }
+  consultando = false;
+  const cr = $('cRede');
+  cr.className = 'chip ' + (REDE_OK ? 'ok' : 'erro');
+  $('cRedeTxt').textContent = REDE_OK ? 'Sistema ligado' : 'Sem conexão';
+  pintarTopo(); pintarCelulas(); pintarLista(); avaliar();
+}
+setInterval(consultar, 2000);
+Cadc.aCadaSegundo(() => { $('tRel').textContent = Cadc.agora(); if (new Date().getSeconds() % 5 === 0) pintarCelulas(); });
+
+/* ───────── ajustes ───────── */
+function abrirCfg() { $('cfgNome').value = EST ? EST.nome || '' : ''; pintarBalanca(); $('cfg').classList.add('ativo'); }
+$('cCfg').onclick = abrirCfg;
+$('cRede').onclick = consultar;
+$('cfgFechar').onclick = () => $('cfg').classList.remove('ativo');
+$('cfgSalvarNome').onclick = async () => {
+  const nome = $('cfgNome').value.trim(); if (!nome) return;
+  try { await api('POST', '/estacao', { device_id: DEVICE, nome }); toast('Nome salvo.', true, 2000); consultar(); } catch (e) { toast(e.message); }
+};
+
+/* ───────── simulação (endereço com ?simular) — para treinar sem balança ───────── */
+if (SIMULAR) {
+  $('simular').style.display = 'flex';
+  setInterval(() => novaLeitura({ kg: parseFloat($('simPeso').value) || 0, est: true }), 200);
+}
+
+/* ───────── partida ───────── */
+pintarBalanca();
+consultar();
+if (!SIMULAR) bal.religar();
+// volta do descanso do notebook / aba em primeiro plano: confere a balança e o servidor
+document.addEventListener('visibilitychange', () => { if (!document.hidden) { consultar(); if (!SIMULAR && bal.estado !== 'lendo') bal.religar(); } });
+setInterval(() => { if (!SIMULAR && (bal.estado === 'desligada' || bal.estado === 'erro')) bal.religar(); }, 5000);
+</script>
+</body>
+</html>

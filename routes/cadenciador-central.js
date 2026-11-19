@@ -112,7 +112,7 @@ async function comando(celulaId, { tipo = 'voz', texto: t = null, tabletId = nul
 /* ─────────────── estado da célula ─────────────── */
 
 const SQL_CELULA = `
-  SELECT c.*, p.nome AS produto_nome, p.cod_decio,
+  SELECT c.*, p.nome AS produto_nome, p.cod_decio, p.peso_kg::float AS peso_kg, p.peso_tol_kg::float AS peso_tol_kg,
          COALESCE(c.takt_manual, tt.takt_min, p.takt_min)::float AS takt_min,
          COALESCE(tt.takt_min, p.takt_min)::float AS takt_cadastro,
          EXTRACT(EPOCH FROM (NOW() - c.pausa_inicio))::int AS pausa_decorrido_seg,
@@ -120,7 +120,8 @@ const SQL_CELULA = `
          to_char(c.rodada_data, 'YYYY-MM-DD') AS rodada_dia,
          o.num_op AS o_num_op, o.serie_inicial AS o_serie_inicial, o.serie_final AS o_serie_final,
          o.meta::float AS o_meta, o.operadores AS o_operadores, o.horas_operador::float AS o_horas,
-         o.obs AS o_obs, o.repetir AS o_repetir, o.cod_decio AS o_cod_decio, to_char(o.data,'YYYY-MM-DD') AS o_dia
+         o.obs AS o_obs, o.repetir AS o_repetir, o.cod_decio AS o_cod_decio, to_char(o.data,'YYYY-MM-DD') AS o_dia,
+         to_char(o.hora_inicio,'HH24:MI:SS') AS o_hora_inicio, to_char(o.hora_fim,'HH24:MI:SS') AS o_hora_fim, o.iniciada_em AS o_iniciada_em
   FROM cadc_celulas c
   LEFT JOIN cad_produtos p ON p.id = c.produto_id
   LEFT JOIN cad_takt_turno tt ON tt.produto_id = c.produto_id AND tt.turno_id = c.turno_id
@@ -201,18 +202,19 @@ async function carregarCelulas(filtroId = null) {
   if (ids.length) {
     const r = await pool.query(
       `SELECT k.celula_id, k.rodada, k.numero, to_char(k.hora_prevista,'HH24:MI:SS') AS hora, k.produto_nome,
-              k.concluido, k.observacao, (k.rodada = c.rodada) AS atual
+              k.concluido, k.observacao, k.atrasado, k.pesados, k.manual, (k.rodada = c.rodada) AS atual
          FROM cadc_ciclos k JOIN cadc_celulas c ON c.id = k.celula_id
         WHERE k.celula_id = ANY($1::int[]) AND (k.rodada = c.rodada OR k.data = c.rodada_data)
         ORDER BY k.rodada, k.numero`, [ids]);
     for (const k of r.rows) {
       if (k.atual) {
         if (!marcas.has(k.celula_id)) marcas.set(k.celula_id, {});
-        marcas.get(k.celula_id)[k.numero] = { c: k.concluido, o: k.observacao || '' };
+        marcas.get(k.celula_id)[k.numero] = { c: k.concluido, o: k.observacao || '', at: !!k.atrasado && !k.concluido };
       } else {
         if (!anteriores.has(k.celula_id)) anteriores.set(k.celula_id, []);
         anteriores.get(k.celula_id).push({ rodada: k.rodada, numero: k.numero, hora: k.hora,
-          produto: k.produto_nome, concluido: k.concluido, observacao: k.observacao || '' });
+          produto: k.produto_nome, concluido: k.concluido, observacao: k.observacao || '',
+          atrasado: !!k.atrasado && !k.concluido, pesados: k.pesados });
       }
     }
   }
@@ -223,18 +225,172 @@ async function carregarCelulas(filtroId = null) {
     const r = await pool.query(SQL_ORDEM + ` WHERE o.status='programada' ORDER BY o.data, o.id`);
     for (const o of r.rows) {
       const k = String(o.celula_nome).toLowerCase();
-      if (!proximas.has(k)) proximas.set(k, { id: o.id, dia: o.dia, turno: o.turno_nome, hora: o.turno_inicio, produto: o.prod_nome });
+      if (!proximas.has(k)) proximas.set(k, { id: o.id, dia: o.dia, turno: o.turno_nome, hora: o.hora_inicio ? String(o.hora_inicio).slice(0, 5) : o.turno_inicio, produto: o.prod_nome });
     }
   }
 
+  // Produção real (balança) x cadência: contagem, ciclos no prazo/atrasados, tempos de saída e OEE
+  const dados = await dadosDeProducao(linhas);
+
   return linhas.map(c => {
-    const e = montarEstado(c, porId.get(c.turno_id), limite);
+    const turno = porId.get(c.turno_id);
+    const e = montarEstado(c, turno, limite);
     e.proxima = proximas.get(String(c.nome).toLowerCase()) || null;
     if (e.proxima) e.sinal += '.' + e.proxima.id;
     e.marcas = marcas.get(c.id) || {};
     e.anteriores = anteriores.get(c.id) || [];
+    analisarProducao(c, e, turno, dados);
     return e;
   });
+}
+
+/* ─────────────── produção real (balança) x cadência ─────────────── */
+
+const MOTIVO_ATRASO = 'Atrasado: nenhum produto pesado no prazo do takt';
+
+/** Há alguma estação de pesagem em uso? (sem balança, ninguém é marcado como atrasado) */
+let balancaVista = { em: 0, viva: false };
+async function balancaEmUso() {
+  if (Date.now() - balancaVista.em > 15000) {
+    const r = await pool.query(`SELECT 1 FROM cadc_estacoes WHERE visto_em > NOW() - INTERVAL '12 hours' LIMIT 1`);
+    balancaVista = { em: Date.now(), viva: r.rowCount > 0 };
+  }
+  return balancaVista.viva;
+}
+
+/** Junta faixas [a,b] que se encostam ou se sobrepõem. */
+function juntarFaixas(faixas) {
+  const f = faixas.filter(x => x[1] > x[0]).sort((x, y) => x[0] - y[0]);
+  const r = [];
+  for (const x of f) {
+    const u = r[r.length - 1];
+    if (u && x[0] <= u[1]) u[1] = Math.max(u[1], x[1]); else r.push([x[0], x[1]]);
+  }
+  return r;
+}
+/** Segundos entre dois offsets do turno, sem contar as faixas "fora" (intervalos, paradas). */
+function tempoUtil(a, b, fora) {
+  if (!(b > a)) return 0;
+  let t = b - a;
+  for (const [x, y] of fora) t -= Math.max(0, Math.min(b, y) - Math.max(a, x));
+  return Math.max(0, t);
+}
+
+/** Lê de uma vez o que a análise precisa: pesagens das programações ativas, paradas e ciclos já arquivados. */
+async function dadosDeProducao(linhas) {
+  const ordens = linhas.map(c => c.ordem_id).filter(Boolean);
+  const d = { pes: new Map(), par: new Map(), arq: new Map(), balanca: false };
+  if (!ordens.length) return d;
+  d.balanca = await balancaEmUso();
+  const [pes, par, arq] = await Promise.all([
+    pool.query(`SELECT ordem_id, serie, serie_num, ok, criado_em FROM cadc_pesagens WHERE ordem_id = ANY($1::int[]) ORDER BY id`, [ordens]),
+    pool.query(`SELECT celula_id, inicio, COALESCE(fim, NOW()) AS fim FROM cadc_paradas
+                 WHERE celula_id = ANY($1::int[]) AND COALESCE(fim, NOW()) > NOW() - INTERVAL '26 hours'`, [linhas.map(c => c.id)]),
+    pool.query(`SELECT k.ordem_id, COUNT(*)::int AS n, COUNT(*) FILTER (WHERE k.atrasado)::int AS atr
+                  FROM cadc_ciclos k JOIN cadc_celulas c ON c.id = k.celula_id
+                 WHERE k.ordem_id = ANY($1::int[]) AND k.rodada <> c.rodada GROUP BY k.ordem_id`, [ordens])
+  ]);
+  for (const x of pes.rows) { if (!d.pes.has(x.ordem_id)) d.pes.set(x.ordem_id, []); d.pes.get(x.ordem_id).push(x); }
+  for (const x of par.rows) { if (!d.par.has(x.celula_id)) d.par.set(x.celula_id, []); d.par.get(x.celula_id).push(x); }
+  for (const x of arq.rows) d.arq.set(x.ordem_id, x);
+  return d;
+}
+
+/** Quantas peças boas foram pesadas dentro de cada ciclo (fim do anterior → fim deste). */
+function pesadosPorCiclo(offCiclos, offPesagens, inicioRodada) {
+  const n = offCiclos.map(() => 0);
+  let i = 0;
+  for (const p of offPesagens) {              // as duas listas estão em ordem de tempo
+    if (p <= inicioRodada) continue;          // peça de uma contagem anterior (antes de trocar o takt / reiniciar)
+    while (i < offCiclos.length && p > offCiclos[i]) i++;
+    if (i >= offCiclos.length) break;
+    n[i]++;
+  }
+  return n;
+}
+
+/**
+ * Completa o estado da célula com a produção real:
+ *  e.pesagem  contagem de peças;
+ *  e.marcas   ciclo encerrado sem nenhuma peça pesada no prazo = ATRASADO (se o admin não marcou à mão);
+ *  e.saidas   tempo de saída de cada produto (para comparar com o takt);
+ *  e.ind      planejado x realizado, takt real e OEE (disponibilidade x performance x qualidade).
+ */
+function analisarProducao(c, e, turno, d) {
+  e.pesagem = { ok: 0, nok: 0, ultima: null, ultima_serie: null };
+  e.saidas = []; e.ind = null;
+  if (!c.ordem_id || !turno) return;
+  const lista = d.pes.get(c.ordem_id) || [];
+  const hms = t => horaFabrica(new Date(t));
+  const boas = lista.filter(x => x.ok !== false);
+  const ruins = lista.filter(x => x.ok === false);
+  if (boas.length) { const u = boas[boas.length - 1]; e.pesagem.ultima = hms(u.criado_em); e.pesagem.ultima_serie = u.serie; }
+  e.pesagem.ok = boas.length; e.pesagem.nok = ruins.length;
+  if (!e.pronto) return;
+
+  const dur = duracaoTurnoSeg(turno);
+  const agora = offsetNoTurno(horaFabrica(), turno);
+  const dentro = agora <= dur;
+  const fim = e.fim_off_seg != null ? e.fim_off_seg : dur;
+  const ate = dentro ? Math.min(agora, fim) : fim;
+  const abertura = Date.now() - (dentro ? agora : dur) * 1000;        // instante em que este turno abriu
+  const offDe = t => { const x = new Date(t).getTime(); return x <= abertura ? 0 : Math.min(dur, (x - abertura) / 1000); };
+
+  const intervalos = juntarFaixas((turno.intervalos || []).map(i => [offsetNoTurno(i.hora_inicio, turno), offsetNoTurno(i.hora_fim, turno)]));
+  const paradas = (d.par.get(c.id) || []).filter(x => new Date(x.fim).getTime() > abertura).map(x => [offDe(x.inicio), offDe(x.fim)]);
+  const fora = juntarFaixas([...intervalos, ...paradas]);
+
+  const inicio = Math.min(c.o_iniciada_em ? offDe(c.o_iniciada_em) : 0, ate);
+  const offBoas = boas.map(x => offDe(x.criado_em));
+  const taktSeg = Math.max(1, e.takt_min * 60);
+
+  // tempo de saída de cada produto = tempo útil desde a peça anterior (sem intervalos e sem linha parada)
+  let ant = inicio;
+  boas.forEach((x, i) => {
+    const min = tempoUtil(ant, offBoas[i], fora) / 60;
+    ant = Math.max(ant, offBoas[i]);
+    e.saidas.push({ h: hms(x.criado_em), s: x.serie, min: Math.round(min * 100) / 100, n: i + 1 });
+  });
+  if (e.saidas.length > 150) e.saidas = e.saidas.slice(-150);
+
+  // ciclos encerrados: com peça no prazo ou atrasados
+  const avalia = !!c.o_serie_inicial && (lista.length > 0 || d.balanca);
+  const offCiclos = e.ciclos.map(h => offsetNoTurno(h, turno));
+  const feitos = dentro ? offCiclos.filter(o => o <= agora).length : offCiclos.length;
+  const porCiclo = pesadosPorCiclo(offCiclos, offBoas, (c.inicio_off_seg || 0) - 0.5);
+  let atrasados = 0;
+  for (let i = 0; i < feitos; i++) {
+    const m = e.marcas[i + 1];
+    if (m) { m.p = porCiclo[i]; if (m.at) atrasados++; continue; }
+    if (!avalia) continue;
+    const semPeca = porCiclo[i] === 0;
+    e.marcas[i + 1] = { c: !semPeca, o: semPeca ? MOTIVO_ATRASO : '', at: semPeca, p: porCiclo[i], auto: true };
+    if (semPeca) atrasados++;
+  }
+  e.sinal += '.a' + atrasados + '.' + Object.keys(e.marcas).length;
+
+  // indicadores
+  const arq = d.arq.get(c.ordem_id) || { n: 0, atr: 0 };
+  const seriesBoas = new Set(boas.map(x => String(x.serie_num)));
+  const refugo = new Set(ruins.map(x => String(x.serie_num)).filter(k => !seriesBoas.has(k))).size;   // pesou errado e não foi corrigido
+  const tProg = tempoUtil(inicio, ate, intervalos);
+  const tRod = tempoUtil(inicio, ate, fora);
+  const pct = x => x == null ? null : Math.round(Math.max(0, Math.min(1, x)) * 1000) / 10;
+  const disp = tProg > 0 ? tRod / tProg : null;
+  const planejado = feitos + arq.n, total = offCiclos.length + arq.n;
+  // performance = peças que passaram na balança ÷ peças que a cadência já pedia (vale mesmo se o takt foi trocado no meio)
+  const perf = !avalia ? null : planejado > 0 ? (boas.length + refugo) / planejado : (tRod > 0 ? Math.min(1, (boas.length + refugo) * taktSeg / tRod) : null);
+  const qual = avalia ? (boas.length + refugo > 0 ? boas.length / (boas.length + refugo) : 1) : null;
+  const oee = disp != null && perf != null && qual != null ? Math.min(1, disp) * Math.min(1, perf) * qual : null;
+  e.ind = {
+    balanca: avalia,
+    planejado, planejado_turno: total, meta: e.ordem && e.ordem.meta > 0 ? Math.round(e.ordem.meta) : total,
+    realizado: boas.length, saldo: boas.length - planejado, refugo, pesos_incorretos: ruins.length,
+    ciclos_fechados: planejado, atrasados: atrasados + arq.atr, no_prazo: avalia ? Math.max(0, planejado - atrasados - arq.atr) : null,
+    takt_min: e.takt_min, takt_real_min: boas.length && tRod > 0 ? Math.round(tRod / boas.length / 6) / 10 : null,
+    tempo_programado_min: Math.round(tProg / 60), tempo_parado_min: Math.round((tProg - tRod) / 60), tempo_rodando_min: Math.round(tRod / 60),
+    disponibilidade: pct(disp), performance: pct(perf), qualidade: pct(qual), oee: pct(oee)
+  };
 }
 
 /**
@@ -250,13 +406,41 @@ async function arquivarRodada(c, turno, limite, { todos = false } = {}) {
     if (o <= duracaoTurnoSeg(turno)) encerrados = encerrados.filter(x => offsetNoTurno(x.hora, turno) <= o);
   }
   if (!encerrados.length) return;
+
+  // Ciclo no prazo x atrasado: quantas peças foram pesadas dentro de cada ciclo
+  let pesados = encerrados.map(() => null), atrasado = encerrados.map(() => false);
+  try {
+    if (c.ordem_id && c.o_serie_inicial) {
+      const pes = (await pool.query(
+        `SELECT criado_em FROM cadc_pesagens WHERE ordem_id=$1 AND ok IS NOT FALSE ORDER BY id`, [c.ordem_id])).rows;
+      if (pes.length || await balancaEmUso()) {
+        // os horários dos ciclos e das pesagens são comparados em segundos desde a abertura do turno DAQUELE dia
+        const dur = duracaoTurnoSeg(turno);
+        const offP = pes.map(x => {
+          const dia = dataFabrica(new Date(new Date(x.criado_em).getTime() - offsetNoTurno(horaFabrica(new Date(x.criado_em)), turno) * 1000));
+          const o = offsetNoTurno(horaFabrica(new Date(x.criado_em)), turno);
+          return dia < c.rodada_dia ? -1 : dia > c.rodada_dia || o > dur ? dur + 1 : o;
+        });
+        const n = pesadosPorCiclo(e.ciclos.map(h => offsetNoTurno(h, turno)), offP, (c.inicio_off_seg || 0) - 0.5);
+        pesados = encerrados.map(x => n[x.numero - 1]);
+        atrasado = pesados.map(q => q === 0);
+      }
+    }
+  } catch (err) { console.error('cadc arquivar pesagens', err.message); }
+
   await pool.query(
-    `INSERT INTO cadc_ciclos (celula_id, rodada, numero, data, hora_prevista, produto_nome)
-     SELECT $1, $2, x.numero, $3::date, x.hora::time, $4
-       FROM unnest($5::int[], $6::text[]) AS x(numero, hora)
+    `INSERT INTO cadc_ciclos (celula_id, rodada, numero, data, hora_prevista, produto_nome, ordem_id, pesados, atrasado, concluido, observacao)
+     SELECT $1, $2, x.numero, $3::date, x.hora::time, $4, $7, x.pesados, x.atrasado, NOT x.atrasado,
+            CASE WHEN x.atrasado THEN $10 END
+       FROM unnest($5::int[], $6::text[], $8::int[], $9::boolean[]) AS x(numero, hora, pesados, atrasado)
      ON CONFLICT (celula_id, rodada, numero) DO UPDATE
-        SET hora_prevista = EXCLUDED.hora_prevista, produto_nome = EXCLUDED.produto_nome`,
-    [c.id, c.rodada, c.rodada_dia, c.produto_nome, encerrados.map(x => x.numero), encerrados.map(x => x.hora)]);
+        SET hora_prevista = EXCLUDED.hora_prevista, produto_nome = EXCLUDED.produto_nome,
+            ordem_id = EXCLUDED.ordem_id, pesados = EXCLUDED.pesados,
+            atrasado   = CASE WHEN cadc_ciclos.manual THEN cadc_ciclos.atrasado AND NOT cadc_ciclos.concluido ELSE EXCLUDED.atrasado END,
+            concluido  = CASE WHEN cadc_ciclos.manual THEN cadc_ciclos.concluido ELSE EXCLUDED.concluido END,
+            observacao = CASE WHEN cadc_ciclos.manual THEN cadc_ciclos.observacao ELSE EXCLUDED.observacao END`,
+    [c.id, c.rodada, c.rodada_dia, c.produto_nome, encerrados.map(x => x.numero), encerrados.map(x => x.hora),
+     c.ordem_id || null, pesados, atrasado, MOTIVO_ATRASO]);
 }
 
 /** Arquiva a contagem atual de uma célula (usado antes de trocar produto/takt ou reiniciar). */
@@ -267,19 +451,30 @@ async function arquivarAtual(id) {
   if (turno) await arquivarRodada(c, turno, await limiteCiclos());
 }
 
+/** Offset (segundos desde a abertura do turno) em que a programação da célula termina; null = vai até o fim do turno. */
+function fimDaOrdem(c, turno) {
+  if (!turno || !c.o_hora_fim) return null;
+  const f = offsetNoTurno(c.o_hora_fim, turno);
+  return f > 0 && f < duracaoTurnoSeg(turno) ? f : null;
+}
+
 function montarEstado(c, turno, limite) {
   // Sem programação rodando, a célula fica parada esperando a próxima
   const pronto = !!(c.ordem_id && turno && c.produto_id && c.takt_min > 0);
   const ordem = c.ordem_id ? {
     id: c.ordem_id, dia: c.o_dia, num_op: c.o_num_op, serie_inicial: c.o_serie_inicial, serie_final: c.o_serie_final,
     meta: c.o_meta, operadores: c.o_operadores, horas_operador: c.o_horas, obs: c.o_obs || '',
-    repetir: !!c.o_repetir, cod_decio: c.o_cod_decio
+    repetir: !!c.o_repetir, cod_decio: c.o_cod_decio,
+    hora_inicio: c.o_hora_inicio || null, hora_fim: c.o_hora_fim || null
   } : null;
+  // Programação com hora de fim: os ciclos param nela (o resto do turno fica para o próximo produto)
+  const fimOff = fimDaOrdem(c, turno);
   let ciclos = [];
   if (pronto) {
     ciclos = calcularCiclos(turno, c.takt_min, {
       tempoParadoSeg: (c.inicio_off_seg || 0) + (c.tempo_parado_seg || 0), limite
     }).map(x => x.hora);
+    if (fimOff != null) ciclos = ciclos.filter(h => offsetNoTurno(h, turno) <= fimOff);
   }
   const turnoPub = turno ? {
     id: turno.id, nome: turno.nome, codigo: turno.codigo,
@@ -299,12 +494,13 @@ function montarEstado(c, turno, limite) {
     pronto,
     ociosa: !c.ordem_id,
     ordem,
-    produto: c.produto_id ? { id: c.produto_id, nome: c.produto_nome, cod_decio: c.cod_decio } : null,
+    produto: c.produto_id ? { id: c.produto_id, nome: c.produto_nome, cod_decio: c.cod_decio, peso_kg: c.peso_kg, peso_tol_kg: c.peso_tol_kg } : null,
     turno: turnoPub,
     takt_min: c.takt_min,
     takt_cadastro: c.takt_cadastro,
     takt_manual: c.takt_manual != null,
     inicio_off_seg: c.inicio_off_seg || 0,
+    fim_off_seg: fimOff,
     tempo_parado_seg: c.tempo_parado_seg || 0,
     pausada: c.pausada,
     pausa_motivo: c.pausa_motivo,
@@ -449,6 +645,12 @@ function lerCamposOrdem(b) {
     const ids = (Array.isArray(b.tablets) ? b.tablets : []).map(Number).filter(n => Number.isInteger(n) && n > 0);
     c.tablets = ids.length ? [...new Set(ids)].slice(0, 50) : null;
   }
+  for (const k of ['hora_inicio', 'hora_fim']) {
+    if (!tem(k)) continue;
+    const v = String(b[k] == null ? '' : b[k]).trim();
+    if (v && !/^([01]\d|2[0-3]):[0-5]\d(:[0-5]\d)?$/.test(v)) throw erro(400, `Hora de ${k === 'hora_inicio' ? 'início' : 'fim'} inválida (use HH:MM)`);
+    c[k] = v ? (v.length === 5 ? v + ':00' : v) : null;
+  }
   if (tem('data')) {
     if (b.data && !DATA_RE.test(b.data)) throw erro(400, 'Data inválida');
     c.data = b.data || null;
@@ -505,23 +707,59 @@ async function soltarCelula(celId, { dia = null } = {}) {
       WHERE celula_id=$1 AND fim IS NULL`, [celId]);
 }
 
+/** Faixa de horário de uma programação dentro do turno, em segundos desde a abertura: [início, fim]. */
+function faixaDaOrdem(o, turno) {
+  const dur = duracaoTurnoSeg(turno);
+  let a = o.hora_inicio ? offsetNoTurno(String(o.hora_inicio), turno) : 0;
+  let b = o.hora_fim ? offsetNoTurno(String(o.hora_fim), turno) : dur;
+  if (a >= dur) a = 0;
+  if (b <= 0 || b > dur) b = dur;
+  return [a, b];
+}
+/** Confere se o horário pedido cabe no turno. */
+function conferirHorario(o, turno) {
+  const dur = duracaoTurnoSeg(turno), hm = h => String(h).slice(0, 5);
+  const dentro = h => offsetNoTurno(String(h), turno) <= dur;
+  if (o.hora_inicio && !dentro(o.hora_inicio)) throw erro(400, `A hora de início (${hm(o.hora_inicio)}) fica fora do ${turno.nome} (${hm(turno.hora_inicio)} às ${hm(turno.hora_fim)})`);
+  if (o.hora_fim && (!dentro(o.hora_fim) || offsetNoTurno(String(o.hora_fim), turno) === 0)) throw erro(400, `A hora de fim (${hm(o.hora_fim)}) fica fora do ${turno.nome} (${hm(turno.hora_inicio)} às ${hm(turno.hora_fim)})`);
+  if (o.hora_inicio && o.hora_fim && offsetNoTurno(String(o.hora_fim), turno) <= offsetNoTurno(String(o.hora_inicio), turno)) throw erro(400, 'A hora de fim precisa ser depois da hora de início');
+}
+/**
+ * A mesma célula pode ter mais de uma programação no mesmo dia e turno (2 produtos no turno),
+ * desde que os horários não se cruzem. Devolve a programação que cruza com esta, ou null.
+ */
+async function conflitoDeHorario(o, turno, ignorarId) {
+  const r = await pool.query(
+    `SELECT id, produto_nome, to_char(hora_inicio,'HH24:MI:SS') AS hora_inicio, to_char(hora_fim,'HH24:MI:SS') AS hora_fim
+       FROM cadc_ordens WHERE lower(celula_nome)=lower($1) AND data=$2 AND turno_id=$3 AND status='programada' AND id <> COALESCE($4, 0)`,
+    [o.celula_nome, o.dia || o.data, o.turno_id, ignorarId]);
+  const [a, b] = faixaDaOrdem(o, turno);
+  for (const x of r.rows) {
+    const [c, d] = faixaDaOrdem(x, turno);
+    if (a < d && c < b) return x;
+  }
+  return null;
+}
+const msgConflito = (x, cel) => `A ${cel} já tem outra programação nesse dia e turno` +
+  (x.hora_inicio || x.hora_fim ? ` (${x.produto_nome || 'produto'}, ${x.hora_inicio ? 'das ' + x.hora_inicio.slice(0, 5) : 'do início do turno'} ${x.hora_fim ? 'às ' + x.hora_fim.slice(0, 5) : 'até o fim do turno'})` : ' para o turno inteiro') +
+  '. Para montar 2 produtos no mesmo turno, informe a hora de início e de fim de cada um, sem cruzar os horários.';
+
 /** Cópia de uma programação para outro dia (repetição ou continuação do que faltou). */
 async function clonarOrdem(o, dia, extra = {}) {
   // Se a célula já tem algo programado para esse dia e turno, não programa por cima
-  const dup = await pool.query(
-    `SELECT id FROM cadc_ordens WHERE lower(celula_nome)=lower($1) AND data=$2 AND turno_id=$3 AND status='programada'`,
-    [o.celula_nome, dia, o.turno_id]);
-  if (dup.rowCount) return null;
+  const turno = (await turnosCache()).find(t => t.id === o.turno_id);
+  if (turno && await conflitoDeHorario({ ...o, dia }, turno, null)) return null;
   const r = await pool.query(
     `INSERT INTO cadc_ordens (celula_id, celula_nome, data, turno_id, produto_id, produto_nome, takt_manual, num_op,
                               serie_inicial, serie_final, cod_decio, operadores, horas_operador, meta, obs, repetir,
-                              status, origem_id, criado_por, criado_por_id, tablets)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,'programada',$17,$18,$19,$20) RETURNING id`,
+                              status, origem_id, criado_por, criado_por_id, tablets, hora_inicio, hora_fim)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,'programada',$17,$18,$19,$20,$21,$22) RETURNING id`,
     [o.celula_id, o.celula_nome, dia, o.turno_id, o.produto_id, o.prod_nome || o.produto_nome, o.takt_manual, o.num_op,
      'serie_inicial' in extra ? extra.serie_inicial : o.serie_inicial,
      'serie_final' in extra ? extra.serie_final : o.serie_final,
      o.cod_decio, o.operadores, o.horas_operador, 'meta' in extra ? extra.meta : o.meta, o.obs,
-     'repetir' in extra ? extra.repetir : o.repetir, o.id, o.criado_por, o.criado_por_id, o.tablets || null]);
+     'repetir' in extra ? extra.repetir : o.repetir, o.id, o.criado_por, o.criado_por_id, o.tablets || null,
+     o.hora_inicio || null, o.hora_fim || null]);
   return r.rows[0].id;
 }
 
@@ -535,7 +773,12 @@ async function ativarOrdem(o, turno, { por = null, userId = null } = {}) {
 
   // Começou com o turno já andando: os ciclos contam a partir de agora (não desde a abertura do turno)
   const off = offsetNoTurno(horaFabrica(), turno);
-  const inicioOff = off > 120 && off < duracaoTurnoSeg(turno) ? off : 0;
+  let inicioOff = off > 120 && off < duracaoTurnoSeg(turno) ? off : 0;
+  // Programação com hora marcada: os ciclos contam a partir da hora marcada (não do segundo em que o servidor a ligou)
+  if (o.hora_inicio) {
+    const hi = offsetNoTurno(String(o.hora_inicio), turno);
+    if (off >= hi && off - hi <= 180 && hi < duracaoTurnoSeg(turno)) inicioOff = hi;
+  }
 
   let cel = (await pool.query(SQL_CELULA + ' WHERE lower(c.nome) = lower($1) ORDER BY c.id LIMIT 1', [o.celula_nome])).rows[0];
   let celId;
@@ -630,12 +873,34 @@ async function motorPasso() {
     if (o.repetir) await clonarOrdem(o, primeiroDiaUtil(dia));
   }
 
-  // 2. programadas que chegaram na hora
-  const prog = (await pool.query(SQL_ORDEM + ` WHERE o.status='programada' ORDER BY o.data, o.id`)).rows;
+  // 1b. programação com hora de fim: chegou a hora, ela sai da célula (abre espaço para o próximo produto do turno)
+  for (const c of cels) {
+    const turno = porId.get(c.turno_id);
+    if (!c.ordem_id || !c.o_hora_fim || !turno || c.rodada_dia !== dataDoTurno(turno)) continue;
+    const fim = fimDaOrdem(c, turno), off = offsetNoTurno(horaFabrica(), turno);
+    if (fim == null || off > duracaoTurnoSeg(turno) || off < fim) continue;
+    const o = await umaOrdem(c.ordem_id);
+    const pega = await pool.query(
+      `UPDATE cadc_ordens SET status = CASE WHEN num_op IS NOT NULL THEN 'encerrada' ELSE 'concluida' END,
+              encerrada_em = NOW(), updated_at = NOW() WHERE id=$1 AND status='ativa' RETURNING id`, [c.ordem_id]);
+    if (!pega.rowCount) continue;
+    await soltarCelula(c.id);
+    await comando(c.id, { texto: 'Programação encerrada.', origem: 'auto' });
+    if (o && o.repetir) await clonarOrdem(o, primeiroDiaUtil(somaDias(c.rodada_dia, 1)));
+  }
+
+  // 2. programadas que chegaram na hora (com hora marcada: só começam dentro do horário delas)
+  const prog = (await pool.query(SQL_ORDEM + ` WHERE o.status='programada' ORDER BY o.data, o.hora_inicio NULLS FIRST, o.id`)).rows;
   for (const o of prog) {
     const turno = porId.get(o.turno_id);
     if (!turno || !o.produto_id) continue;
-    if (dataDoTurno(turno) >= o.dia) await ativarOrdem(o, turno);
+    if (dataDoTurno(turno) < o.dia) continue;
+    if (o.hora_inicio || o.hora_fim) {
+      const off = offsetNoTurno(horaFabrica(), turno), dur = duracaoTurnoSeg(turno);
+      const [a, b] = faixaDaOrdem(o, turno);
+      if (off > dur || off < a || (o.hora_fim && off >= b)) continue;
+    }
+    await ativarOrdem(o, turno);
   }
 }
 // Mesmo sem ninguém com a tela aberta, as células programadas começam na hora
@@ -656,21 +921,20 @@ async function criarOrdem(body, req) {
   let dia = c.data && c.data > oc.dia ? c.data : oc.dia;
 
   // Uma célula não pode ter duas programações esperando o mesmo dia e turno
-  const dup = await pool.query(
-    `SELECT id FROM cadc_ordens WHERE lower(celula_nome)=lower($1) AND data=$2 AND turno_id=$3 AND status='programada'`,
-    [c.celula_nome, dia, c.turno_id]);
-  if (dup.rowCount) throw erro(409, `Já existe uma programação da ${c.celula_nome} para esse dia e turno. Edite a que já existe.`);
+  conferirHorario(c, turno);
+  const cruza = await conflitoDeHorario({ ...c, dia }, turno, null);
+  if (cruza) throw erro(409, msgConflito(cruza, c.celula_nome));
 
   const cod = await codDecioDe(c.num_op, c.produto_id);
   const r = await pool.query(
     `INSERT INTO cadc_ordens (celula_nome, data, turno_id, produto_id, produto_nome, takt_manual, num_op, serie_inicial,
                               serie_final, cod_decio, operadores, horas_operador, meta, obs, repetir, status,
-                              criado_por, criado_por_id, tablets)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,'programada',$16,$17,$18) RETURNING id`,
+                              criado_por, criado_por_id, tablets, hora_inicio, hora_fim)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,'programada',$16,$17,$18,$19,$20) RETURNING id`,
     [c.celula_nome, dia, c.turno_id, c.produto_id, prod.nome, c.takt_manual ?? null, c.num_op ?? null,
      c.serie_inicial ?? null, c.serie_final ?? null, cod, c.operadores ?? null, c.horas_operador ?? null,
      c.meta ?? null, c.obs ?? null, !!c.repetir, req ? quem(req) : null, req ? req.session.userId || null : null,
-     c.tablets ?? null]);
+     c.tablets ?? null, c.hora_inicio ?? null, c.hora_fim ?? null]);
   memo.turnosEm = 0;
   await motor(true);
   return umaOrdem(r.rows[0].id);
@@ -728,10 +992,18 @@ router.put('/ordens/:id', requireAdmin, async (req, res) => {
         if (!p) return res.status(400).json({ error: 'Produto inválido' });
         c.produto_nome = p.nome;
       }
-      const dup = await pool.query(
-        `SELECT id FROM cadc_ordens WHERE lower(celula_nome)=lower($1) AND data=$2 AND turno_id=$3 AND status='programada' AND id<>$4`,
-        [c.celula_nome || o.celula_nome, c.data || o.dia, turnoId, o.id]);
-      if (dup.rowCount) return res.status(409).json({ error: 'Já existe outra programação dessa célula para esse dia e turno' });
+      const novo = { celula_nome: c.celula_nome || o.celula_nome, dia: c.data || o.dia, turno_id: turnoId,
+                     hora_inicio: c.hora_inicio !== undefined ? c.hora_inicio : o.hora_inicio,
+                     hora_fim: c.hora_fim !== undefined ? c.hora_fim : o.hora_fim };
+      conferirHorario(novo, turno);
+      const cruza = await conflitoDeHorario(novo, turno, o.id);
+      if (cruza) return res.status(409).json({ error: msgConflito(cruza, novo.celula_nome) });
+    } else {
+      delete c.hora_inicio;                          // já começou: só dá para mudar a hora de fim
+      if (c.hora_fim !== undefined) {
+        const turno = (await listarTurnos()).find(t => t.id === o.turno_id);
+        if (turno) conferirHorario({ hora_inicio: null, hora_fim: c.hora_fim }, turno);
+      }
     }
     if (c.num_op !== undefined || c.produto_id) {
       c.cod_decio = await codDecioDe(c.num_op !== undefined ? c.num_op : o.num_op, c.produto_id || o.produto_id);
@@ -936,8 +1208,28 @@ router.get('/admin/visao', requireAdmin, async (_req, res) => {
     const ap = (await pool.query(
       `SELECT COALESCE(SUM(realizado),0)::float AS qtd, COUNT(*)::int AS n FROM prod_apontamentos_detalhados WHERE data_execucao=$1`, [hoje])).rows[0];
 
-    res.json({ ...relogio(), hoje, celulas, tablets, comandos, programadas, pendentes, enviadas, apontado: ap });
+    const estacoes = (await pool.query(`
+      SELECT e.id, e.nome, e.celula_id, e.usuario, e.balanca_ok, e.ultimo_peso::float AS ultimo_peso,
+             EXTRACT(EPOCH FROM (NOW() - e.visto_em))::int AS visto_ha_seg
+        FROM cadc_estacoes e ORDER BY e.nome NULLS LAST, e.id`)).rows
+      .map(e => ({ ...e, online: e.visto_ha_seg != null && e.visto_ha_seg <= ONLINE_SEG }));
+
+    res.json({ ...relogio(), hoje, celulas, tablets, estacoes, comandos, programadas, pendentes, enviadas, apontado: ap });
   } catch (e) { console.error('cadc visao', e); res.status(500).json({ error: e.message }); }
+});
+
+/*
+ * GET /painel — painel da linha em tempo real (qualquer pessoa logada): todas as células com
+ * takt planejado x real, planejado x realizado, ciclos no prazo x atrasados, tempos de saída e OEE.
+ */
+router.get('/painel', requireAuth, async (_req, res) => {
+  try {
+    const celulas = (await carregarCelulas()).map(c => { delete c.anteriores; delete c.mensagem; return c; });
+    const estacoes = (await pool.query(`
+      SELECT e.nome, e.balanca_ok, EXTRACT(EPOCH FROM (NOW() - e.visto_em))::int AS visto_ha_seg FROM cadc_estacoes e ORDER BY e.nome`)).rows
+      .map(e => ({ nome: e.nome, lendo: e.visto_ha_seg != null && e.visto_ha_seg <= 10 && e.balanca_ok }));
+    res.json({ ...relogio(), hoje: dataFabrica(), celulas, estacoes });
+  } catch (e) { console.error('cadc painel', e); res.status(500).json({ error: e.message }); }
 });
 
 /* GET /admin/cadastros — turnos e produtos para os seletores */
@@ -946,7 +1238,7 @@ router.get('/admin/cadastros', requireAdmin, async (_req, res) => {
     const turnos = (await listarTurnos({ apenasAtivos: true }))
       .map(t => ({ id: t.id, nome: t.nome, codigo: t.codigo, hora_inicio: t.hora_inicio, hora_fim: t.hora_fim }));
     const produtos = (await pool.query(
-      `SELECT id, nome, cod_decio, takt_min::float FROM cad_produtos WHERE ativo = TRUE ORDER BY ordem, nome`)).rows;
+      `SELECT id, nome, cod_decio, takt_min::float, peso_kg::float AS peso_kg, peso_tol_kg::float AS peso_tol_kg FROM cad_produtos WHERE ativo = TRUE ORDER BY ordem, nome`)).rows;
     const cels = (await pool.query(
       `SELECT nome, categoria, operadores, horas_operador::float AS horas_operador, turno
          FROM celulas WHERE ativa IS NOT FALSE ORDER BY nome`)).rows;
@@ -1067,6 +1359,10 @@ router.put('/celulas/:id', requireAdmin, async (req, res) => {
       } else if (trocaTurno && depois.turno) {
         await comando(depois.id, { texto: `Atenção. Turno alterado para ${depois.turno.nome}.`, origem: 'auto', por: quem(req) });
       } else if (trocaTakt) {
+        // mexeu no takt várias vezes seguidas: só o último aviso vale (senão o tablet fica repetindo um atrás do outro)
+        await pool.query(
+          `DELETE FROM cadc_comandos WHERE celula_id=$1 AND origem='auto' AND texto LIKE 'Atenção. Tempo de ciclo alterado%'
+              AND criado_em > NOW() - INTERVAL '90 seconds'`, [depois.id]);
         await comando(depois.id, { texto: `Atenção. Tempo de ciclo alterado para ${String(depois.takt_min).replace('.', ' vírgula ')} minutos.`, origem: 'auto', por: quem(req) });
       }
     }
@@ -1164,7 +1460,7 @@ router.get('/celulas/:id/ciclos', requireAdmin, async (req, res) => {
 
     const linhas = (await pool.query(
       `SELECT rodada, numero, to_char(hora_prevista,'HH24:MI:SS') AS hora, produto_nome AS produto,
-              concluido, observacao
+              concluido, observacao, (atrasado AND NOT concluido) AS atrasado, pesados
          FROM cadc_ciclos WHERE celula_id=$1 AND data=$2 AND rodada <> $3 ORDER BY rodada, numero`,
       [cel.id, dia, cel.rodada])).rows.map(k => ({ ...k, observacao: k.observacao || '', estado: 'encerrado', atual: false }));
 
@@ -1177,7 +1473,8 @@ router.get('/celulas/:id/ciclos', requireAdmin, async (req, res) => {
         let estado = 'encerrado';
         if (!fora && offsetNoTurno(hora, cel.turno) > o) { estado = achouAtual ? 'futuro' : 'andamento'; achouAtual = true; }
         linhas.push({ rodada: cel.rodada, numero: i + 1, hora, produto: cel.produto.nome,
-                      concluido: m ? m.c : true, observacao: m ? m.o : '', estado, atual: true });
+                      concluido: m ? m.c : true, observacao: m ? m.o : '', atrasado: !!(m && m.at),
+                      pesados: m && m.p != null ? m.p : null, estado, atual: true });
       });
     }
 
@@ -1202,18 +1499,24 @@ router.put('/celulas/:id/ciclos', requireAdmin, async (req, res) => {
     if (rodada === cel.rodada) {
       const hora = cel.ciclos[numero - 1];
       if (!hora) return res.status(404).json({ error: 'Ciclo não encontrado' });
+      // Ciclo que o sistema marcou sozinho como atrasado continua atrasado se o admin só escreveu o motivo
+      const auto = cel.marcas[numero] || null;
+      const conclFinal = concl != null ? concl : (auto ? auto.c : true);
+      const atras = !conclFinal && concl == null && !!(auto && auto.at);
       await pool.query(
-        `INSERT INTO cadc_ciclos (celula_id, rodada, numero, data, hora_prevista, produto_nome, concluido, observacao, usuario)
-         VALUES ($1,$2,$3,$4,$5,$6,COALESCE($7,TRUE),$8,$9)
+        `INSERT INTO cadc_ciclos (celula_id, rodada, numero, data, hora_prevista, produto_nome, concluido, observacao, usuario, manual, atrasado, ordem_id)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,TRUE,$11,$12)
          ON CONFLICT (celula_id, rodada, numero) DO UPDATE SET
            hora_prevista = EXCLUDED.hora_prevista, produto_nome = EXCLUDED.produto_nome,
-           concluido = COALESCE($7, cadc_ciclos.concluido),
+           concluido = EXCLUDED.concluido, atrasado = EXCLUDED.atrasado, manual = TRUE,
            observacao = CASE WHEN $10 THEN $8 ELSE cadc_ciclos.observacao END,
            usuario = EXCLUDED.usuario, updated_at = NOW()`,
-        [cel.id, rodada, numero, cel.dia, hora, cel.produto.nome, concl, obs, quem(req), obs !== null]);
+        [cel.id, rodada, numero, cel.dia, hora, cel.produto.nome, conclFinal,
+         obs !== null ? obs : (auto && !conclFinal ? auto.o : null), quem(req), obs !== null, atras, cel.ordem ? cel.ordem.id : null]);
     } else {
       const r = await pool.query(
-        `UPDATE cadc_ciclos SET concluido = COALESCE($4, concluido),
+        `UPDATE cadc_ciclos SET concluido = COALESCE($4, concluido), manual = TRUE,
+                atrasado = CASE WHEN $4::boolean IS NULL THEN atrasado ELSE FALSE END,
                 observacao = CASE WHEN $6 THEN $5 ELSE observacao END, usuario=$7, updated_at=NOW()
           WHERE celula_id=$1 AND rodada=$2 AND numero=$3`,
         [cel.id, rodada, numero, concl, obs, obs !== null, quem(req)]);
@@ -1229,7 +1532,7 @@ router.post('/celulas/:id/ciclos/limpar', requireAdmin, async (req, res) => {
   try {
     if (!/^\d{4}-\d{2}-\d{2}$/.test(req.body.data || '')) return res.status(400).json({ error: 'Informe o dia' });
     await pool.query(
-      'UPDATE cadc_ciclos SET concluido=TRUE, observacao=NULL, updated_at=NOW() WHERE celula_id=$1 AND data=$2',
+      'UPDATE cadc_ciclos SET concluido=TRUE, atrasado=FALSE, manual=TRUE, observacao=NULL, updated_at=NOW() WHERE celula_id=$1 AND data=$2',
       [req.params.id, req.body.data]);
     await pool.query('UPDATE cadc_celulas SET versao=versao+1, updated_at=NOW() WHERE id=$1', [req.params.id]);
     res.json({ success: true });
@@ -1541,6 +1844,7 @@ router.get('/tablet/estado', tabletOuSessao, async (req, res) => {
     if (req.query.v && String(req.query.v) === cel.sinal && Number(req.query.c) === cel.id) {
       delete cel.ciclos; delete cel.turno; delete cel.marcas; delete cel.anteriores; cel.igual = true;
     }
+    delete cel.saidas;
     res.json({ ...relogio(), ...extra, tablet, celula: cel, comandos, ultimo_comando: ultimo });
   } catch (e) { console.error('cadc estado', e); res.status(500).json({ error: e.message }); }
 });
@@ -1569,5 +1873,7 @@ router.post('/tablet/liberar', tabletOuSessao, async (req, res) => {
 });
 
 router.tabletOuSessao = tabletOuSessao;
+// usados pela estação de pesagem (routes/pesagem.js)
+Object.assign(router, { umaCelula, carregarCelulas, comando, relogio, dataFabrica, dataDoTurno, turnosCache, qtdEntreSeries, FUSO });
 
 module.exports = router;
