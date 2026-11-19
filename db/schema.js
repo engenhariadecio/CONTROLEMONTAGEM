@@ -387,6 +387,15 @@ UPDATE cadc_ciclos SET manual = TRUE WHERE manual = FALSE AND usuario IS NOT NUL
 /* Só as células marcadas pelo administrador trabalham com a balança (pesagem, ciclo atrasado, OEE).
    As outras continuam só com o cadenciador, como sempre. */
 ALTER TABLE cadc_celulas ADD COLUMN IF NOT EXISTS usa_balanca BOOLEAN NOT NULL DEFAULT FALSE;
+/* Como cada célula conta a produção:  takt = só o cadenciador (não conta peça)
+                                       bipar = só bipa o número de série (sem peso)
+                                       pesar = bipa e confere o peso na balança
+   usa_balanca fica TRUE nos modos bipar e pesar (a célula recebe leituras da estação). */
+ALTER TABLE cadc_celulas ADD COLUMN IF NOT EXISTS modo_contagem VARCHAR(10) NOT NULL DEFAULT 'takt';
+UPDATE cadc_celulas SET modo_contagem = 'pesar' WHERE usa_balanca = TRUE AND modo_contagem = 'takt';
+/* desde quando a célula conta peça: ciclos anteriores a isso não são marcados como atrasados */
+ALTER TABLE cadc_celulas ADD COLUMN IF NOT EXISTS contagem_desde TIMESTAMPTZ;
+ALTER TABLE cadc_pesagens ALTER COLUMN peso_kg DROP NOT NULL;
 
 /* ══════════════ SISTEMA 3 — PROGESTÃO ══════════════ */
 

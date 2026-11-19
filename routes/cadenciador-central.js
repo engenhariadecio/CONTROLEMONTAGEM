@@ -246,7 +246,7 @@ async function carregarCelulas(filtroId = null) {
 
 /* ─────────────── produção real (balança) x cadência ─────────────── */
 
-const MOTIVO_ATRASO = 'Atrasado: nenhum produto pesado no prazo do takt';
+const MOTIVO_ATRASO = 'Atrasado: nenhum produto registrado no prazo do takt';
 
 /** Há alguma estação de pesagem em uso? (sem balança, ninguém é marcado como atrasado) */
 let balancaVista = { em: 0, viva: false };
@@ -342,7 +342,9 @@ function analisarProducao(c, e, turno, d) {
   const paradas = (d.par.get(c.id) || []).filter(x => new Date(x.fim).getTime() > abertura).map(x => [offDe(x.inicio), offDe(x.fim)]);
   const fora = juntarFaixas([...intervalos, ...paradas]);
 
-  const inicio = Math.min(c.o_iniciada_em ? offDe(c.o_iniciada_em) : 0, ate);
+  // a contagem de peças vale a partir de quando o admin ligou o modo (bipar / pesar) nesta célula
+  const desde = c.contagem_desde ? offDe(c.contagem_desde) : 0;
+  const inicio = Math.min(Math.max(c.o_iniciada_em ? offDe(c.o_iniciada_em) : 0, desde), ate);
   const offBoas = boas.map(x => offDe(x.criado_em));
   const taktSeg = Math.max(1, e.takt_min * 60);
 
@@ -356,12 +358,14 @@ function analisarProducao(c, e, turno, d) {
   if (e.saidas.length > 400) e.saidas = e.saidas.slice(-400);
 
   // ciclos encerrados: com peça no prazo ou atrasados
-  const avalia = !!c.usa_balanca && !!c.o_serie_inicial;      // só as células que o admin marcou para usar a balança
+  const avalia = !!c.usa_balanca && !!c.o_serie_inicial;      // só as células que contam peça (modo bipar ou pesar)
   const offCiclos = e.ciclos.map(h => offsetNoTurno(h, turno));
   const feitos = dentro ? offCiclos.filter(o => o <= agoraCiclos).length : offCiclos.length;
   const porCiclo = pesadosPorCiclo(offCiclos, offBoas, (c.inicio_off_seg || 0) - 0.5);
   let atrasados = 0;
+  let antesDaContagem = 0;
   for (let i = 0; i < feitos; i++) {
+    if (offCiclos[i] <= desde) { antesDaContagem++; continue; }      // ciclo de antes de ligar a contagem: não avalia
     const m = e.marcas[i + 1];
     if (m) { m.p = porCiclo[i]; if (m.at) atrasados++; continue; }
     if (!avalia) continue;
@@ -372,20 +376,20 @@ function analisarProducao(c, e, turno, d) {
   e.sinal += '.a' + atrasados + '.' + Object.keys(e.marcas).length;
 
   // indicadores
-  const arq = d.arq.get(c.ordem_id) || { n: 0, atr: 0 };
+  const arq = desde > 0 ? { n: 0, atr: 0 } : (d.arq.get(c.ordem_id) || { n: 0, atr: 0 });
   const seriesBoas = new Set(boas.map(x => String(x.serie_num)));
   const refugo = new Set(ruins.map(x => String(x.serie_num)).filter(k => !seriesBoas.has(k))).size;   // pesou errado e não foi corrigido
   const tProg = tempoUtil(inicio, ate, intervalos);
   const tRod = tempoUtil(inicio, ate, fora);
   const pct = x => x == null ? null : Math.round(Math.max(0, Math.min(1, x)) * 1000) / 10;
   const disp = tProg > 0 ? tRod / tProg : null;
-  const planejado = feitos + arq.n, total = offCiclos.length + arq.n;
+  const planejado = feitos - antesDaContagem + arq.n, total = offCiclos.length + arq.n;
   // performance = peças que passaram na balança ÷ peças que a cadência já pedia (vale mesmo se o takt foi trocado no meio)
   const perf = !avalia ? null : planejado > 0 ? (boas.length + refugo) / planejado : (tRod > 0 ? Math.min(1, (boas.length + refugo) * taktSeg / tRod) : null);
   const qual = avalia ? (boas.length + refugo > 0 ? boas.length / (boas.length + refugo) : 1) : null;
   const oee = disp != null && perf != null && qual != null ? Math.min(1, disp) * Math.min(1, perf) * qual : null;
   e.ind = {
-    balanca: avalia,
+    balanca: avalia, modo: e.modo_contagem,
     planejado, planejado_turno: total, meta: e.ordem && e.ordem.meta > 0 ? Math.round(e.ordem.meta) : total,
     realizado: boas.length, saldo: boas.length - planejado, refugo, pesos_incorretos: ruins.length,
     ciclos_fechados: planejado, atrasados: atrasados + arq.atr, no_prazo: avalia ? Math.max(0, planejado - atrasados - arq.atr) : null,
@@ -424,7 +428,14 @@ async function arquivarRodada(c, turno, limite, { todos = false } = {}) {
           return dia < c.rodada_dia ? -1 : dia > c.rodada_dia || o > dur ? dur + 1 : o;
         });
         const n = pesadosPorCiclo(e.ciclos.map(h => offsetNoTurno(h, turno)), offP, (c.inicio_off_seg || 0) - 0.5);
-        pesados = encerrados.map(x => n[x.numero - 1]);
+        // ciclos de antes de a célula começar a contar peça não são avaliados
+        let desde = -1;
+        if (c.contagem_desde) {
+          const t = new Date(c.contagem_desde), o = offsetNoTurno(horaFabrica(t), turno);
+          const dia = dataFabrica(new Date(t.getTime() - o * 1000));
+          desde = dia < c.rodada_dia ? -1 : dia > c.rodada_dia || o > dur ? dur + 1 : o;
+        }
+        pesados = encerrados.map(x => offsetNoTurno(x.hora, turno) <= desde ? null : n[x.numero - 1]);
         atrasado = pesados.map(q => q === 0);
       }
     }
@@ -513,6 +524,7 @@ function montarEstado(c, turno, limite) {
     pausa_fim_seg: c.pausada && c.pausa_fim_prev ? segFabrica(c.pausa_fim_prev) : null,
     voz_ativa: c.voz_ativa,
     usa_balanca: !!c.usa_balanca,
+    modo_contagem: c.usa_balanca ? (c.modo_contagem === 'bipar' ? 'bipar' : 'pesar') : 'takt',
     mensagem: c.mensagem || '',
     ciclos
   };
@@ -1304,7 +1316,13 @@ router.put('/celulas/:id', requireAdmin, async (req, res) => {
       set('takt_manual', null);       // produto novo começa com o takt do cadastro dele
     }
     if (typeof b.voz_ativa === 'boolean') set('voz_ativa', b.voz_ativa);
-    if (typeof b.usa_balanca === 'boolean') set('usa_balanca', b.usa_balanca);
+    // como a célula conta a produção: 'takt' (só cadenciador), 'bipar' (só número de série) ou 'pesar' (série + peso)
+    const modoNovo = ['takt', 'bipar', 'pesar'].includes(b.modo_contagem) ? b.modo_contagem : typeof b.usa_balanca === 'boolean' ? (b.usa_balanca ? 'pesar' : 'takt') : null;
+    if (modoNovo) {
+      set('modo_contagem', modoNovo); set('usa_balanca', modoNovo !== 'takt');
+      // começou a contar peça agora: os ciclos que já passaram não viram "atrasados"
+      if (modoNovo !== 'takt' && !antes.usa_balanca) set('contagem_desde', new Date());
+    }
     if (b.mensagem !== undefined) set('mensagem', texto(b.mensagem, 200) || null);
 
     // Trocou produto/takt no meio do turno: a contagem de ciclos recomeça de agora.

@@ -921,8 +921,12 @@ function cadcDesenharCelulas() {
 
       <div class="cc-pes">
         <div class="txt" id="cc-pes-${c.id}">⚖️ Pesagem</div>
-        <button class="btn-sm ${c.usa_balanca ? 'btn-accent' : 'btn-ghost'}" onclick="cadcMudar(${c.id},{usa_balanca:${!c.usa_balanca}},'${c.usa_balanca ? 'Balança desligada nesta célula' : 'Esta célula agora usa a balança'}')"
-                title="Só as células com a balança ligada recebem pesagem, marcam ciclo atrasado e calculam OEE">${c.usa_balanca ? '⚖️ Balança: LIGADA nesta célula' : '⚖️ Balança: desligada (clique para ligar)'}</button>
+        <label style="display:flex;align-items:center;gap:6px;font-size:12px;font-weight:700" title="Como esta célula conta a produção">Contagem:
+          <select onchange="cadcMudar(${c.id},{modo_contagem:this.value},'Modo de contagem alterado')" style="width:auto;padding:5px 8px;font-size:12px">
+            <option value="takt"${c.modo_contagem === 'takt' ? ' selected' : ''}>⏱ Só takt time</option>
+            <option value="bipar"${c.modo_contagem === 'bipar' ? ' selected' : ''}>🔖 Só bipar a série</option>
+            <option value="pesar"${c.modo_contagem === 'pesar' ? ' selected' : ''}>⚖️ Bipar + pesar</option>
+          </select></label>
         <button class="btn-sm btn-ghost" onclick="cadcPesoProduto(${c.produto ? c.produto.id : 0})" title="Peso padrão e tolerância deste produto" ${c.produto ? '' : 'disabled'}>⚖️ Peso do produto</button>
         <button class="btn-sm btn-blue" onclick="cadcPesagens(${c.id})" title="Ver todas as pesagens: série, peso e hora">📋 Pesagens</button>
         <button class="btn-sm btn-blue" onclick="cadcGrafico(${c.id})" title="Gráfico de linha: tempo de saída de cada produto (pela balança) contra o takt, ao longo do dia">📈 Gráfico takt x saída</button>
@@ -1027,7 +1031,8 @@ function cadcVivo() {
 
 /* Faixa "Pesagem" do cartão: peças pesadas x meta x cadência, peso do produto e balança da célula. */
 function ccPesTxt(c, s) {
-  if (!c.usa_balanca) return '⚖️ Esta célula <b>não usa a balança</b>: funciona só com o cadenciador. Para pesar, contar o realizado e calcular o OEE aqui, ligue a balança nesta célula.';
+  if (c.modo_contagem === 'takt') return '⏱ Modo <b>só takt time</b>: esta célula funciona só com o cadenciador e não conta peça. Para contar o realizado, marcar ciclo atrasado e calcular o OEE, escolha <b>Só bipar a série</b> ou <b>Bipar + pesar</b>.';
+  const soBipe = c.modo_contagem === 'bipar';
   const pz = c.pesagem || { ok: 0, nok: 0 }, kg = n => Number(n).toLocaleString('pt-BR', { minimumFractionDigits: 3, maximumFractionDigits: 3 });
   const I = c.ind, pc = v => v == null ? '—' : String(v).replace('.', ',') + '%';
   const meta = I ? I.meta : (c.ordem && c.ordem.meta > 0 ? Math.round(c.ordem.meta) : s.total);
@@ -1036,7 +1041,7 @@ function ccPesTxt(c, s) {
   const ests = ccVisao.estacoes || [];       // a balança não é de nenhuma célula: a série bipada é que liga a pesagem à célula
   const o = c.ordem || {}, soNum = x => String(x || '').replace(/\D/g, '').replace(/^0+(?=\d)/, '');
   const p = c.produto || {};
-  const l1 = [`⚖️ Realizado <b>${pz.ok}</b>${meta ? ' / ' + meta : ''}`,
+  const l1 = [`${soBipe ? '🔖' : '⚖️'} Realizado <b>${pz.ok}</b>${meta ? ' / ' + meta : ''}`,
     `planejado até agora <b>${previsto}</b>`,
     `saldo <b class="${saldo < 0 ? 'neg' : 'pos'}">${saldo > 0 ? '+' : ''}${saldo}</b>`];
   if (I && I.atrasados) l1.push(`<b class="neg">⏰ ${I.atrasados} ciclo(s) atrasado(s)</b>`);
@@ -1044,8 +1049,8 @@ function ccPesTxt(c, s) {
   if (pz.ultima) l1.push(`última ${pz.ultima.slice(0, 5)}`);
   const l15 = I ? [`Takt <b>${String(I.takt_min).replace('.', ',')} min</b>` + (I.takt_real_min != null ? ` · real <b class="${I.takt_real_min > I.takt_min * 1.05 ? 'neg' : 'pos'}">${String(I.takt_real_min).replace('.', ',')} min</b>` : ''),
     `OEE <b>${pc(I.oee)}</b> (disp. ${pc(I.disponibilidade)} · perf. ${pc(I.performance)} · qual. ${pc(I.qualidade)})`] : [];
-  const l2 = [p.peso_kg ? `Peso do produto <b>${kg(p.peso_kg)} kg</b>${p.peso_tol_kg != null ? ' ± ' + kg(p.peso_tol_kg) : ''}` : '<span class="neg">produto sem peso cadastrado</span>',
-    o.serie_inicial ? `recebe as séries <b>${soNum(o.serie_inicial)}</b> a <b>${soNum(o.serie_final) || '?'}</b>` : '<span class="neg">sem faixa de série: não recebe pesagem</span>',
+  const l2 = [soBipe ? '🔖 Modo <b>só bipar</b>: conta pela série, sem conferir peso' : p.peso_kg ? `Peso do produto <b>${kg(p.peso_kg)} kg</b>${p.peso_tol_kg != null ? ' ± ' + kg(p.peso_tol_kg) : ''}` : '<span class="neg">produto sem peso cadastrado</span>',
+    o.serie_inicial ? `recebe as séries <b>${soNum(o.serie_inicial)}</b> a <b>${soNum(o.serie_final) || '?'}</b>` : '<span class="neg">sem faixa de série: não recebe leitura</span>',
     ests.length ? ests.map(e => `${esc(e.nome || 'Balança')}: ${e.online ? (e.balanca_ok ? '🟢 lendo' : '🟡 balança desligada') : '🔴 sem sinal'}`).join(' · ') : 'nenhuma estação de pesagem ligada'];
   return l1.join(' · ') + (l15.length ? '<br>' + l15.join(' · ') : '') + '<br>' + l2.join(' · ');
 }
@@ -1884,9 +1889,9 @@ async function cadcPesagensCarregar() {
     <tr>
       <td>${esc(l.hora)}</td>
       <td class="${l.ok === false ? 'nok' : ''}"><b>${l.serie ? esc(l.serie) : '— não bipado —'}</b></td>
-      <td class="${l.ok === false ? 'nok' : ''}"><b>${ccKg(l.peso_kg)} kg</b></td>
+      <td class="${l.ok === false ? 'nok' : ''}"><b>${l.peso_kg == null ? '—' : ccKg(l.peso_kg) + ' kg'}</b></td>
       <td>${l.peso_padrao != null ? ccKg(l.peso_padrao) + ' ± ' + ccKg(l.tolerancia) : 'sem cadastro'}</td>
-      <td>${l.ok === false ? '<span class="badge red">Peso incorreto</span>' : l.fora_faixa ? '<span class="badge yellow">Série fora da faixa da OP</span>' : l.ok === true ? '<span class="badge green">Peso correto</span>' : '<span class="badge blue">Sem conferência</span>'}</td>
+      <td>${l.ok === false ? '<span class="badge red">Peso incorreto</span>' : l.fora_faixa ? '<span class="badge yellow">Série fora da faixa da OP</span>' : l.ok === true ? '<span class="badge green">Peso correto</span>' : l.peso_kg == null ? '<span class="badge blue">Só bipagem</span>' : '<span class="badge blue">Sem conferência</span>'}</td>
       <td>${esc(l.produto_nome || '')}</td>
       <td>${esc(l.num_op || '—')}</td>
       <td>${esc(l.estacao_nome || '')}</td>

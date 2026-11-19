@@ -207,7 +207,7 @@ if (!DEVICE || !/^[A-Za-z0-9_-]{8,80}$/.test(DEVICE)) {
 }
 const SIMULAR = new URLSearchParams(location.search).has('simular');
 const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-const kg = (n, casas = 3) => Number(n).toFixed(casas).replace('.', ',');
+const kg = (n, casas = 3) => n == null ? '—' : Number(n).toFixed(casas).replace('.', ',');
 
 /* ───────── conversa com o servidor ───────── */
 function cabecalhos(extra) {
@@ -302,6 +302,11 @@ $('cfgBal').onclick = () => bal.escolher();
    vazia → (coloca o produto) → pesando → PRONTO: bipe a série → REGISTRADO ou PESO INCORRETO → (retira) → vazia */
 function avaliar() {
   if (!EST) return pintar('carregando');
+  // célula no modo "só bipar": mostra o registro por alguns segundos, com ou sem balança
+  if (P.res && P.res.success && P.res.so_bipe) {
+    if (Date.now() - P.resEm < 4000) return pintar('registrado');
+    P.res = P.antes || null; P.antes = null;      // volta para o produto que ainda está na balança, se houver
+  }
   if (!balancaViva()) return pintar('sembalanca');
   const v = L.kg;
   if (v < VAZIO_KG) {                                    // balança vazia: acabou este produto
@@ -319,8 +324,8 @@ setInterval(avaliar, 300);
 
 const TELAS = {
   carregando: ['⏳', 'Conectando…', ''],
-  sembalanca: ['🔌', 'Balança desligada', 'Confira se a balança está ligada e o cabo USB no computador. Toque em “Conectar balança”.'],
-  vazia:      ['📦', 'Coloque o produto na balança', ''],
+  sembalanca: ['🔌', 'Balança desligada', 'Confira se a balança está ligada e o cabo USB no computador. Toque em “Conectar balança”. Células que só bipam continuam funcionando.'],
+  vazia:      ['📦', 'Coloque o produto na balança', 'Célula que só bipa: é só passar a coletora na etiqueta de série.'],
   instavel:   ['⚖️', 'Pesando…', 'Aguarde o peso parar.'],
   pronto:     ['🔖', 'BIPE O NÚMERO DE SÉRIE', 'Passe a coletora na etiqueta de série do produto.'],
   incorreto:  ['⛔', 'PESO INCORRETO', ''],
@@ -337,13 +342,14 @@ function pintar(fase) {
 
   if (r && (fase === 'registrado' || fase === 'incorreto')) {
     const f = r.faixa;
-    faixaTxt = `<b>${esc(r.celula)}</b> · ${esc(r.produto || '')}` + (f ? ` · deve pesar <b>${kg(f.min)}</b> a <b>${kg(f.max)} kg</b>` : ' · produto sem peso cadastrado');
-    if (f) { const d = r.peso_kg - f.padrao; dif = Math.abs(d) < 0.0005 ? 'peso exato' : (d > 0 ? 'sobrando ' : 'faltando ') + kg(Math.abs(d)) + ' kg'; }
+    faixaTxt = `<b>${esc(r.celula)}</b> · ${esc(r.produto || '')}` + (r.so_bipe ? ' · só bipagem' : f ? ` · deve pesar <b>${kg(f.min)}</b> a <b>${kg(f.max)} kg</b>` : ' · produto sem peso cadastrado');
+    if (f && r.peso_kg != null) { const d = r.peso_kg - f.padrao; dif = Math.abs(d) < 0.0005 ? 'peso exato' : (d > 0 ? 'sobrando ' : 'faltando ') + kg(Math.abs(d)) + ' kg'; }
     serie = r.serie;
   }
   if (fase === 'registrado' && r) {
     if (!r.conferido) tit = 'REGISTRADO';
-    sub = `${r.celula} · peso ${kg(r.peso_kg)} kg gravado às ${r.hora}.` + (r.conferido ? '' : ' Produto sem peso cadastrado: gravado sem conferência.') + ' Retire o produto.';
+    sub = r.so_bipe ? `${r.celula} · série registrada às ${r.hora} (célula só de bipagem, sem peso).`
+      : `${r.celula} · peso ${kg(r.peso_kg)} kg gravado às ${r.hora}.` + (r.conferido ? '' : ' Produto sem peso cadastrado: gravado sem conferência.') + ' Retire o produto.';
   }
   if (fase === 'incorreto' && r && r.faixa) {
     const d = r.peso_kg - r.faixa.padrao;
@@ -385,19 +391,18 @@ function destacar(celId, nok) {
 
 async function bipou(serie) {
   if (P.enviando) return;
-  const recusa = {
-    carregando: 'Aguarde a estação conectar.',
-    vazia: 'Coloque o produto na balança antes de bipar.',
-    instavel: 'Espere o peso parar antes de bipar.',
-    registrado: 'Este produto já foi registrado. Retire-o e coloque o próximo.',
-    sembalanca: 'Balança desligada: não dá para registrar.'
-  }[P.fase];
-  if (recusa) { somErro(); toast(recusa); return; }
-  const peso = L.kg;                      // 'pronto' ou 'incorreto' (bipou de novo sem mexer): confere com o peso de agora
-  P.enviando = true; P.erro = ''; P.res = null; pintar('pronto');
+  if (P.fase === 'carregando') { somErro(); toast('Aguarde a estação conectar.'); return; }
+  // Só manda peso se há um produto parado na balança e ainda não registrado ('pronto' ou 'incorreto').
+  // Sem peso, o servidor aceita se a célula da série for do modo "só bipar"; se ela confere peso, ele avisa.
+  const comPeso = P.fase === 'pronto' || P.fase === 'incorreto';
+  const peso = comPeso ? L.kg : null;
+  const antes = P.res;
+  P.enviando = true; P.erro = '';
+  if (comPeso) { P.res = null; pintar('pronto'); }
   try {
     const r = await api('POST', '/registrar', { device_id: DEVICE, serie, peso_kg: peso });
-    P.res = r; P.pesoRes = peso;
+    P.antes = !comPeso && antes && antes.success && !antes.so_bipe ? antes : null;
+    P.res = r; if (comPeso) P.pesoRes = peso; P.resEm = Date.now();
     if (r.ultimas) ULT = r.ultimas;
     aplicarContagem(r);
     destacar(r.celula_id, false);
@@ -412,6 +417,7 @@ async function bipou(serie) {
       somErro(); setTimeout(() => falar('Peso incorreto'), 700);
     } else {
       somErro();
+      if (!comPeso) P.res = antes;
       P.erro = e.message;
       toast(e.message, false, 7000);
       if (d.duplicada) falar('Série já registrada');
@@ -446,23 +452,23 @@ function pintarCelulas() {
         <span>${fx}</span>
         <span>cadência previa <b>${previsto}</b></span>
         <span>saldo <b class="${saldo < 0 ? 'neg' : 'pos'}">${saldo > 0 ? '+' : ''}${saldo}</b></span>
-        ${c.faixa ? `<span>peso <b>${kg(c.faixa.padrao)}</b> ± ${kg(c.faixa.tol)}</span>` : '<span>sem peso cadastrado</span>'}
+        ${c.modo_contagem === 'bipar' ? '<span><b>só bipar</b></span>' : c.faixa ? `<span>peso <b>${kg(c.faixa.padrao)}</b> ± ${kg(c.faixa.tol)}</span>` : '<span>sem peso cadastrado</span>'}
         ${pz.nok ? `<span class="neg">${pz.nok} peso(s) incorreto(s)</span>` : ''}
       </div></div>`;
-  }).join('') : '<div class="vazio">Nenhuma célula com a balança ligada está rodando agora.<br>O administrador liga em Linha de Produção › Cadenciador central › cartão da célula › “⚖️ Balança”.</div>';
+  }).join('') : '<div class="vazio">Nenhuma célula no modo “só bipar” ou “bipar + pesar” está rodando agora.<br>O administrador escolhe o modo em Linha de Produção › Cadenciador central › cartão da célula.</div>';
 }
 function pintarLista() {
   $('lista').innerHTML = ULT.length ? ULT.map(u => `
     <div class="h ${u.ok === false ? 'nok' : ''}">
       <span class="hr">${esc(u.hora)}</span>
       <span class="se">${esc(u.serie || '—')}<small>${esc(u.celula_nome || '')}${u.ok === false ? ' · PESO INCORRETO' : ''}</small></span>
-      <span class="pe">${kg(u.peso_kg)} kg</span>
+      <span class="pe">${u.peso_kg == null ? 'bipado' : kg(u.peso_kg) + ' kg'}</span>
     </div>`).join('') : '<div class="vazio">Nenhuma pesagem ainda.</div>';
 }
 function pintarTopo() {
   $('tCel').textContent = EST ? EST.nome : 'Estação de pesagem';
   const n = CELULAS.length;
-  $('tDet').textContent = n ? `${n} célula${n === 1 ? '' : 's'} com balança · a série bipada diz de qual célula é a peça` : 'Nenhuma célula com a balança ligada';
+  $('tDet').textContent = n ? `${n} célula${n === 1 ? '' : 's'} contando peça · a série bipada diz de qual célula é a peça` : 'Nenhuma célula contando peça agora';
 }
 
 /* ───────── consulta ao servidor (a cada 2 s) ───────── */

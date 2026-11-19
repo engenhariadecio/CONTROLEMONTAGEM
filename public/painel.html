@@ -87,7 +87,7 @@ body { margin: 0; background: var(--fundo); color: var(--t1); }
   <div class="tags" id="ociosas"></div>
 
   <div class="rod">
-    <b>Como ler:</b> <b>Planejado</b> = ciclos que a cadência (takt) já fechou até agora · <b>Realizado</b> = peças pesadas com peso correto (série bipada na balança) ·
+    <b>Como ler:</b> <b>Planejado</b> = ciclos que a cadência (takt) já fechou até agora · <b>Realizado</b> = peças com a série bipada (e peso correto, nas células que pesam) ·
     <b>Ciclo atrasado</b> = ciclo que fechou sem nenhuma peça pesada no prazo ·
     <b>OEE</b> = Disponibilidade × Performance × Qualidade —
     <b>Disponibilidade</b> = tempo rodando ÷ tempo programado (sem os intervalos) ·
@@ -160,7 +160,7 @@ function desenhar(dados) {
   const atend = plan > 0 ? real / plan * 100 : null;
   $('tot').innerHTML = [
     ['Células rodando', ativas.length, ociosas.length ? ociosas.length + ' sem programação' : 'todas programadas', ''],
-    ['Planejado até agora', plan, comBal.length < ativas.length ? `${comBal.length} de ${ativas.length} células com balança` : 'meta do turno ' + soma('meta'), ''],
+    ['Planejado até agora', plan, comBal.length < ativas.length ? `${comBal.length} de ${ativas.length} células contando peça` : 'meta do turno ' + soma('meta'), ''],
     ['Realizado', real, 'peças pesadas', real >= plan ? 'bom' : 'ruim'],
     ['Saldo', (real - plan > 0 ? '+' : '') + (real - plan), real >= plan ? 'no ritmo ou adiantado' : 'atrasado', real >= plan ? 'bom' : 'ruim'],
     ['Atendimento', pc(atend == null ? null : Math.round(atend * 10) / 10), 'realizado ÷ planejado', corPct(atend)],
@@ -196,10 +196,10 @@ function desenhar(dados) {
           <span class="tg">Meta <b>${I.meta}</b></span>
           ${I.no_prazo != null ? `<span class="tg bom">Ciclos no prazo <b>${I.no_prazo}</b></span>` : ''}
           <span class="tg ${I.atrasados ? 'ruim' : ''}">Atrasados <b>${I.atrasados}</b></span>
-          <span class="tg ${I.pesos_incorretos ? 'ruim' : ''}">Peso incorreto <b>${I.pesos_incorretos}</b></span>
+          ${I.modo === 'pesar' ? `<span class="tg ${I.pesos_incorretos ? 'ruim' : ''}">Peso incorreto <b>${I.pesos_incorretos}</b></span>` : I.modo === 'bipar' ? '<span class="tg">🔖 só bipagem</span>' : ''}
           <span class="tg ${I.tempo_parado_min ? 'ruim' : ''}">Parada <b>${I.tempo_parado_min} min</b></span>
         </div>
-        ${I.balanca ? '' : '<div class="semb">Esta célula não usa a balança (ou está sem faixa de série): mostra só o cadenciador. Realizado, ciclos atrasados e OEE valem para as células com a balança ligada.</div>'}
+        ${I.balanca ? '' : '<div class="semb">Célula no modo “só takt time” (ou sem faixa de série): mostra só o cadenciador. Realizado, ciclos atrasados e OEE valem para as células que bipam ou pesam.</div>'}
         <div class="oee">
           <div class="g"><div class="v ${corPct(I.oee)}">${pc(I.oee)}</div><div class="r">OEE</div></div>
           <div class="f">

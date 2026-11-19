@@ -118,7 +118,7 @@ async function ordemDaSerie(n) {
             o.serie_inicial, o.serie_final, o.meta::float AS meta, to_char(o.data,'YYYY-MM-DD') AS dia,
             COALESCE(p.nome, o.produto_nome) AS produto_nome, p.cod_decio AS p_cod,
             p.peso_kg::float AS peso_kg, p.peso_tol_kg::float AS peso_tol_kg,
-            (c.id IS NOT NULL) AS rodando, COALESCE(cc.usa_balanca, FALSE) AS usa_balanca
+            (c.id IS NOT NULL) AS rodando, COALESCE(cc.usa_balanca, FALSE) AS usa_balanca, cc.modo_contagem AS modo
        FROM cadc_ordens o
        LEFT JOIN cad_produtos p ON p.id = o.produto_id
        LEFT JOIN cadc_celulas c ON c.ordem_id = o.id
@@ -191,7 +191,7 @@ router.get('/estado', estacaoOuSessao, async (req, res) => {
     const token = await garantirCredencial(req, res, est.id, device_id);
     const celulas = (await central.carregarCelulas()).filter(c => !c.ociosa && c.usa_balanca).map(c => {
       delete c.marcas; delete c.anteriores; delete c.mensagem; delete c.saidas;
-      c.faixa = faixaDoProduto(c.produto);
+      c.faixa = c.modo_contagem === 'pesar' ? faixaDoProduto(c.produto) : null;
       return c;
     });
     res.json({ ...central.relogio(), ...(token ? { token } : {}),
@@ -217,7 +217,7 @@ async function gravar(est, o, req, { serie, n, peso, ok, f }) {
      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18)
      RETURNING id, to_char(criado_em AT TIME ZONE '${central.FUSO}', 'HH24:MI:SS') AS hora`,
     [o.celula_id, o.celula_nome, o.id, o.produto_id, o.produto_nome, o.cod_decio || o.p_cod || null, o.num_op || null, serie, n,
-     arred(peso), f ? f.padrao : null, f ? f.tol : null, ok, o.dia, o.turno_id, est.id, est.nome,
+     peso == null ? null : arred(peso), f ? f.padrao : null, f ? f.tol : null, ok, o.dia, o.turno_id, est.id, est.nome,
      (req.session && (req.session.nome || req.session.username)) || est.usuario || null]);
   return r.rows[0];
 }
@@ -233,8 +233,9 @@ router.post('/registrar', estacaoOuSessao, async (req, res) => {
     const b = req.body || {};
     const est = await estacaoDoPedido(req, b.device_id);
     if (!est) return res.status(404).json({ error: 'Estação ainda não registrada' });
-    const peso = num(b.peso_kg);
-    if (peso == null || peso <= 0 || peso > 99999) return res.status(400).json({ error: 'Peso inválido. Confira a balança.' });
+    // peso vazio = bipou sem nada (parado) na balança: só vale para célula no modo "só bipar"
+    let peso = b.peso_kg == null || b.peso_kg === '' ? null : num(b.peso_kg);
+    if (peso != null && (peso <= 0 || peso > 99999)) peso = null;
     const serie = limparSerie(b.serie);
     if (!/^[A-Z0-9][A-Z0-9\-_/.]{2,39}$/.test(serie)) return res.status(400).json({ error: 'Código lido não parece um número de série. Bipe de novo.', serie_invalida: true });
     const n = numeroDaSerie(serie);
@@ -244,20 +245,25 @@ router.post('/registrar', estacaoOuSessao, async (req, res) => {
     if (!achado.ordem) {
       const p = achado.programada;
       if (!p && achado.semBalanca) return res.status(404).json({ sem_celula: true, numero: n,
-        error: `Série ${n} é da ${achado.semBalanca.celula_nome}, que não está marcada para usar a balança. Peça ao administrador para ligar a balança nessa célula.` });
+        error: `Série ${n} é da ${achado.semBalanca.celula_nome}, que está no modo “só takt time” (não conta peça). O administrador muda o modo no cartão da célula.` });
       return res.status(404).json({ sem_celula: true, numero: n, error: p
         ? `Série ${n} é da ${p.celula_nome}, programada para ${p.dia.slice(8, 10)}/${p.dia.slice(5, 7)} — ela ainda não começou a rodar.`
         : `Série ${n} não está na faixa de nenhuma célula. Avise o líder.` });
     }
     const o = achado.ordem;
-    const f = faixaDoProduto(o);
-    const info = { celula: o.celula_nome, celula_id: o.celula_id, produto: o.produto_nome, num_op: o.num_op, serie, numero: n, peso_kg: arred(peso), faixa: f };
+    const soBipe = o.modo === 'bipar';               // célula que só bipa: não confere (nem guarda) peso
+    if (soBipe) peso = null;
+    const f = soBipe ? null : faixaDoProduto(o);
+    const info = { celula: o.celula_nome, celula_id: o.celula_id, produto: o.produto_nome, num_op: o.num_op, serie, numero: n,
+                   peso_kg: peso == null ? null : arred(peso), faixa: f, so_bipe: soBipe };
 
     // já contada? (mesmo número na mesma programação, ou a mesma etiqueta em qualquer lugar)
     const ja = (await pool.query(
       `SELECT celula_nome, to_char(criado_em AT TIME ZONE '${central.FUSO}', 'DD/MM HH24:MI') AS quando
          FROM cadc_pesagens WHERE ok IS NOT FALSE AND ((ordem_id=$1 AND serie_num=$2) OR serie=$3) LIMIT 1`, [o.id, n, serie])).rows[0];
-    if (ja) return res.status(409).json({ ...info, duplicada: true, error: `Série ${n} já foi pesada (${ja.quando}, ${ja.celula_nome}). Não contou de novo.` });
+    if (ja) return res.status(409).json({ ...info, duplicada: true, error: `Série ${n} já foi registrada (${ja.quando}, ${ja.celula_nome}). Não contou de novo.` });
+    if (!soBipe && peso == null) return res.status(400).json({ ...info, falta_peso: true,
+      error: `A ${o.celula_nome} confere o peso: coloque o produto na balança, espere o peso parar e bipe de novo.` });
 
     if (f && (peso < f.min - 1e-9 || peso > f.max + 1e-9)) {
       const linha = await gravar(est, o, req, { serie, n, peso, ok: false, f });
@@ -275,9 +281,9 @@ router.post('/registrar', estacaoOuSessao, async (req, res) => {
     try { linha = await gravar(est, o, req, { serie, n, peso, ok: f ? true : null, f }); }
     catch (e) {
       if (e.code !== '23505') throw e;
-      return res.status(409).json({ ...info, duplicada: true, error: `Série ${n} já foi pesada. Não contou de novo.` });
+      return res.status(409).json({ ...info, duplicada: true, error: `Série ${n} já foi registrada. Não contou de novo.` });
     }
-    res.json({ success: true, ...info, id: Number(linha.id), hora: linha.hora, conferido: !!f,
+    res.json({ success: true, ...info, id: Number(linha.id), hora: linha.hora, conferido: !!f && !soBipe,
                contagem: await contagem(o.id), ultimas: await ultimas(est.id) });
   } catch (e) { falha(res, e, 'registrar'); }
 });

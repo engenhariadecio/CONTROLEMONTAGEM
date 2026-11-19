@@ -265,6 +265,19 @@ e o tablet não empilha avisos automáticos (o novo substitui o anterior; o mesm
 - Com a linha pausada, nenhum ciclo fecha nem fica atrasado (o relógio dos ciclos para junto).
 - Atualizar o sistema **não apaga nada**: as mudanças no banco só acrescentam colunas e tabelas.
 
+## Três modos de contagem por célula (v11)
+
+No cartão da célula, o seletor **Contagem** substitui o botão da balança:
+
+| Modo | O que faz |
+|---|---|
+| ⏱ **Só takt time** (padrão) | Só o cadenciador. Não conta peça, não marca ciclo atrasado, sem OEE. |
+| 🔖 **Só bipar a série** | Conta a peça ao bipar o número de série na estação, com ou sem produto na balança. Não confere peso. |
+| ⚖️ **Bipar + pesar** | Precisa do produto parado na balança; confere o peso do produto e conta se estiver certo. |
+
+A estação `/pesagem` atende os dois modos ao mesmo tempo: a série bipada diz de qual célula é a peça e o modo dessa célula
+decide se precisa de peso. Ao ligar a contagem no meio do turno, os ciclos que já passaram não são marcados como atrasados.
+
 ## Subir no GitHub
 
 ```bash
