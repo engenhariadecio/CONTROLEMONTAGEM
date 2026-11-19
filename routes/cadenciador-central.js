@@ -334,6 +334,8 @@ function analisarProducao(c, e, turno, d) {
   const fim = e.fim_off_seg != null ? e.fim_off_seg : dur;
   const ate = dentro ? Math.min(agora, fim) : fim;
   const abertura = Date.now() - (dentro ? agora : dur) * 1000;        // instante em que este turno abriu
+  // Linha pausada: o relógio dos ciclos fica parado no começo da pausa (nenhum ciclo fecha nem atrasa durante a parada)
+  const agoraCiclos = c.pausada && c.pausa_inicio ? Math.min(agora, Math.max(0, (new Date(c.pausa_inicio).getTime() - abertura) / 1000)) : agora;
   const offDe = t => { const x = new Date(t).getTime(); return x <= abertura ? 0 : Math.min(dur, (x - abertura) / 1000); };
 
   const intervalos = juntarFaixas((turno.intervalos || []).map(i => [offsetNoTurno(i.hora_inicio, turno), offsetNoTurno(i.hora_fim, turno)]));
@@ -351,12 +353,12 @@ function analisarProducao(c, e, turno, d) {
     ant = Math.max(ant, offBoas[i]);
     e.saidas.push({ h: hms(x.criado_em), s: x.serie, min: Math.round(min * 100) / 100, n: i + 1 });
   });
-  if (e.saidas.length > 150) e.saidas = e.saidas.slice(-150);
+  if (e.saidas.length > 400) e.saidas = e.saidas.slice(-400);
 
   // ciclos encerrados: com peça no prazo ou atrasados
-  const avalia = !!c.o_serie_inicial && (lista.length > 0 || d.balanca);
+  const avalia = !!c.usa_balanca && !!c.o_serie_inicial;      // só as células que o admin marcou para usar a balança
   const offCiclos = e.ciclos.map(h => offsetNoTurno(h, turno));
-  const feitos = dentro ? offCiclos.filter(o => o <= agora).length : offCiclos.length;
+  const feitos = dentro ? offCiclos.filter(o => o <= agoraCiclos).length : offCiclos.length;
   const porCiclo = pesadosPorCiclo(offCiclos, offBoas, (c.inicio_off_seg || 0) - 0.5);
   let atrasados = 0;
   for (let i = 0; i < feitos; i++) {
@@ -410,10 +412,10 @@ async function arquivarRodada(c, turno, limite, { todos = false } = {}) {
   // Ciclo no prazo x atrasado: quantas peças foram pesadas dentro de cada ciclo
   let pesados = encerrados.map(() => null), atrasado = encerrados.map(() => false);
   try {
-    if (c.ordem_id && c.o_serie_inicial) {
+    if (c.ordem_id && c.o_serie_inicial && c.usa_balanca) {
       const pes = (await pool.query(
         `SELECT criado_em FROM cadc_pesagens WHERE ordem_id=$1 AND ok IS NOT FALSE ORDER BY id`, [c.ordem_id])).rows;
-      if (pes.length || await balancaEmUso()) {
+      {
         // os horários dos ciclos e das pesagens são comparados em segundos desde a abertura do turno DAQUELE dia
         const dur = duracaoTurnoSeg(turno);
         const offP = pes.map(x => {
@@ -510,6 +512,7 @@ function montarEstado(c, turno, limite) {
     pausa_inicio_seg: c.pausada && c.pausa_inicio ? segFabrica(c.pausa_inicio) : null,
     pausa_fim_seg: c.pausada && c.pausa_fim_prev ? segFabrica(c.pausa_fim_prev) : null,
     voz_ativa: c.voz_ativa,
+    usa_balanca: !!c.usa_balanca,
     mensagem: c.mensagem || '',
     ciclos
   };
@@ -1301,6 +1304,7 @@ router.put('/celulas/:id', requireAdmin, async (req, res) => {
       set('takt_manual', null);       // produto novo começa com o takt do cadastro dele
     }
     if (typeof b.voz_ativa === 'boolean') set('voz_ativa', b.voz_ativa);
+    if (typeof b.usa_balanca === 'boolean') set('usa_balanca', b.usa_balanca);
     if (b.mensagem !== undefined) set('mensagem', texto(b.mensagem, 200) || null);
 
     // Trocou produto/takt no meio do turno: a contagem de ciclos recomeça de agora.

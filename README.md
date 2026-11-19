@@ -254,6 +254,17 @@ qualidade = peças com peso correto ÷ peças pesadas.
 para cada uma, em fila. Agora o campo espera a pessoa terminar e pede confirmação, o servidor guarda só o último aviso de takt,
 e o tablet não empilha avisos automáticos (o novo substitui o anterior; o mesmo texto não é repetido em seguida).
 
+## Balança só nas células escolhidas e gráfico de linha (v10)
+
+- **Balança por célula**: no cartão da célula há o botão **⚖️ Balança: ligada / desligada**. Só as células com a balança ligada
+  recebem pesagem, marcam ciclo atrasado e calculam realizado e OEE. As outras continuam só com o cadenciador, sem nenhuma mudança.
+  Série de uma célula com a balança desligada é recusada na estação, com aviso.
+- **Gráfico takt x saída** agora é de **linha**: eixo X = horário do dia em que cada produto foi pesado; eixo Y = tempo de saída
+  (minutos desde o produto anterior, sem intervalos e sem linha parada); linha tracejada = takt. Abre pelo botão
+  **📈 Gráfico takt x saída** no cartão da célula e aparece também no Painel.
+- Com a linha pausada, nenhum ciclo fecha nem fica atrasado (o relógio dos ciclos para junto).
+- Atualizar o sistema **não apaga nada**: as mudanças no banco só acrescentam colunas e tabelas.
+
 ## Subir no GitHub
 
 ```bash

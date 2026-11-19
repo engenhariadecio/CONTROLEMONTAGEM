@@ -118,24 +118,26 @@ async function ordemDaSerie(n) {
             o.serie_inicial, o.serie_final, o.meta::float AS meta, to_char(o.data,'YYYY-MM-DD') AS dia,
             COALESCE(p.nome, o.produto_nome) AS produto_nome, p.cod_decio AS p_cod,
             p.peso_kg::float AS peso_kg, p.peso_tol_kg::float AS peso_tol_kg,
-            (c.id IS NOT NULL) AS rodando
+            (c.id IS NOT NULL) AS rodando, COALESCE(cc.usa_balanca, FALSE) AS usa_balanca
        FROM cadc_ordens o
        LEFT JOIN cad_produtos p ON p.id = o.produto_id
        LEFT JOIN cadc_celulas c ON c.ordem_id = o.id
+       LEFT JOIN cadc_celulas cc ON cc.id = COALESCE(c.id, o.celula_id)
       WHERE COALESCE(o.serie_inicial,'') <> ''
         AND (o.status IN ('ativa','programada') OR (o.status = 'encerrada' AND o.data >= CURRENT_DATE - 7)
              OR (o.status = 'concluida' AND o.data >= CURRENT_DATE - 2))     -- peça que chegou na balança logo depois da troca de produto
-      ORDER BY (c.id IS NOT NULL) DESC, (o.status = 'ativa') DESC, (o.status = 'encerrada') DESC, o.data DESC, o.id DESC`);
-  let programada = null;
+      ORDER BY COALESCE(cc.usa_balanca, FALSE) DESC, (c.id IS NOT NULL) DESC, (o.status = 'ativa') DESC, (o.status = 'encerrada') DESC, o.data DESC, o.id DESC`);
+  let programada = null, semBalanca = null;
   for (const o of r.rows) {
     const a = numeroDaSerie(o.serie_inicial), b = numeroDaSerie(o.serie_final);
     if (a == null) continue;
     const ini = b == null ? a : Math.min(a, b), fim = b == null ? a : Math.max(a, b);
     if (n < ini || n > fim) continue;
     if (o.status === 'programada') { programada = programada || o; continue; }
+    if (!o.usa_balanca) { semBalanca = semBalanca || o; continue; }      // célula não marcada para usar a balança
     return { ordem: o };
   }
-  return programada ? { programada } : {};
+  return programada ? { programada } : semBalanca ? { semBalanca } : {};
 }
 
 async function contagem(ordemId) {
@@ -187,7 +189,7 @@ router.get('/estado', estacaoOuSessao, async (req, res) => {
          logado ? req.session.username || null : null]);
     }
     const token = await garantirCredencial(req, res, est.id, device_id);
-    const celulas = (await central.carregarCelulas()).filter(c => !c.ociosa).map(c => {
+    const celulas = (await central.carregarCelulas()).filter(c => !c.ociosa && c.usa_balanca).map(c => {
       delete c.marcas; delete c.anteriores; delete c.mensagem; delete c.saidas;
       c.faixa = faixaDoProduto(c.produto);
       return c;
@@ -241,6 +243,8 @@ router.post('/registrar', estacaoOuSessao, async (req, res) => {
     const achado = await ordemDaSerie(n);
     if (!achado.ordem) {
       const p = achado.programada;
+      if (!p && achado.semBalanca) return res.status(404).json({ sem_celula: true, numero: n,
+        error: `Série ${n} é da ${achado.semBalanca.celula_nome}, que não está marcada para usar a balança. Peça ao administrador para ligar a balança nessa célula.` });
       return res.status(404).json({ sem_celula: true, numero: n, error: p
         ? `Série ${n} é da ${p.celula_nome}, programada para ${p.dia.slice(8, 10)}/${p.dia.slice(5, 7)} — ela ainda não começou a rodar.`
         : `Série ${n} não está na faixa de nenhuma célula. Avise o líder.` });

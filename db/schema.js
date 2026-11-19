@@ -384,6 +384,10 @@ ALTER TABLE cadc_ciclos ADD COLUMN IF NOT EXISTS manual BOOLEAN NOT NULL DEFAULT
 ALTER TABLE cadc_ciclos ADD COLUMN IF NOT EXISTS ordem_id INTEGER;
 UPDATE cadc_ciclos SET manual = TRUE WHERE manual = FALSE AND usuario IS NOT NULL;
 
+/* Só as células marcadas pelo administrador trabalham com a balança (pesagem, ciclo atrasado, OEE).
+   As outras continuam só com o cadenciador, como sempre. */
+ALTER TABLE cadc_celulas ADD COLUMN IF NOT EXISTS usa_balanca BOOLEAN NOT NULL DEFAULT FALSE;
+
 /* ══════════════ SISTEMA 3 — PROGESTÃO ══════════════ */
 
 /* ── Ferramentas ── */

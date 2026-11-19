@@ -185,44 +185,57 @@ const Cadc = {
   },
 
   /**
-   * Gráfico (SVG) comparando o takt com o tempo de saída de cada produto.
-   * saidas = [{ n, h: 'HH:MM:SS', s: série, min }]; barra verde = dentro do takt, vermelha = acima.
+   * Gráfico de LINHA (SVG): tempo de saída de cada produto contra o takt.
+   * Eixo X = horário do dia em que o produto foi pesado; eixo Y = minutos desde o produto anterior.
+   * saidas = [{ n, h: 'HH:MM:SS', s: série, min }]; ponto verde = dentro do takt, vermelho = acima.
    */
-  graficoSaidas(saidas, takt, { largura = 900, altura = 300, max = 60 } = {}) {
+  graficoSaidas(saidas, takt, { largura = 900, altura = 300, max = 300 } = {}) {
     const d = (saidas || []).slice(-max);
-    const W = largura, H = altura, mE = 46, mD = 14, mT = 16, mB = 38;
+    const W = largura, H = altura, mE = 48, mD = 18, mT = 18, mB = 40;
     const iw = W - mE - mD, ih = H - mT - mB;
-    const cor = { ok: '#26b247', nok: '#f26d6d', takt: '#f5c542', txt: '#9fb3c8', grade: 'rgba(159,179,200,.18)' };
+    const cor = { ok: '#26b247', nok: '#f26d6d', takt: '#f5c542', txt: '#9fb3c8', grade: 'rgba(159,179,200,.18)', linha: '#7fb6e6' };
     const e = t => String(t == null ? '' : t).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
     const fm = v => String(Math.round(v * 10) / 10).replace('.', ',');
-    if (!d.length) {
-      return `<svg viewBox="0 0 ${W} ${H}" width="100%" style="max-width:${W}px;display:block;margin:auto" role="img">
-        <text x="${W / 2}" y="${H / 2}" fill="${cor.txt}" font-size="15" text-anchor="middle">Nenhum produto pesado ainda nesta programação.</text></svg>`;
-    }
+    const svg = g => `<svg viewBox="0 0 ${W} ${H}" width="100%" style="max-width:${W}px;display:block;margin:auto" role="img" aria-label="Takt x tempo de saída de cada produto">${g}</svg>`;
+    if (!d.length) return svg(`<text x="${W / 2}" y="${H / 2}" fill="${cor.txt}" font-size="15" text-anchor="middle">Nenhum produto pesado ainda nesta programação.</text>`);
+
+    // horário de cada ponto em segundos (turno que cruza a meia-noite continua subindo)
+    let ant = -1, volta = 0;
+    const pts = d.map(x => { let t = Cadc.seg(x.h) + volta; if (t < ant - 43200) { volta += 86400; t += 86400; } ant = t; return { ...x, t }; });
     const t = Number(takt) || 0;
-    const topo = Math.max(t * 1.6, ...d.map(x => Math.min(x.min, t ? t * 4 : x.min)), 1);
-    const y = v => mT + ih - Math.min(v, topo) / topo * ih;
-    const passo = iw / d.length, lb = Math.max(2, Math.min(34, passo * 0.72));
-    const ticks = 4, cadaRot = Math.ceil(d.length / 12);
+    let x0 = pts[0].t, x1 = pts[pts.length - 1].t;
+    const folga = Math.max(120, (x1 - x0) * 0.04); x0 -= folga; x1 += folga;
+    const topo = Math.max(t * 1.6, ...pts.map(p => Math.min(p.min, t ? t * 5 : p.min)), 1) * 1.08;
+    const X = v => mE + (v - x0) / (x1 - x0) * iw;
+    const Y = v => mT + ih - Math.min(v, topo) / topo * ih;
+    const hhmm = v => { const m = Math.floor(((v % 86400) + 86400) % 86400 / 60); return String(Math.floor(m / 60)).padStart(2, '0') + ':' + String(m % 60).padStart(2, '0'); };
+
     let g = '';
-    for (let i = 0; i <= ticks; i++) {
-      const v = topo * i / ticks, yy = y(v);
+    for (let i = 0; i <= 4; i++) {
+      const v = topo * i / 4, yy = Y(v);
       g += `<line x1="${mE}" y1="${yy}" x2="${W - mD}" y2="${yy}" stroke="${cor.grade}"/><text x="${mE - 6}" y="${yy + 4}" fill="${cor.txt}" font-size="11" text-anchor="end">${fm(v)}</text>`;
     }
-    d.forEach((x, i) => {
-      const cx = mE + passo * i + passo / 2, alto = x.min > t * 1.0001 && t > 0, yy = y(x.min);
-      g += `<rect x="${cx - lb / 2}" y="${yy}" width="${lb}" height="${Math.max(1, mT + ih - yy)}" rx="2" fill="${alto ? cor.nok : cor.ok}">
-              <title>#${x.n} · ${e(x.s)} · saiu às ${e(String(x.h).slice(0, 5))} · ${fm(x.min)} min${t ? ' (takt ' + fm(t) + ')' : ''}</title></rect>`;
-      if (x.min > topo) g += `<text x="${cx}" y="${mT + 10}" fill="#fff" font-size="9" text-anchor="middle">${fm(x.min)}</text>`;
-      if (i % cadaRot === 0) g += `<text x="${cx}" y="${H - mB + 14}" fill="${cor.txt}" font-size="10" text-anchor="middle">${e(String(x.h).slice(0, 5))}</text>`;
-    });
-    if (t > 0) {
-      g += `<line x1="${mE}" y1="${y(t)}" x2="${W - mD}" y2="${y(t)}" stroke="${cor.takt}" stroke-width="2" stroke-dasharray="7 5"/>
-            <text x="${W - mD - 4}" y="${y(t) - 5}" fill="${cor.takt}" font-size="12" font-weight="700" text-anchor="end">takt ${fm(t)} min</text>`;
+    // marcas de horário "redondas" no eixo X
+    const passo = [300, 600, 900, 1800, 3600, 7200].find(p => (x1 - x0) / p <= 9) || 14400;
+    for (let v = Math.ceil(x0 / passo) * passo; v <= x1; v += passo) {
+      g += `<line x1="${X(v)}" y1="${mT}" x2="${X(v)}" y2="${mT + ih}" stroke="${cor.grade}"/><text x="${X(v)}" y="${mT + ih + 15}" fill="${cor.txt}" font-size="11" text-anchor="middle">${hhmm(v)}</text>`;
     }
-    g += `<text x="12" y="${mT + ih / 2}" fill="${cor.txt}" font-size="11" text-anchor="middle" transform="rotate(-90 12 ${mT + ih / 2})">minutos por peça</text>
-          <text x="${mE + iw / 2}" y="${H - 6}" fill="${cor.txt}" font-size="11" text-anchor="middle">hora em que cada produto saiu (pesagem)</text>`;
-    return `<svg viewBox="0 0 ${W} ${H}" width="100%" style="max-width:${W}px;display:block;margin:auto" role="img" aria-label="Takt x tempo de saída">${g}</svg>`;
+    if (t > 0) {
+      g += `<rect x="${mE}" y="${mT}" width="${iw}" height="${Math.max(0, Y(t) - mT)}" fill="rgba(242,109,109,.06)"/>
+            <line x1="${mE}" y1="${Y(t)}" x2="${W - mD}" y2="${Y(t)}" stroke="${cor.takt}" stroke-width="2" stroke-dasharray="7 5"/>
+            <text x="${mE + 6}" y="${Y(t) - 5}" fill="${cor.takt}" font-size="12" font-weight="700">takt ${fm(t)} min</text>`;
+    }
+    g += `<polyline fill="none" stroke="${cor.linha}" stroke-width="2" stroke-linejoin="round" points="${pts.map(p => X(p.t).toFixed(1) + ',' + Y(p.min).toFixed(1)).join(' ')}"/>`;
+    const r = pts.length > 80 ? 2.5 : pts.length > 30 ? 3.5 : 4.5;
+    for (const p of pts) {
+      const alto = t > 0 && p.min > t * 1.0001;
+      g += `<circle cx="${X(p.t).toFixed(1)}" cy="${Y(p.min).toFixed(1)}" r="${r}" fill="${alto ? cor.nok : cor.ok}" stroke="#0c1a26" stroke-width="1">
+              <title>#${p.n} · ${e(p.s)} · pesado às ${e(String(p.h).slice(0, 8))} · saiu em ${fm(p.min)} min${t ? ' (takt ' + fm(t) + ')' : ''}</title></circle>`;
+      if (p.min > topo) g += `<text x="${X(p.t)}" y="${mT - 4}" fill="${cor.nok}" font-size="10" text-anchor="middle">${fm(p.min)}</text>`;
+    }
+    g += `<text x="13" y="${mT + ih / 2}" fill="${cor.txt}" font-size="11" text-anchor="middle" transform="rotate(-90 13 ${mT + ih / 2})">tempo de saída (min)</text>
+          <text x="${mE + iw / 2}" y="${H - 6}" fill="${cor.txt}" font-size="11" text-anchor="middle">horário do dia em que cada produto foi pesado</text>`;
+    return svg(g);
   },
 
   /** Avisos automáticos de voz (iguais aos do cadenciador comum), em offset no turno. */

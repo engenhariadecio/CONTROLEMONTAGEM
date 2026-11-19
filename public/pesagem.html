@@ -188,7 +188,7 @@ body[data-fase="erro"] .status .tit { color: #ff9c9c; }
 <div id="toast"></div>
 <div id="simular">SIMULAÇÃO · peso <input class="controle" id="simPeso" type="number" step="0.001" value="0"> kg</div>
 
-<script src="/js/cadc.js?v=5"></script>
+<script src="/js/cadc.js?v=6"></script>
 <script src="/js/balanca.js?v=1"></script>
 <script>
 /* ═══════════ Estação de pesagem ═══════════
@@ -449,7 +449,7 @@ function pintarCelulas() {
         ${c.faixa ? `<span>peso <b>${kg(c.faixa.padrao)}</b> ± ${kg(c.faixa.tol)}</span>` : '<span>sem peso cadastrado</span>'}
         ${pz.nok ? `<span class="neg">${pz.nok} peso(s) incorreto(s)</span>` : ''}
       </div></div>`;
-  }).join('') : '<div class="vazio">Nenhuma célula rodando agora.<br>O administrador inicia em Linha de Produção › Cadenciador central.</div>';
+  }).join('') : '<div class="vazio">Nenhuma célula com a balança ligada está rodando agora.<br>O administrador liga em Linha de Produção › Cadenciador central › cartão da célula › “⚖️ Balança”.</div>';
 }
 function pintarLista() {
   $('lista').innerHTML = ULT.length ? ULT.map(u => `
@@ -462,7 +462,7 @@ function pintarLista() {
 function pintarTopo() {
   $('tCel').textContent = EST ? EST.nome : 'Estação de pesagem';
   const n = CELULAS.length;
-  $('tDet').textContent = n ? `${n} célula${n === 1 ? '' : 's'} rodando · a série bipada diz de qual célula é a peça` : 'Nenhuma célula rodando agora';
+  $('tDet').textContent = n ? `${n} célula${n === 1 ? '' : 's'} com balança · a série bipada diz de qual célula é a peça` : 'Nenhuma célula com a balança ligada';
 }
 
 /* ───────── consulta ao servidor (a cada 2 s) ───────── */

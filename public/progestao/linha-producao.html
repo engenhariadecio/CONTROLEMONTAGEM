@@ -797,7 +797,7 @@ function exportarCSV() {
   await carregarHistorico();
 })();
 </script>
-<script src="/js/cadc.js?v=5"></script>
+<script src="/js/cadc.js?v=6"></script>
 <script>
 /* ═══════════ Cadenciador central — painel do administrador ═══════════ */
 const CC = '/cadenciador-central';
@@ -921,9 +921,11 @@ function cadcDesenharCelulas() {
 
       <div class="cc-pes">
         <div class="txt" id="cc-pes-${c.id}">⚖️ Pesagem</div>
+        <button class="btn-sm ${c.usa_balanca ? 'btn-accent' : 'btn-ghost'}" onclick="cadcMudar(${c.id},{usa_balanca:${!c.usa_balanca}},'${c.usa_balanca ? 'Balança desligada nesta célula' : 'Esta célula agora usa a balança'}')"
+                title="Só as células com a balança ligada recebem pesagem, marcam ciclo atrasado e calculam OEE">${c.usa_balanca ? '⚖️ Balança: LIGADA nesta célula' : '⚖️ Balança: desligada (clique para ligar)'}</button>
         <button class="btn-sm btn-ghost" onclick="cadcPesoProduto(${c.produto ? c.produto.id : 0})" title="Peso padrão e tolerância deste produto" ${c.produto ? '' : 'disabled'}>⚖️ Peso do produto</button>
         <button class="btn-sm btn-blue" onclick="cadcPesagens(${c.id})" title="Ver todas as pesagens: série, peso e hora">📋 Pesagens</button>
-        <button class="btn-sm btn-blue" onclick="cadcGrafico(${c.id})" title="Gráfico: takt x tempo de saída de cada produto">📈 Takt x saída</button>
+        <button class="btn-sm btn-blue" onclick="cadcGrafico(${c.id})" title="Gráfico de linha: tempo de saída de cada produto (pela balança) contra o takt, ao longo do dia">📈 Gráfico takt x saída</button>
       </div>
 
       <div class="cc-campos">
@@ -1025,6 +1027,7 @@ function cadcVivo() {
 
 /* Faixa "Pesagem" do cartão: peças pesadas x meta x cadência, peso do produto e balança da célula. */
 function ccPesTxt(c, s) {
+  if (!c.usa_balanca) return '⚖️ Esta célula <b>não usa a balança</b>: funciona só com o cadenciador. Para pesar, contar o realizado e calcular o OEE aqui, ligue a balança nesta célula.';
   const pz = c.pesagem || { ok: 0, nok: 0 }, kg = n => Number(n).toLocaleString('pt-BR', { minimumFractionDigits: 3, maximumFractionDigits: 3 });
   const I = c.ind, pc = v => v == null ? '—' : String(v).replace('.', ',') + '%';
   const meta = I ? I.meta : (c.ordem && c.ordem.meta > 0 ? Math.round(c.ordem.meta) : s.total);
@@ -1068,7 +1071,7 @@ function cadcGraficoRender() {
      <span class="badge green">${sd.length - acima} dentro do takt</span>
      <span class="badge red">${acima} acima do takt</span>
      <span style="color:var(--text2);font-size:12px">Tempo de saída = tempo útil desde a peça anterior (sem intervalos e sem linha parada).</span>`;
-  document.getElementById('cc-gr-corpo').innerHTML = Cadc.graficoSaidas(sd, c.takt_min, { largura: 900, altura: 320 });
+  document.getElementById('cc-gr-corpo').innerHTML = Cadc.graficoSaidas(sd, c.takt_min, { largura: 1000, altura: 380 });
 }
 
 function cadcDesenharEstacoes() {

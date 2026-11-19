@@ -96,7 +96,7 @@ body { margin: 0; background: var(--fundo); color: var(--t1); }
   </div>
 </div>
 
-<script src="/js/cadc.js?v=5"></script>
+<script src="/js/cadc.js?v=6"></script>
 <script>
 const $ = id => document.getElementById(id);
 const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -199,7 +199,7 @@ function desenhar(dados) {
           <span class="tg ${I.pesos_incorretos ? 'ruim' : ''}">Peso incorreto <b>${I.pesos_incorretos}</b></span>
           <span class="tg ${I.tempo_parado_min ? 'ruim' : ''}">Parada <b>${I.tempo_parado_min} min</b></span>
         </div>
-        ${I.balanca ? '' : '<div class="semb">Sem pesagem nesta célula (sem faixa de série ou balança desligada): realizado, performance e OEE dependem da balança.</div>'}
+        ${I.balanca ? '' : '<div class="semb">Esta célula não usa a balança (ou está sem faixa de série): mostra só o cadenciador. Realizado, ciclos atrasados e OEE valem para as células com a balança ligada.</div>'}
         <div class="oee">
           <div class="g"><div class="v ${corPct(I.oee)}">${pc(I.oee)}</div><div class="r">OEE</div></div>
           <div class="f">
@@ -207,7 +207,7 @@ function desenhar(dados) {
               `<div><span>${x[0]}</span><div class="tr"><i style="width:${x[1] == null ? 0 : x[1]}%;background:${x[1] == null ? 'var(--t3)' : x[1] >= 85 ? 'var(--ok)' : x[1] >= 60 ? 'var(--alerta)' : 'var(--erro)'}"></i></div><b>${pc(x[1])}</b></div>`).join('')}
           </div>
         </div>
-        <div class="graf"><div class="r">Takt x tempo de saída de cada produto (min)</div>${Cadc.graficoSaidas(c.saidas, c.takt_min, { largura: 620, altura: 190, max: 40 })}</div>
+        <div class="graf"><div class="r">Takt x tempo de saída de cada produto (min)</div>${Cadc.graficoSaidas(c.saidas, c.takt_min, { largura: 620, altura: 200 })}</div>
       </div>`;
     }).join('');
   }
